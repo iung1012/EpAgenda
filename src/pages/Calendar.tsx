@@ -1,11 +1,6 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -17,6 +12,7 @@ import { StatsCard } from '@/components/layout/StatsCard';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { CalendarDaySkeleton, StatsSkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
+import { EventFormDialog, EventFormValues } from '@/components/forms/EventFormDialog';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useProfiles } from '@/hooks/useProfiles';
 
@@ -26,72 +22,10 @@ export default function Calendar() {
   const { profiles } = useProfiles();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    event_type: 'demanda',
-    start_date: '',
-    start_time: '09:00',
-    end_time: '10:00',
-    all_day: false,
-    location: '',
-    assigned_to: '',
-  });
+  const [selectedDate, setSelectedDate] = useState<string>('');
 
   const { user } = useAuth();
   const { toast } = useToast();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.title || !formData.start_date) {
-      toast({ variant: 'destructive', title: 'Preencha os campos obrigatórios' });
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    const startDateTime = formData.all_day 
-      ? new Date(formData.start_date).toISOString()
-      : new Date(`${formData.start_date}T${formData.start_time}`).toISOString();
-
-    const endDateTime = formData.all_day 
-      ? null
-      : new Date(`${formData.start_date}T${formData.end_time}`).toISOString();
-
-    const { error } = await supabase.from('calendar_events').insert({
-      title: formData.title,
-      description: formData.description || null,
-      event_type: formData.event_type,
-      start_date: startDateTime,
-      end_date: endDateTime,
-      all_day: formData.all_day,
-      location: formData.location || null,
-      assigned_to: formData.assigned_to || null,
-      created_by: user?.id,
-      color: getEventColor(formData.event_type),
-    });
-
-    setIsSubmitting(false);
-
-    if (error) {
-      toast({ variant: 'destructive', title: 'Erro ao criar evento', description: error.message });
-    } else {
-      toast({ title: 'Evento criado com sucesso!' });
-      setIsDialogOpen(false);
-      setFormData({
-        title: '',
-        description: '',
-        event_type: 'demanda',
-        start_date: '',
-        start_time: '09:00',
-        end_time: '10:00',
-        all_day: false,
-        location: '',
-        assigned_to: '',
-      });
-      refetch();
-    }
-  };
 
   const getEventColor = (type: string) => {
     switch (type) {
@@ -102,11 +36,41 @@ export default function Calendar() {
     }
   };
 
+  const handleSubmit = async (data: EventFormValues) => {
+    setIsSubmitting(true);
+
+    const startDateTime = new Date(`${data.start_date}T${data.start_time || '00:00'}`).toISOString();
+    const endDateTime = data.end_time
+      ? new Date(`${data.start_date}T${data.end_time}`).toISOString()
+      : null;
+
+    const { error } = await supabase.from('calendar_events').insert({
+      title: data.title,
+      description: data.description || null,
+      event_type: data.event_type,
+      start_date: startDateTime,
+      end_date: endDateTime,
+      all_day: false,
+      location: data.location || null,
+      assigned_to: data.assigned_to || null,
+      created_by: user?.id,
+      color: getEventColor(data.event_type),
+    });
+
+    setIsSubmitting(false);
+
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erro ao criar evento', description: error.message });
+    } else {
+      toast({ title: 'Evento criado com sucesso!' });
+      setIsDialogOpen(false);
+      setSelectedDate('');
+      refetch();
+    }
+  };
+
   const handleDateClick = (date: Date) => {
-    setFormData(prev => ({
-      ...prev,
-      start_date: format(date, 'yyyy-MM-dd'),
-    }));
+    setSelectedDate(format(date, 'yyyy-MM-dd'));
     setIsDialogOpen(true);
   };
 
@@ -139,127 +103,24 @@ export default function Calendar() {
         title="Calendário" 
         description="Gerencie eventos, demandas e visitas"
         action={
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Evento
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Novo Evento</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Título *</Label>
-                  <Input
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="Título do evento"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Tipo</Label>
-                    <Select
-                      value={formData.event_type}
-                      onValueChange={(value) => setFormData({ ...formData, event_type: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="demanda">Demanda</SelectItem>
-                        <SelectItem value="visita">Visita</SelectItem>
-                        <SelectItem value="reuniao">Reunião</SelectItem>
-                        <SelectItem value="outro">Outro</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Responsável</Label>
-                    <Select
-                      value={formData.assigned_to}
-                      onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {profiles.map((profile) => (
-                          <SelectItem key={profile.user_id} value={profile.user_id}>
-                            {profile.full_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Data *</Label>
-                  <Input
-                    type="date"
-                    value={formData.start_date}
-                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Hora Início</Label>
-                    <Input
-                      type="time"
-                      value={formData.start_time}
-                      onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Hora Fim</Label>
-                    <Input
-                      type="time"
-                      value={formData.end_time}
-                      onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Local</Label>
-                  <Input
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    placeholder="Endereço ou local do evento"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Descrição</Label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Detalhes do evento..."
-                    rows={3}
-                  />
-                </div>
-
-                <div className="flex justify-end gap-3">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Salvando...' : 'Criar Evento'}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => setIsDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Evento
+          </Button>
         }
+      />
+
+      {/* Form Dialog */}
+      <EventFormDialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setSelectedDate('');
+        }}
+        onSubmit={handleSubmit}
+        defaultValues={selectedDate ? { start_date: selectedDate } : undefined}
+        profiles={profiles}
+        isLoading={isSubmitting}
       />
 
       {/* Stats */}
