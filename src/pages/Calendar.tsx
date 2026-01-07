@@ -11,7 +11,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, MapPin, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, MapPin, Clock, CalendarDays } from 'lucide-react';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { StatsCard } from '@/components/layout/StatsCard';
+import { EmptyState } from '@/components/layout/EmptyState';
+import { CalendarDaySkeleton, StatsSkeleton } from '@/components/layout/CardSkeleton';
+import { ErrorState } from '@/components/layout/ErrorState';
 
 interface CalendarEvent {
   id: string;
@@ -37,9 +42,10 @@ export default function Calendar() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -56,19 +62,29 @@ export default function Calendar() {
   const { toast } = useToast();
 
   const fetchEvents = async () => {
+    setIsLoading(true);
+    setError(null);
+    
     const start = startOfMonth(currentDate);
     const end = endOfMonth(currentDate);
 
-    const { data } = await supabase
+    const { data, error: fetchError } = await supabase
       .from('calendar_events')
       .select('*')
       .gte('start_date', start.toISOString())
       .lte('start_date', end.toISOString())
       .order('start_date');
 
+    if (fetchError) {
+      setError(fetchError.message);
+      setIsLoading(false);
+      return;
+    }
+
     if (data) {
       setEvents(data);
     }
+    setIsLoading(false);
   };
 
   const fetchProfiles = async () => {
@@ -90,7 +106,7 @@ export default function Calendar() {
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     const startDateTime = formData.all_day 
       ? new Date(formData.start_date).toISOString()
@@ -113,7 +129,7 @@ export default function Calendar() {
       color: getEventColor(formData.event_type),
     });
 
-    setIsLoading(false);
+    setIsSubmitting(false);
 
     if (error) {
       toast({ variant: 'destructive', title: 'Erro ao criar evento', description: error.message });
@@ -149,7 +165,6 @@ export default function Calendar() {
   };
 
   const handleDateClick = (date: Date) => {
-    setSelectedDate(date);
     setFormData(prev => ({
       ...prev,
       start_date: format(date, 'yyyy-MM-dd'),
@@ -165,137 +180,172 @@ export default function Calendar() {
 
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
+  const todayEvents = getEventsForDay(new Date());
+
+  if (error) {
+    return (
+      <div className="space-y-6 animate-in">
+        <PageHeader title="Calendário" description="Gerencie eventos, demandas e visitas" />
+        <Card>
+          <CardContent className="pt-6">
+            <ErrorState onRetry={fetchEvents} />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Calendário</h1>
-          <p className="text-muted-foreground mt-1">
-            Gerencie eventos, demandas e visitas
-          </p>
+      <PageHeader 
+        title="Calendário" 
+        description="Gerencie eventos, demandas e visitas"
+        action={
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Evento
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Novo Evento</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Título *</Label>
+                  <Input
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="Título do evento"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Tipo</Label>
+                    <Select
+                      value={formData.event_type}
+                      onValueChange={(value) => setFormData({ ...formData, event_type: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="demanda">Demanda</SelectItem>
+                        <SelectItem value="visita">Visita</SelectItem>
+                        <SelectItem value="reuniao">Reunião</SelectItem>
+                        <SelectItem value="outro">Outro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Responsável</Label>
+                    <Select
+                      value={formData.assigned_to}
+                      onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {profiles.map((profile) => (
+                          <SelectItem key={profile.user_id} value={profile.user_id}>
+                            {profile.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Data *</Label>
+                  <Input
+                    type="date"
+                    value={formData.start_date}
+                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Hora Início</Label>
+                    <Input
+                      type="time"
+                      value={formData.start_time}
+                      onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Hora Fim</Label>
+                    <Input
+                      type="time"
+                      value={formData.end_time}
+                      onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Local</Label>
+                  <Input
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    placeholder="Endereço ou local do evento"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Descrição</Label>
+                  <Textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Detalhes do evento..."
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? 'Salvando...' : 'Criar Evento'}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
+
+      {/* Stats */}
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <StatsSkeleton />
+          <StatsSkeleton />
         </div>
-
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Evento
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Novo Evento</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Título *</Label>
-                <Input
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Título do evento"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Tipo</Label>
-                  <Select
-                    value={formData.event_type}
-                    onValueChange={(value) => setFormData({ ...formData, event_type: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="demanda">Demanda</SelectItem>
-                      <SelectItem value="visita">Visita</SelectItem>
-                      <SelectItem value="reuniao">Reunião</SelectItem>
-                      <SelectItem value="outro">Outro</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Responsável</Label>
-                  <Select
-                    value={formData.assigned_to}
-                    onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {profiles.map((profile) => (
-                        <SelectItem key={profile.user_id} value={profile.user_id}>
-                          {profile.full_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Data *</Label>
-                <Input
-                  type="date"
-                  value={formData.start_date}
-                  onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Hora Início</Label>
-                  <Input
-                    type="time"
-                    value={formData.start_time}
-                    onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Hora Fim</Label>
-                  <Input
-                    type="time"
-                    value={formData.end_time}
-                    onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Local</Label>
-                <Input
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Endereço ou local do evento"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Descrição</Label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Detalhes do evento..."
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? 'Salvando...' : 'Criar Evento'}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <StatsCard
+            title="Eventos este mês"
+            value={events.length}
+            icon={CalendarDays}
+            variant="info"
+          />
+          <StatsCard
+            title="Eventos hoje"
+            value={todayEvents.length}
+            icon={Clock}
+            variant={todayEvents.length > 0 ? 'success' : 'default'}
+          />
+        </div>
+      )}
 
       {/* Calendar */}
       <Card>
@@ -326,48 +376,56 @@ export default function Calendar() {
           </div>
 
           {/* Calendar days */}
-          <div className="grid grid-cols-7 gap-1">
-            {days.map((day) => {
-              const dayEvents = getEventsForDay(day);
-              const isToday = isSameDay(day, new Date());
-              const isCurrentMonth = isSameMonth(day, currentDate);
+          {isLoading ? (
+            <div className="grid grid-cols-7 gap-1">
+              {[...Array(35)].map((_, i) => (
+                <CalendarDaySkeleton key={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-7 gap-1">
+              {days.map((day) => {
+                const dayEvents = getEventsForDay(day);
+                const isToday = isSameDay(day, new Date());
+                const isCurrentMonth = isSameMonth(day, currentDate);
 
-              return (
-                <button
-                  key={day.toISOString()}
-                  onClick={() => handleDateClick(day)}
-                  className={`
-                    min-h-[100px] p-2 rounded-lg text-left transition-colors
-                    ${isCurrentMonth ? 'bg-secondary/30 hover:bg-secondary/50' : 'bg-secondary/10 text-muted-foreground'}
-                    ${isToday ? 'ring-2 ring-primary' : ''}
-                  `}
-                >
-                  <span className={`
-                    inline-flex items-center justify-center h-7 w-7 rounded-full text-sm
-                    ${isToday ? 'bg-primary text-primary-foreground font-medium' : ''}
-                  `}>
-                    {format(day, 'd')}
-                  </span>
-                  <div className="mt-1 space-y-1">
-                    {dayEvents.slice(0, 3).map((event) => (
-                      <div
-                        key={event.id}
-                        className="text-xs px-1.5 py-0.5 rounded truncate"
-                        style={{ backgroundColor: event.color || '#3b82f6', color: 'white' }}
-                      >
-                        {event.title}
-                      </div>
-                    ))}
-                    {dayEvents.length > 3 && (
-                      <div className="text-xs text-muted-foreground">
-                        +{dayEvents.length - 3} mais
-                      </div>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+                return (
+                  <button
+                    key={day.toISOString()}
+                    onClick={() => handleDateClick(day)}
+                    className={`
+                      min-h-[100px] p-2 rounded-lg text-left transition-colors
+                      ${isCurrentMonth ? 'bg-secondary/30 hover:bg-secondary/50' : 'bg-secondary/10 text-muted-foreground'}
+                      ${isToday ? 'ring-2 ring-primary' : ''}
+                    `}
+                  >
+                    <span className={`
+                      inline-flex items-center justify-center h-7 w-7 rounded-full text-sm
+                      ${isToday ? 'bg-primary text-primary-foreground font-medium' : ''}
+                    `}>
+                      {format(day, 'd')}
+                    </span>
+                    <div className="mt-1 space-y-1">
+                      {dayEvents.slice(0, 3).map((event) => (
+                        <div
+                          key={event.id}
+                          className="text-xs px-1.5 py-0.5 rounded truncate"
+                          style={{ backgroundColor: event.color || '#3b82f6', color: 'white' }}
+                        >
+                          {event.title}
+                        </div>
+                      ))}
+                      {dayEvents.length > 3 && (
+                        <div className="text-xs text-muted-foreground">
+                          +{dayEvents.length - 3} mais
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -377,13 +435,27 @@ export default function Calendar() {
           <CardTitle className="text-lg">Eventos de Hoje</CardTitle>
         </CardHeader>
         <CardContent>
-          {getEventsForDay(new Date()).length === 0 ? (
-            <p className="text-muted-foreground text-center py-6">
-              Nenhum evento para hoje
-            </p>
+          {isLoading ? (
+            <div className="space-y-3">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="flex items-start gap-4 p-4 rounded-lg bg-secondary/50 animate-pulse">
+                  <div className="h-10 w-1 rounded-full bg-muted" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-32 bg-muted rounded" />
+                    <div className="h-3 w-24 bg-muted rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : todayEvents.length === 0 ? (
+            <EmptyState
+              icon={CalendarDays}
+              title="Nenhum evento para hoje"
+              description="Clique em um dia do calendário para adicionar um evento"
+            />
           ) : (
             <div className="space-y-3">
-              {getEventsForDay(new Date()).map((event) => (
+              {todayEvents.map((event) => (
                 <div key={event.id} className="flex items-start gap-4 p-4 rounded-lg bg-secondary/50">
                   <div
                     className="h-10 w-1 rounded-full flex-shrink-0"

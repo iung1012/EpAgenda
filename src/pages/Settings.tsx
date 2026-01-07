@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { User, Lock, Building2 } from 'lucide-react';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 export default function Settings() {
   const { profile, user } = useAuth();
@@ -72,12 +73,10 @@ export default function Settings() {
 
   return (
     <div className="space-y-6 animate-in max-w-2xl">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Configurações</h1>
-        <p className="text-muted-foreground mt-1">
-          Gerencie seu perfil e preferências
-        </p>
-      </div>
+      <PageHeader 
+        title="Configurações" 
+        description="Gerencie seu perfil e preferências"
+      />
 
       {/* Profile Settings */}
       <Card>
