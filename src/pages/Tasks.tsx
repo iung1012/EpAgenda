@@ -1,11 +1,6 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +11,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { StatsCard } from '@/components/layout/StatsCard';
 import { TaskCardSkeleton, StatsSkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
+import { TaskFormDialog, TaskFormValues } from '@/components/forms/TaskFormDialog';
 import { useTasks, TaskPriority } from '@/hooks/useTasks';
 import { useProfiles } from '@/hooks/useProfiles';
 import { useClients } from '@/hooks/useClients';
@@ -26,33 +22,19 @@ export default function Tasks() {
   const { clients } = useClients({ minimal: true });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    priority: 'media' as TaskPriority,
-    due_date: '',
-    assigned_to: '',
-    client_id: '',
-  });
 
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.title) {
-      toast({ variant: 'destructive', title: 'Título é obrigatório' });
-      return;
-    }
-
+  const handleSubmit = async (data: TaskFormValues) => {
     setIsSubmitting(true);
     const { error } = await supabase.from('tasks').insert({
-      title: formData.title,
-      description: formData.description || null,
-      priority: formData.priority,
-      due_date: formData.due_date || null,
-      assigned_to: formData.assigned_to || null,
-      client_id: formData.client_id || null,
+      title: data.title,
+      description: data.description || null,
+      priority: data.priority,
+      due_date: data.due_date || null,
+      assigned_to: data.assigned_to || null,
+      client_id: data.client_id || null,
       created_by: user?.id,
       status: 'a_fazer',
     });
@@ -63,14 +45,6 @@ export default function Tasks() {
     } else {
       toast({ title: 'Tarefa criada com sucesso!' });
       setIsDialogOpen(false);
-      setFormData({
-        title: '',
-        description: '',
-        priority: 'media',
-        due_date: '',
-        assigned_to: '',
-        client_id: '',
-      });
       refetch();
     }
   };
@@ -129,118 +103,21 @@ export default function Tasks() {
         title="Tarefas" 
         description="Gerencie as tarefas da equipe"
         action={
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Tarefa
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Nova Tarefa</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Título *</Label>
-                  <Input
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="Título da tarefa"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Descrição</Label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Detalhes da tarefa..."
-                    rows={3}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Prioridade</Label>
-                    <Select
-                      value={formData.priority}
-                      onValueChange={(value: TaskPriority) => setFormData({ ...formData, priority: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="baixa">Baixa</SelectItem>
-                        <SelectItem value="media">Média</SelectItem>
-                        <SelectItem value="alta">Alta</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Prazo</Label>
-                    <Input
-                      type="date"
-                      value={formData.due_date}
-                      onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Responsável</Label>
-                    <Select
-                      value={formData.assigned_to}
-                      onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {profiles.map((profile) => (
-                          <SelectItem key={profile.user_id} value={profile.user_id}>
-                            {profile.full_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Cliente</Label>
-                    <Select
-                      value={formData.client_id}
-                      onValueChange={(value) => setFormData({ ...formData, client_id: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clients.map((client) => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Salvando...' : 'Criar Tarefa'}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => setIsDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Tarefa
+          </Button>
         }
+      />
+
+      {/* Form Dialog */}
+      <TaskFormDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onSubmit={handleSubmit}
+        profiles={profiles}
+        clients={clients}
+        isLoading={isSubmitting}
       />
 
       {/* Stats */}
