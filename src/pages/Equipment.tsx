@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState } from "@/components/layout/EmptyState";
+import { ErrorState } from "@/components/layout/ErrorState";
+import { TableRowSkeleton } from "@/components/layout/CardSkeleton";
+import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,47 +19,22 @@ import {
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Package } from "lucide-react";
-
-interface Equipment {
-  id: string;
-  name: string;
-  description: string | null;
-  created_at: string;
-}
+import { useEquipment, Equipment as EquipmentType } from "@/hooks/useEquipment";
 
 export default function Equipment() {
-  const { user } = useAuth();
   const { toast } = useToast();
-  const [equipment, setEquipment] = useState<Equipment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { equipment, isLoading, error, refetch } = useEquipment();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
+  const [editingEquipment, setEditingEquipment] = useState<EquipmentType | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    id: string;
+    name: string;
+  }>({ open: false, id: '', name: '' });
   const [form, setForm] = useState({
     name: "",
     description: "",
   });
-
-  useEffect(() => {
-    fetchEquipment();
-  }, []);
-
-  const fetchEquipment = async () => {
-    const { data, error } = await supabase
-      .from("equipment")
-      .select("*")
-      .order("name");
-
-    if (error) {
-      toast({
-        title: "Erro ao carregar equipamentos",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      setEquipment(data || []);
-    }
-    setLoading(false);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,10 +79,10 @@ export default function Equipment() {
     setDialogOpen(false);
     setEditingEquipment(null);
     setForm({ name: "", description: "" });
-    fetchEquipment();
+    refetch();
   };
 
-  const handleEdit = (equip: Equipment) => {
+  const handleEdit = (equip: EquipmentType) => {
     setEditingEquipment(equip);
     setForm({
       name: equip.name,
@@ -114,10 +91,8 @@ export default function Equipment() {
     setDialogOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este equipamento?")) return;
-
-    const { error } = await supabase.from("equipment").delete().eq("id", id);
+  const handleDelete = async () => {
+    const { error } = await supabase.from("equipment").delete().eq("id", confirmDialog.id);
 
     if (error) {
       toast({
@@ -125,11 +100,16 @@ export default function Equipment() {
         description: error.message,
         variant: "destructive",
       });
-      return;
+    } else {
+      toast({ title: "Equipamento excluído com sucesso!" });
+      refetch();
     }
+    
+    setConfirmDialog({ open: false, id: '', name: '' });
+  };
 
-    toast({ title: "Equipamento excluído com sucesso!" });
-    fetchEquipment();
+  const openDeleteDialog = (id: string, name: string) => {
+    setConfirmDialog({ open: true, id, name });
   };
 
   const handleDialogClose = (open: boolean) => {
@@ -140,11 +120,17 @@ export default function Equipment() {
     }
   };
 
-  if (loading) {
+  if (error) {
     return (
       <AppLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-in">
+          <PageHeader
+            title="Equipamentos"
+            description="Gerencie os equipamentos disponíveis para as visitas"
+          />
+          <div className="rounded-2xl border border-border/50 bg-card p-6">
+            <ErrorState onRetry={refetch} />
+          </div>
         </div>
       </AppLayout>
     );
@@ -212,7 +198,13 @@ export default function Equipment() {
         />
 
         <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
-          {equipment.length === 0 ? (
+          {isLoading ? (
+            <div className="p-4 space-y-4">
+              {[...Array(4)].map((_, i) => (
+                <TableRowSkeleton key={i} />
+              ))}
+            </div>
+          ) : equipment.length === 0 ? (
             <EmptyState
               icon={Package}
               title="Nenhum equipamento cadastrado"
@@ -249,7 +241,7 @@ export default function Equipment() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(equip.id)}
+                      onClick={() => openDeleteDialog(equip.id, equip.name)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -263,6 +255,17 @@ export default function Equipment() {
         <p className="text-xs text-muted-foreground text-center mt-6">
           {equipment.length} {equipment.length === 1 ? 'equipamento' : 'equipamentos'} cadastrado{equipment.length !== 1 ? 's' : ''}
         </p>
+
+        {/* Confirm Dialog */}
+        <ConfirmDialog
+          open={confirmDialog.open}
+          onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+          title="Excluir equipamento"
+          description={`Tem certeza que deseja excluir "${confirmDialog.name}"? Esta ação não pode ser desfeita.`}
+          confirmText="Excluir"
+          onConfirm={handleDelete}
+          variant="destructive"
+        />
       </div>
     </AppLayout>
   );

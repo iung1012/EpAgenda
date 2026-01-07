@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,40 +16,16 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { StatsCard } from '@/components/layout/StatsCard';
 import { TaskCardSkeleton, StatsSkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
-
-type TaskStatus = 'a_fazer' | 'fazendo' | 'feito';
-type TaskPriority = 'baixa' | 'media' | 'alta';
-
-interface Task {
-  id: string;
-  title: string;
-  description: string | null;
-  status: TaskStatus;
-  priority: TaskPriority;
-  due_date: string | null;
-  client_id: string | null;
-  assigned_to: string | null;
-  created_by: string | null;
-}
-
-interface Profile {
-  user_id: string;
-  full_name: string;
-}
-
-interface Client {
-  id: string;
-  name: string;
-}
+import { useTasks, TaskPriority } from '@/hooks/useTasks';
+import { useProfiles } from '@/hooks/useProfiles';
+import { useClients } from '@/hooks/useClients';
 
 export default function Tasks() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
+  const { tasks, isLoading, error, refetch, getTasksByStatus, updateTaskStatus } = useTasks();
+  const { profiles, getProfileName } = useProfiles();
+  const { clients } = useClients({ minimal: true });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -61,47 +37,6 @@ export default function Tasks() {
 
   const { user } = useAuth();
   const { toast } = useToast();
-
-  const fetchTasks = async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    const { data, error: fetchError } = await supabase
-      .from('tasks')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (fetchError) {
-      setError(fetchError.message);
-      setIsLoading(false);
-      return;
-    }
-
-    if (data) {
-      setTasks(data as Task[]);
-    }
-    setIsLoading(false);
-  };
-
-  const fetchProfiles = async () => {
-    const { data } = await supabase.from('profiles').select('user_id, full_name');
-    if (data) {
-      setProfiles(data);
-    }
-  };
-
-  const fetchClients = async () => {
-    const { data } = await supabase.from('clients').select('id, name').order('name');
-    if (data) {
-      setClients(data);
-    }
-  };
-
-  useEffect(() => {
-    fetchTasks();
-    fetchProfiles();
-    fetchClients();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,29 +71,15 @@ export default function Tasks() {
         assigned_to: '',
         client_id: '',
       });
-      fetchTasks();
+      refetch();
     }
   };
 
-  const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
-    const { error } = await supabase
-      .from('tasks')
-      .update({ status: newStatus })
-      .eq('id', taskId);
-
+  const handleStatusChange = async (taskId: string, newStatus: 'a_fazer' | 'fazendo' | 'feito') => {
+    const { error } = await updateTaskStatus(taskId, newStatus);
     if (error) {
       toast({ variant: 'destructive', title: 'Erro ao atualizar tarefa' });
-    } else {
-      fetchTasks();
     }
-  };
-
-  const getTasksByStatus = (status: TaskStatus) => tasks.filter(t => t.status === status);
-
-  const getProfileName = (userId: string | null) => {
-    if (!userId) return null;
-    const profile = profiles.find(p => p.user_id === userId);
-    return profile?.full_name || null;
   };
 
   const getClientName = (clientId: string | null) => {
@@ -184,9 +105,9 @@ export default function Tasks() {
   };
 
   const columns = [
-    { id: 'a_fazer' as TaskStatus, title: 'A Fazer', color: 'bg-muted' },
-    { id: 'fazendo' as TaskStatus, title: 'Fazendo', color: 'bg-info/10' },
-    { id: 'feito' as TaskStatus, title: 'Feito', color: 'bg-success/10' },
+    { id: 'a_fazer' as const, title: 'A Fazer', color: 'bg-muted' },
+    { id: 'fazendo' as const, title: 'Fazendo', color: 'bg-info/10' },
+    { id: 'feito' as const, title: 'Feito', color: 'bg-success/10' },
   ];
 
   if (error) {
@@ -195,7 +116,7 @@ export default function Tasks() {
         <PageHeader title="Tarefas" description="Gerencie as tarefas da equipe" />
         <Card>
           <CardContent className="pt-6">
-            <ErrorState onRetry={fetchTasks} />
+            <ErrorState onRetry={refetch} />
           </CardContent>
         </Card>
       </div>

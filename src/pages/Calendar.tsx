@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,35 +17,15 @@ import { StatsCard } from '@/components/layout/StatsCard';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { CalendarDaySkeleton, StatsSkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
-
-interface CalendarEvent {
-  id: string;
-  title: string;
-  description: string | null;
-  event_type: string;
-  start_date: string;
-  end_date: string | null;
-  all_day: boolean;
-  location: string | null;
-  client_id: string | null;
-  assigned_to: string | null;
-  color: string | null;
-}
-
-interface Profile {
-  id: string;
-  user_id: string;
-  full_name: string;
-}
+import { useCalendarEvents } from '@/hooks/useCalendarEvents';
+import { useProfiles } from '@/hooks/useProfiles';
 
 export default function Calendar() {
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const { events, isLoading, error, refetch, getEventsForDay, getTodayEvents } = useCalendarEvents(currentDate);
+  const { profiles } = useProfiles();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -60,44 +40,6 @@ export default function Calendar() {
 
   const { user } = useAuth();
   const { toast } = useToast();
-
-  const fetchEvents = async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    const start = startOfMonth(currentDate);
-    const end = endOfMonth(currentDate);
-
-    const { data, error: fetchError } = await supabase
-      .from('calendar_events')
-      .select('*')
-      .gte('start_date', start.toISOString())
-      .lte('start_date', end.toISOString())
-      .order('start_date');
-
-    if (fetchError) {
-      setError(fetchError.message);
-      setIsLoading(false);
-      return;
-    }
-
-    if (data) {
-      setEvents(data);
-    }
-    setIsLoading(false);
-  };
-
-  const fetchProfiles = async () => {
-    const { data } = await supabase.from('profiles').select('id, user_id, full_name');
-    if (data) {
-      setProfiles(data);
-    }
-  };
-
-  useEffect(() => {
-    fetchEvents();
-    fetchProfiles();
-  }, [currentDate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,7 +89,7 @@ export default function Calendar() {
         location: '',
         assigned_to: '',
       });
-      fetchEvents();
+      refetch();
     }
   };
 
@@ -158,10 +100,6 @@ export default function Calendar() {
       case 'reuniao': return '#a855f7';
       default: return '#6b7280';
     }
-  };
-
-  const getEventsForDay = (date: Date) => {
-    return events.filter(event => isSameDay(new Date(event.start_date), date));
   };
 
   const handleDateClick = (date: Date) => {
@@ -180,7 +118,7 @@ export default function Calendar() {
 
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-  const todayEvents = getEventsForDay(new Date());
+  const todayEvents = getTodayEvents();
 
   if (error) {
     return (
@@ -188,7 +126,7 @@ export default function Calendar() {
         <PageHeader title="Calendário" description="Gerencie eventos, demandas e visitas" />
         <Card>
           <CardContent className="pt-6">
-            <ErrorState onRetry={fetchEvents} />
+            <ErrorState onRetry={refetch} />
           </CardContent>
         </Card>
       </div>

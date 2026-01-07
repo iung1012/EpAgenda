@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,24 +17,12 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { TableRowSkeleton, StatsSkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
-
-type AppRole = 'admin' | 'gerente' | 'colaborador' | 'filmmaker' | 'designer';
-
-interface TeamMember {
-  user_id: string;
-  full_name: string;
-  avatar_url: string | null;
-  phone: string | null;
-  role: AppRole;
-  email: string;
-}
+import { useProfiles, AppRole } from '@/hooks/useProfiles';
 
 export default function Team() {
-  const [members, setMembers] = useState<TeamMember[]>([]);
+  const { profilesWithRoles: members, isLoading, error, refetch } = useProfiles({ withRoles: true });
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     userId: string;
@@ -48,43 +36,6 @@ export default function Team() {
   });
   const { isAdmin, user } = useAuth();
   const { toast } = useToast();
-
-  const fetchTeamMembers = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('user_id, full_name, avatar_url, phone')
-      .order('full_name');
-
-    if (profilesError) {
-      setError(profilesError.message);
-      setIsLoading(false);
-      return;
-    }
-
-    const { data: roles } = await supabase
-      .from('user_roles')
-      .select('user_id, role');
-
-    if (profiles && roles) {
-      const membersWithRoles = profiles.map((profile) => {
-        const userRole = roles.find((r) => r.user_id === profile.user_id);
-        return {
-          ...profile,
-          role: (userRole?.role || 'colaborador') as AppRole,
-          email: '',
-        };
-      });
-      setMembers(membersWithRoles);
-    }
-    setIsLoading(false);
-  };
-
-  useEffect(() => {
-    fetchTeamMembers();
-  }, []);
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,7 +82,7 @@ export default function Team() {
         setNewMemberForm({ email: '', password: '', full_name: '', role: 'colaborador' });
         
         setTimeout(() => {
-          fetchTeamMembers();
+          refetch();
         }, 1000);
       }
     } catch (error) {
@@ -161,12 +112,12 @@ export default function Team() {
       toast({ variant: 'destructive', title: 'Erro ao atualizar cargo', description: error.message });
     } else {
       toast({ title: 'Cargo atualizado com sucesso!' });
-      fetchTeamMembers();
+      refetch();
     }
   };
 
   const handleRemoveMember = async () => {
-    const { userId, memberName } = confirmDialog;
+    const { userId } = confirmDialog;
     
     const { error } = await supabase
       .from('profiles')
@@ -177,7 +128,7 @@ export default function Team() {
       toast({ variant: 'destructive', title: 'Erro ao remover membro', description: error.message });
     } else {
       toast({ title: 'Membro removido com sucesso!' });
-      fetchTeamMembers();
+      refetch();
     }
     
     setConfirmDialog({ open: false, userId: '', memberName: '' });
@@ -250,7 +201,7 @@ export default function Team() {
         <PageHeader title="Equipe" description="Gerencie os membros da sua agência" />
         <Card>
           <CardContent className="pt-6">
-            <ErrorState onRetry={fetchTeamMembers} />
+            <ErrorState onRetry={refetch} />
           </CardContent>
         </Card>
       </div>
