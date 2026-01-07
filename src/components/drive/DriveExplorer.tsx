@@ -202,12 +202,9 @@ export function DriveExplorer({ folderId, className }: DriveExplorerProps) {
   const handleFileClick = (file: DriveFile) => {
     if (file.mimeType === 'application/vnd.google-apps.folder') {
       navigateToFolder(file);
-    } else if (isImage(file.mimeType)) {
-      // Open images in preview modal
+    } else {
+      // Open all files in modal for preview/links
       setSelectedFile(file);
-    } else if (file.webViewLink) {
-      // Open videos and other files directly in Google Drive
-      window.open(file.webViewLink, '_blank');
     }
   };
 
@@ -412,38 +409,43 @@ export function DriveExplorer({ folderId, className }: DriveExplorerProps) {
         </div>
       )}
 
-      {/* Image Preview Modal */}
-      {selectedFile && isImage(selectedFile.mimeType) && authToken && (
+      {/* File Preview Modal */}
+      {selectedFile && (
         <div
           className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={() => setSelectedFile(null)}
         >
           <div
-            className="max-w-4xl max-h-[90vh] bg-card rounded-lg overflow-hidden shadow-lg"
+            className="max-w-4xl max-h-[90vh] bg-card rounded-lg overflow-hidden shadow-lg w-full"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 border-b flex items-center justify-between">
-              <h3 className="font-medium truncate">{selectedFile.name}</h3>
-              <div className="flex items-center gap-2">
+            <div className="p-4 border-b flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                {getFileIcon(selectedFile.mimeType)}
+                <h3 className="font-medium truncate">{selectedFile.name}</h3>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {selectedFile.webViewLink && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(selectedFile.webViewLink, '_blank')}
+                  <a
+                    href={selectedFile.webViewLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
                   >
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Abrir no Drive
-                  </Button>
+                  </a>
                 )}
                 {selectedFile.webContentLink && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(selectedFile.webContentLink, '_blank')}
+                  <a
+                    href={selectedFile.webContentLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
                   >
                     <Download className="h-4 w-4 mr-2" />
                     Download
-                  </Button>
+                  </a>
                 )}
                 <Button
                   variant="ghost"
@@ -454,13 +456,29 @@ export function DriveExplorer({ folderId, className }: DriveExplorerProps) {
                 </Button>
               </div>
             </div>
-            <div className="p-4 flex items-center justify-center">
-              <ThumbnailImage
-                fileId={selectedFile.id}
-                fileName={selectedFile.name}
-                authToken={authToken}
-                large
-              />
+            <div className="p-4 flex items-center justify-center min-h-[200px]">
+              {isImage(selectedFile.mimeType) && authToken ? (
+                <ThumbnailImage
+                  fileId={selectedFile.id}
+                  fileName={selectedFile.name}
+                  authToken={authToken}
+                  large
+                />
+              ) : isVideo(selectedFile.mimeType) ? (
+                <div className="text-center space-y-4">
+                  <FileVideo className="h-16 w-16 text-purple-500 mx-auto" />
+                  <p className="text-muted-foreground">
+                    Clique em "Abrir no Drive" para assistir ao vídeo
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center space-y-4">
+                  {getFileIcon(selectedFile.mimeType)}
+                  <p className="text-muted-foreground">
+                    Clique em "Abrir no Drive" para visualizar o arquivo
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
