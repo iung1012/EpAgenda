@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -82,9 +83,34 @@ export function VisitFormDialog({
       status: 'agendada',
       notes: '',
       equipment_ids: [],
-      ...defaultValues,
     },
   });
+
+  useEffect(() => {
+    if (open && defaultValues) {
+      form.reset({
+        title: defaultValues.title || '',
+        description: defaultValues.description || '',
+        location: defaultValues.location || '',
+        visit_date: defaultValues.visit_date || '',
+        client_id: defaultValues.client_id || '',
+        status: defaultValues.status || 'agendada',
+        notes: defaultValues.notes || '',
+        equipment_ids: defaultValues.equipment_ids || [],
+      });
+    } else if (open && !defaultValues) {
+      form.reset({
+        title: '',
+        description: '',
+        location: '',
+        visit_date: '',
+        client_id: '',
+        status: 'agendada',
+        notes: '',
+        equipment_ids: [],
+      });
+    }
+  }, [open, defaultValues, form]);
 
   const handleSubmit = async (data: VisitFormValues) => {
     await onSubmit(data);
