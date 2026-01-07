@@ -6,17 +6,8 @@ import { EmptyState } from "@/components/layout/EmptyState";
 import { ErrorState } from "@/components/layout/ErrorState";
 import { TableRowSkeleton } from "@/components/layout/CardSkeleton";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
+import { EquipmentFormDialog, EquipmentFormValues } from "@/components/forms/EquipmentFormDialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Package } from "lucide-react";
 import { useEquipment, Equipment as EquipmentType } from "@/hooks/useEquipment";
@@ -26,68 +17,54 @@ export default function Equipment() {
   const { equipment, isLoading, error, refetch } = useEquipment();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState<EquipmentType | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     id: string;
     name: string;
   }>({ open: false, id: '', name: '' });
-  const [form, setForm] = useState({
-    name: "",
-    description: "",
-  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (data: EquipmentFormValues) => {
+    setIsSubmitting(true);
+    
+    try {
+      if (editingEquipment) {
+        const { error } = await supabase
+          .from("equipment")
+          .update({
+            name: data.name,
+            description: data.description || null,
+          })
+          .eq("id", editingEquipment.id);
 
-    if (editingEquipment) {
-      const { error } = await supabase
-        .from("equipment")
-        .update({
-          name: form.name,
-          description: form.description || null,
-        })
-        .eq("id", editingEquipment.id);
-
-      if (error) {
-        toast({
-          title: "Erro ao atualizar equipamento",
-          description: error.message,
-          variant: "destructive",
+        if (error) throw error;
+        toast({ title: "Equipamento atualizado com sucesso!" });
+      } else {
+        const { error } = await supabase.from("equipment").insert({
+          name: data.name,
+          description: data.description || null,
         });
-        return;
+
+        if (error) throw error;
+        toast({ title: "Equipamento criado com sucesso!" });
       }
 
-      toast({ title: "Equipamento atualizado com sucesso!" });
-    } else {
-      const { error } = await supabase.from("equipment").insert({
-        name: form.name,
-        description: form.description || null,
+      setDialogOpen(false);
+      setEditingEquipment(null);
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: editingEquipment ? "Erro ao atualizar equipamento" : "Erro ao criar equipamento",
+        description: error.message,
+        variant: "destructive",
       });
-
-      if (error) {
-        toast({
-          title: "Erro ao criar equipamento",
-          description: error.message,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      toast({ title: "Equipamento criado com sucesso!" });
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setDialogOpen(false);
-    setEditingEquipment(null);
-    setForm({ name: "", description: "" });
-    refetch();
   };
 
   const handleEdit = (equip: EquipmentType) => {
     setEditingEquipment(equip);
-    setForm({
-      name: equip.name,
-      description: equip.description || "",
-    });
     setDialogOpen(true);
   };
 
@@ -116,8 +93,15 @@ export default function Equipment() {
     setDialogOpen(open);
     if (!open) {
       setEditingEquipment(null);
-      setForm({ name: "", description: "" });
     }
+  };
+
+  const getDefaultValues = (): Partial<EquipmentFormValues> | undefined => {
+    if (!editingEquipment) return undefined;
+    return {
+      name: editingEquipment.name,
+      description: editingEquipment.description || '',
+    };
   };
 
   if (error) {
@@ -143,58 +127,21 @@ export default function Equipment() {
           title="Equipamentos"
           description="Gerencie os equipamentos disponíveis para as visitas"
           action={
-            <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Adicionar
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingEquipment ? "Editar Equipamento" : "Novo Equipamento"}
-                  </DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nome</Label>
-                    <Input
-                      id="name"
-                      value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      placeholder="Ex: Canon R5"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Descrição</Label>
-                    <Textarea
-                      id="description"
-                      value={form.description}
-                      onChange={(e) =>
-                        setForm({ ...form, description: e.target.value })
-                      }
-                      placeholder="Detalhes sobre o equipamento"
-                      rows={3}
-                    />
-                  </div>
-                  <div className="flex justify-end gap-3 pt-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => handleDialogClose(false)}
-                    >
-                      Cancelar
-                    </Button>
-                    <Button type="submit">
-                      {editingEquipment ? "Salvar" : "Adicionar"}
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <Button size="sm" className="gap-2" onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Adicionar
+            </Button>
           }
+        />
+
+        {/* Form Dialog */}
+        <EquipmentFormDialog
+          open={dialogOpen}
+          onOpenChange={handleDialogClose}
+          onSubmit={handleSubmit}
+          defaultValues={getDefaultValues()}
+          isEditing={!!editingEquipment}
+          isLoading={isSubmitting}
         />
 
         <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">

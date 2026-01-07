@@ -1,17 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { StatsCard } from '@/components/layout/StatsCard';
 import { EmptyState } from '@/components/layout/EmptyState';
+import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
+import { DemandFormDialog, DemandFormValues } from '@/components/forms/DemandFormDialog';
 import { Plus, Film, Clock, CheckCircle, RefreshCw, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -41,24 +39,6 @@ interface Demand {
   visit?: Visit | null;
 }
 
-interface DemandForm {
-  title: string;
-  description: string;
-  client_id: string;
-  visit_id: string;
-  status: 'em_processo' | 'terminado' | 'alteracoes';
-  due_date: string;
-}
-
-const initialForm: DemandForm = {
-  title: '',
-  description: '',
-  client_id: '',
-  visit_id: '',
-  status: 'em_processo',
-  due_date: '',
-};
-
 export default function FilmmakerDemands() {
   const [demands, setDemands] = useState<Demand[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -66,7 +46,11 @@ export default function FilmmakerDemands() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [editingDemand, setEditingDemand] = useState<Demand | null>(null);
-  const [form, setForm] = useState<DemandForm>(initialForm);
+  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; id: string; title: string }>({
+    open: false,
+    id: '',
+    title: '',
+  });
   const { user, role, isAdminOrManager } = useAuth();
   const { toast } = useToast();
 
@@ -97,13 +81,7 @@ export default function FilmmakerDemands() {
     fetchData();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.title) {
-      toast({ variant: 'destructive', title: 'Preencha o título' });
-      return;
-    }
-
+  const handleSubmit = async (data: DemandFormValues) => {
     setIsLoading(true);
 
     try {
@@ -111,12 +89,12 @@ export default function FilmmakerDemands() {
         const { error } = await supabase
           .from('filmmaker_demands')
           .update({
-            title: form.title,
-            description: form.description || null,
-            client_id: form.client_id || null,
-            visit_id: form.visit_id || null,
-            status: form.status,
-            due_date: form.due_date || null,
+            title: data.title,
+            description: data.description || null,
+            client_id: data.client_id || null,
+            visit_id: data.visit_id || null,
+            status: data.status,
+            due_date: data.due_date || null,
           })
           .eq('id', editingDemand.id);
 
@@ -127,12 +105,12 @@ export default function FilmmakerDemands() {
           .from('filmmaker_demands')
           .insert({
             filmmaker_id: user?.id,
-            title: form.title,
-            description: form.description || null,
-            client_id: form.client_id || null,
-            visit_id: form.visit_id || null,
-            status: form.status,
-            due_date: form.due_date || null,
+            title: data.title,
+            description: data.description || null,
+            client_id: data.client_id || null,
+            visit_id: data.visit_id || null,
+            status: data.status,
+            due_date: data.due_date || null,
           });
 
         if (error) throw error;
@@ -141,7 +119,6 @@ export default function FilmmakerDemands() {
 
       setIsDialogOpen(false);
       setEditingDemand(null);
-      setForm(initialForm);
       fetchData();
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao salvar demanda', description: error.message });
@@ -152,21 +129,11 @@ export default function FilmmakerDemands() {
 
   const handleEdit = (demand: Demand) => {
     setEditingDemand(demand);
-    setForm({
-      title: demand.title,
-      description: demand.description || '',
-      client_id: demand.client_id || '',
-      visit_id: demand.visit_id || '',
-      status: demand.status,
-      due_date: demand.due_date || '',
-    });
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (demandId: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta demanda?')) return;
-
-    const { error } = await supabase.from('filmmaker_demands').delete().eq('id', demandId);
+  const handleDelete = async () => {
+    const { error } = await supabase.from('filmmaker_demands').delete().eq('id', confirmDialog.id);
 
     if (error) {
       toast({ variant: 'destructive', title: 'Erro ao excluir demanda', description: error.message });
@@ -174,6 +141,7 @@ export default function FilmmakerDemands() {
       toast({ title: 'Demanda excluída com sucesso!' });
       fetchData();
     }
+    setConfirmDialog({ open: false, id: '', title: '' });
   };
 
   const handleStatusChange = async (demandId: string, newStatus: 'em_processo' | 'terminado' | 'alteracoes') => {
@@ -209,6 +177,18 @@ export default function FilmmakerDemands() {
     terminado: demands.filter(d => d.status === 'terminado'),
   };
 
+  const getDefaultValues = (): Partial<DemandFormValues> | undefined => {
+    if (!editingDemand) return undefined;
+    return {
+      title: editingDemand.title,
+      description: editingDemand.description || '',
+      client_id: editingDemand.client_id || '',
+      visit_id: editingDemand.visit_id || '',
+      status: editingDemand.status,
+      due_date: editingDemand.due_date || '',
+    };
+  };
+
   return (
     <div className="space-y-6 animate-in">
       <PageHeader
@@ -216,120 +196,27 @@ export default function FilmmakerDemands() {
         description="Gerencie suas demandas de produção"
         action={
           canCreate && (
-            <Dialog open={isDialogOpen} onOpenChange={(open) => {
-              setIsDialogOpen(open);
-              if (!open) {
-                setEditingDemand(null);
-                setForm(initialForm);
-              }
-            }}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Nova Demanda
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>{editingDemand ? 'Editar Demanda' : 'Nova Demanda'}</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-                  <div className="space-y-2">
-                    <Label>Título</Label>
-                    <Input
-                      value={form.title}
-                      onChange={(e) => setForm({ ...form, title: e.target.value })}
-                      placeholder="Título da demanda"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Status</Label>
-                      <Select
-                        value={form.status}
-                        onValueChange={(value: 'em_processo' | 'terminado' | 'alteracoes') => setForm({ ...form, status: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="em_processo">Em Processo</SelectItem>
-                          <SelectItem value="terminado">Terminado</SelectItem>
-                          <SelectItem value="alteracoes">Alterações</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Prazo</Label>
-                      <Input
-                        type="date"
-                        value={form.due_date}
-                        onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Cliente</Label>
-                    <Select
-                      value={form.client_id}
-                      onValueChange={(value) => setForm({ ...form, client_id: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um cliente" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clients.map((client) => (
-                          <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Visita Relacionada</Label>
-                    <Select
-                      value={form.visit_id}
-                      onValueChange={(value) => setForm({ ...form, visit_id: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma visita" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {visits.map((visit) => (
-                          <SelectItem key={visit.id} value={visit.id}>
-                            {visit.title} - {format(new Date(visit.visit_date), 'dd/MM/yyyy')}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Descrição</Label>
-                    <Textarea
-                      value={form.description}
-                      onChange={(e) => setForm({ ...form, description: e.target.value })}
-                      placeholder="Detalhes da demanda"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-2">
-                    <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>
-                      Cancelar
-                    </Button>
-                    <Button type="submit" disabled={isLoading}>
-                      {isLoading ? 'Salvando...' : (editingDemand ? 'Salvar' : 'Criar')}
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <Button size="sm" className="gap-2" onClick={() => setIsDialogOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Nova Demanda
+            </Button>
           )
         }
+      />
+
+      {/* Form Dialog */}
+      <DemandFormDialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setEditingDemand(null);
+        }}
+        onSubmit={handleSubmit}
+        defaultValues={getDefaultValues()}
+        clients={clients}
+        visits={visits}
+        isEditing={!!editingDemand}
+        isLoading={isLoading}
       />
 
       {/* Stats */}
@@ -415,7 +302,12 @@ export default function FilmmakerDemands() {
                         Editar
                       </Button>
                       {isAdminOrManager && (
-                        <Button variant="ghost" size="sm" className="text-xs h-7 text-destructive hover:text-destructive" onClick={() => handleDelete(demand.id)}>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-xs h-7 text-destructive hover:text-destructive" 
+                          onClick={() => setConfirmDialog({ open: true, id: demand.id, title: demand.title })}
+                        >
                           Excluir
                         </Button>
                       )}
@@ -427,6 +319,17 @@ export default function FilmmakerDemands() {
           )}
         </div>
       </div>
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+        title="Excluir demanda"
+        description={`Tem certeza que deseja excluir "${confirmDialog.title}"? Esta ação não pode ser desfeita.`}
+        confirmText="Excluir"
+        onConfirm={handleDelete}
+        variant="destructive"
+      />
     </div>
   );
 }

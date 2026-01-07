@@ -6,14 +6,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Search, Building2, ExternalLink, Palette } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { CardSkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
+import { ClientFormDialog, ClientFormValues } from '@/components/forms/ClientFormDialog';
 import { useClients } from '@/hooks/useClients';
 
 export default function Clients() {
@@ -21,31 +19,22 @@ export default function Clients() {
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    segment: '',
-    contact_name: '',
-    contact_email: '',
-    contact_phone: '',
-    google_drive_link: '',
-    trello_link: '',
-    notes: '',
-  });
   
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name.trim()) {
-      toast({ variant: 'destructive', title: 'Nome é obrigatório' });
-      return;
-    }
-
+  const handleSubmit = async (data: ClientFormValues) => {
     setIsSubmitting(true);
     const { error } = await supabase.from('clients').insert({
-      ...formData,
+      name: data.name,
+      segment: data.segment || null,
+      contact_name: data.contact_name || null,
+      contact_email: data.contact_email || null,
+      contact_phone: data.contact_phone || null,
+      google_drive_link: data.google_drive_link || null,
+      trello_link: data.trello_link || null,
+      notes: data.notes || null,
       created_by: user?.id,
     });
     setIsSubmitting(false);
@@ -55,16 +44,6 @@ export default function Clients() {
     } else {
       toast({ title: 'Cliente criado com sucesso!' });
       setIsDialogOpen(false);
-      setFormData({
-        name: '',
-        segment: '',
-        contact_name: '',
-        contact_email: '',
-        contact_phone: '',
-        google_drive_link: '',
-        trello_link: '',
-        notes: '',
-      });
       refetch();
     }
   };
@@ -96,107 +75,19 @@ export default function Clients() {
         title="Clientes" 
         description="Gerencie os clientes da sua agência"
         action={
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Cliente
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Novo Cliente</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2 col-span-2">
-                    <Label htmlFor="name">Nome da empresa *</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Nome do cliente"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="segment">Segmento</Label>
-                    <Input
-                      id="segment"
-                      value={formData.segment}
-                      onChange={(e) => setFormData({ ...formData, segment: e.target.value })}
-                      placeholder="Ex: Varejo, Tech..."
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="contact_name">Contato</Label>
-                    <Input
-                      id="contact_name"
-                      value={formData.contact_name}
-                      onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
-                      placeholder="Nome do contato"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="contact_email">Email</Label>
-                    <Input
-                      id="contact_email"
-                      type="email"
-                      value={formData.contact_email}
-                      onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
-                      placeholder="email@empresa.com"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="contact_phone">Telefone</Label>
-                    <Input
-                      id="contact_phone"
-                      value={formData.contact_phone}
-                      onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
-                      placeholder="(11) 99999-9999"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="google_drive_link">Link Google Drive</Label>
-                    <Input
-                      id="google_drive_link"
-                      value={formData.google_drive_link}
-                      onChange={(e) => setFormData({ ...formData, google_drive_link: e.target.value })}
-                      placeholder="https://drive.google.com/..."
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="trello_link">Link Trello</Label>
-                    <Input
-                      id="trello_link"
-                      value={formData.trello_link}
-                      onChange={(e) => setFormData({ ...formData, trello_link: e.target.value })}
-                      placeholder="https://trello.com/..."
-                    />
-                  </div>
-                  <div className="space-y-2 col-span-2">
-                    <Label htmlFor="notes">Observações</Label>
-                    <Textarea
-                      id="notes"
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      placeholder="Notas sobre o cliente..."
-                      rows={3}
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-3">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Salvando...' : 'Criar Cliente'}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => setIsDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Cliente
+          </Button>
         }
+      />
+
+      {/* Form Dialog */}
+      <ClientFormDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onSubmit={handleSubmit}
+        isLoading={isSubmitting}
       />
 
       {/* Search */}
