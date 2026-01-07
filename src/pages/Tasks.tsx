@@ -1,11 +1,28 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, CheckSquare, ListTodo, Loader2 } from 'lucide-react';
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { 
+  Plus, 
+  CheckCircle2, 
+  Circle, 
+  Loader2,
+  ListTodo,
+  LayoutGrid
+} from 'lucide-react';
+import { 
+  DndContext, 
+  DragEndEvent, 
+  DragOverlay, 
+  DragStartEvent, 
+  closestCorners, 
+  PointerSensor, 
+  useSensor, 
+  useSensors,
+  TouchSensor
+} from '@dnd-kit/core';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { StatsCard } from '@/components/layout/StatsCard';
 import { StatsSkeleton } from '@/components/layout/CardSkeleton';
@@ -15,8 +32,9 @@ import { TaskFormDialog, TaskFormValues } from '@/components/forms/TaskFormDialo
 import { useTasks, TaskPriority } from '@/hooks/useTasks';
 import { useProfiles } from '@/hooks/useProfiles';
 import { useClients } from '@/hooks/useClients';
-import { DroppableColumn } from '@/components/kanban/DroppableColumn';
-import { DraggableTaskCard } from '@/components/kanban/DraggableTaskCard';
+import { KanbanColumn } from '@/components/kanban/KanbanColumn';
+import { TaskCard } from '@/components/kanban/TaskCard';
+import { TaskFilters } from '@/components/kanban/TaskFilters';
 
 type TaskStatus = 'a_fazer' | 'fazendo' | 'feito';
 
@@ -35,6 +53,8 @@ export default function Tasks() {
   const { tasks, isLoading, error, refetch, getTasksByStatus, updateTaskStatus } = useTasks();
   const { profiles, getProfileName } = useProfiles();
   const { clients } = useClients({ minimal: true });
+  
+  // Dialog states
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -46,6 +66,12 @@ export default function Tasks() {
   });
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [assignedFilter, setAssignedFilter] = useState('all');
+  const [clientFilter, setClientFilter] = useState('all');
+
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -54,8 +80,58 @@ export default function Tasks() {
       activationConstraint: {
         distance: 8,
       },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 8,
+      },
     })
   );
+
+  // Calculate active filters count
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (priorityFilter !== 'all') count++;
+    if (assignedFilter !== 'all') count++;
+    if (clientFilter !== 'all') count++;
+    return count;
+  }, [priorityFilter, assignedFilter, clientFilter]);
+
+  // Filter tasks
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(task => {
+      // Search filter
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        const matchesTitle = task.title.toLowerCase().includes(search);
+        const matchesDescription = task.description?.toLowerCase().includes(search);
+        if (!matchesTitle && !matchesDescription) return false;
+      }
+
+      // Priority filter
+      if (priorityFilter !== 'all' && task.priority !== priorityFilter) return false;
+
+      // Assigned filter
+      if (assignedFilter !== 'all' && task.assigned_to !== assignedFilter) return false;
+
+      // Client filter
+      if (clientFilter !== 'all' && task.client_id !== clientFilter) return false;
+
+      return true;
+    });
+  }, [tasks, searchTerm, priorityFilter, assignedFilter, clientFilter]);
+
+  const getFilteredTasksByStatus = (status: TaskStatus) => {
+    return filteredTasks.filter(t => t.status === status);
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setPriorityFilter('all');
+    setAssignedFilter('all');
+    setClientFilter('all');
+  };
 
   const handleSubmit = async (data: TaskFormValues) => {
     setIsSubmitting(true);
@@ -145,7 +221,6 @@ export default function Tasks() {
     const taskId = active.id as string;
     const overId = over.id as string;
 
-    // Check if dropped on a column
     const newStatus = columns.find(col => col.id === overId)?.id;
     
     if (newStatus) {
@@ -154,6 +229,8 @@ export default function Tasks() {
         const { error } = await updateTaskStatus(taskId, newStatus);
         if (error) {
           toast({ variant: 'destructive', title: 'Erro ao mover tarefa' });
+        } else {
+          toast({ title: 'Tarefa movida!' });
         }
       }
     }
@@ -167,9 +244,9 @@ export default function Tasks() {
 
   const getPriorityColor = (priority: TaskPriority) => {
     switch (priority) {
-      case 'alta': return 'bg-destructive/10 text-destructive border-destructive/20';
-      case 'media': return 'bg-warning/10 text-warning border-warning/20';
-      case 'baixa': return 'bg-muted text-muted-foreground border-muted';
+      case 'alta': return 'bg-destructive/10 text-destructive';
+      case 'media': return 'bg-warning/10 text-warning';
+      case 'baixa': return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -182,9 +259,27 @@ export default function Tasks() {
   };
 
   const columns = [
-    { id: 'a_fazer' as const, title: 'A Fazer', color: 'bg-muted' },
-    { id: 'fazendo' as const, title: 'Fazendo', color: 'bg-info/10' },
-    { id: 'feito' as const, title: 'Feito', color: 'bg-success/10' },
+    { 
+      id: 'a_fazer' as const, 
+      title: 'A Fazer', 
+      icon: <Circle className="h-4 w-4 text-muted-foreground" />,
+      color: 'bg-muted',
+      headerColor: 'bg-muted/50'
+    },
+    { 
+      id: 'fazendo' as const, 
+      title: 'Em Progresso', 
+      icon: <Loader2 className="h-4 w-4 text-info" />,
+      color: 'bg-info/20',
+      headerColor: 'bg-info/10'
+    },
+    { 
+      id: 'feito' as const, 
+      title: 'Concluído', 
+      icon: <CheckCircle2 className="h-4 w-4 text-success" />,
+      color: 'bg-success/20',
+      headerColor: 'bg-success/10'
+    },
   ];
 
   if (error) {
@@ -206,8 +301,8 @@ export default function Tasks() {
         title="Tarefas" 
         description="Gerencie as tarefas da equipe"
         action={
-          <Button onClick={() => { setEditingTask(null); setIsDialogOpen(true); }}>
-            <Plus className="h-4 w-4 mr-2" />
+          <Button onClick={() => { setEditingTask(null); setIsDialogOpen(true); }} className="gap-2">
+            <Plus className="h-4 w-4" />
             Nova Tarefa
           </Button>
         }
@@ -232,6 +327,26 @@ export default function Tasks() {
         } : undefined}
       />
 
+      {/* Filters */}
+      <Card>
+        <CardContent className="py-4">
+          <TaskFilters
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            priorityFilter={priorityFilter}
+            onPriorityChange={setPriorityFilter}
+            assignedFilter={assignedFilter}
+            onAssignedChange={setAssignedFilter}
+            clientFilter={clientFilter}
+            onClientChange={setClientFilter}
+            profiles={profiles}
+            clients={clients}
+            activeFiltersCount={activeFiltersCount}
+            onClearFilters={clearFilters}
+          />
+        </CardContent>
+      </Card>
+
       {/* Stats */}
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-3">
@@ -246,18 +361,21 @@ export default function Tasks() {
             value={getTasksByStatus('a_fazer').length}
             icon={ListTodo}
             variant="default"
+            subtitle={filteredTasks.length !== tasks.length ? `${getFilteredTasksByStatus('a_fazer').length} filtradas` : undefined}
           />
           <StatsCard
-            title="Fazendo"
+            title="Em Progresso"
             value={getTasksByStatus('fazendo').length}
             icon={Loader2}
             variant="info"
+            subtitle={filteredTasks.length !== tasks.length ? `${getFilteredTasksByStatus('fazendo').length} filtradas` : undefined}
           />
           <StatsCard
-            title="Feito"
+            title="Concluído"
             value={getTasksByStatus('feito').length}
-            icon={CheckSquare}
+            icon={CheckCircle2}
             variant="success"
+            subtitle={filteredTasks.length !== tasks.length ? `${getFilteredTasksByStatus('feito').length} filtradas` : undefined}
           />
         </div>
       )}
@@ -269,14 +387,16 @@ export default function Tasks() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {columns.map((column) => (
-            <DroppableColumn
+            <KanbanColumn
               key={column.id}
               id={column.id}
               title={column.title}
+              icon={column.icon}
               color={column.color}
-              tasks={getTasksByStatus(column.id) as Task[]}
+              headerColor={column.headerColor}
+              tasks={getFilteredTasksByStatus(column.id) as Task[]}
               isLoading={isLoading}
               getPriorityColor={getPriorityColor}
               getPriorityLabel={getPriorityLabel}
@@ -284,6 +404,7 @@ export default function Tasks() {
               getClientName={getClientName}
               onEdit={handleEdit}
               onDelete={(taskId, taskTitle) => setDeleteDialog({ open: true, taskId, taskTitle })}
+              onAddTask={() => { setEditingTask(null); setIsDialogOpen(true); }}
             />
           ))}
         </div>
@@ -291,15 +412,17 @@ export default function Tasks() {
         {/* Drag Overlay for visual feedback */}
         <DragOverlay>
           {activeTask ? (
-            <DraggableTaskCard
-              task={activeTask}
-              getPriorityColor={getPriorityColor}
-              getPriorityLabel={getPriorityLabel}
-              getProfileName={getProfileName}
-              getClientName={getClientName}
-              onEdit={() => {}}
-              onDelete={() => {}}
-            />
+            <div className="w-[300px]">
+              <TaskCard
+                task={activeTask}
+                getPriorityColor={getPriorityColor}
+                getPriorityLabel={getPriorityLabel}
+                getProfileName={getProfileName}
+                getClientName={getClientName}
+                onEdit={() => {}}
+                onDelete={() => {}}
+              />
+            </div>
           ) : null}
         </DragOverlay>
       </DndContext>
