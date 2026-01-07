@@ -76,6 +76,83 @@ function formatDate(dateString?: string): string {
   });
 }
 
+const isImage = (mimeType: string) => mimeType.includes('image');
+const isVideo = (mimeType: string) => mimeType.includes('video');
+
+// Thumbnail component that fetches via edge function proxy
+function ThumbnailImage({ 
+  fileId, 
+  fileName, 
+  authToken, 
+  large = false 
+}: { 
+  fileId: string; 
+  fileName: string; 
+  authToken: string | null;
+  large?: boolean;
+}) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!authToken) return;
+    
+    const fetchThumbnail = async () => {
+      try {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/google-drive?action=thumbnail&fileId=${fileId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const blob = await response.blob();
+          setSrc(URL.createObjectURL(blob));
+        } else {
+          setError(true);
+        }
+      } catch (e) {
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchThumbnail();
+  }, [fileId, authToken]);
+
+  if (loading) {
+    return <Skeleton className={large ? "w-full h-[70vh]" : "h-10 w-10 rounded"} />;
+  }
+
+  if (error || !src) {
+    return (
+      <div className={cn(
+        "rounded bg-muted flex items-center justify-center",
+        large ? "w-full h-64" : "h-10 w-10"
+      )}>
+        <FileImage className={cn("text-pink-500", large ? "h-12 w-12" : "h-5 w-5")} />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={fileName}
+      className={cn(
+        "object-cover rounded",
+        large ? "max-w-full max-h-[70vh] object-contain" : "h-10 w-10"
+      )}
+    />
+  );
+}
+
 export function DriveExplorer({ folderId, className }: DriveExplorerProps) {
   const {
     files,
@@ -93,6 +170,16 @@ export function DriveExplorer({ folderId, className }: DriveExplorerProps) {
 
   const [searchInput, setSearchInput] = useState('');
   const [selectedFile, setSelectedFile] = useState<DriveFile | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+
+  // Get auth token for thumbnail requests
+  useEffect(() => {
+    const getToken = async () => {
+      const { data } = await (await import('@/integrations/supabase/client')).supabase.auth.getSession();
+      setAuthToken(data?.session?.access_token || null);
+    };
+    getToken();
+  }, []);
 
   useEffect(() => {
     if (folderId) {
@@ -120,7 +207,6 @@ export function DriveExplorer({ folderId, className }: DriveExplorerProps) {
     }
   };
 
-  const isImage = (mimeType: string) => mimeType.includes('image');
 
   if (!folderId) {
     return (
@@ -263,11 +349,11 @@ export function DriveExplorer({ folderId, className }: DriveExplorerProps) {
               <CardContent className="p-3">
                 <div className="flex items-start gap-3">
                   {/* Thumbnail or Icon */}
-                  {file.thumbnailLink && isImage(file.mimeType) ? (
-                    <img
-                      src={file.thumbnailLink}
-                      alt={file.name}
-                      className="h-10 w-10 rounded object-cover"
+                  {isImage(file.mimeType) || isVideo(file.mimeType) ? (
+                    <ThumbnailImage
+                      fileId={file.id}
+                      fileName={file.name}
+                      authToken={authToken}
                     />
                   ) : (
                     <div className="h-10 w-10 rounded bg-muted flex items-center justify-center">
@@ -323,7 +409,7 @@ export function DriveExplorer({ folderId, className }: DriveExplorerProps) {
       )}
 
       {/* Image Preview Modal */}
-      {selectedFile && isImage(selectedFile.mimeType) && (
+      {selectedFile && isImage(selectedFile.mimeType) && authToken && (
         <div
           className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={() => setSelectedFile(null)}
@@ -365,10 +451,11 @@ export function DriveExplorer({ folderId, className }: DriveExplorerProps) {
               </div>
             </div>
             <div className="p-4 flex items-center justify-center">
-              <img
-                src={selectedFile.thumbnailLink?.replace('=s220', '=s1000') || ''}
-                alt={selectedFile.name}
-                className="max-w-full max-h-[70vh] object-contain"
+              <ThumbnailImage
+                fileId={selectedFile.id}
+                fileName={selectedFile.name}
+                authToken={authToken}
+                large
               />
             </div>
           </div>

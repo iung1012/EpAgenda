@@ -40,12 +40,6 @@ export function useDriveFiles(rootFolderId?: string) {
         return;
       }
 
-      const { data, error: fnError } = await supabase.functions.invoke('google-drive', {
-        body: null,
-        method: 'GET',
-      });
-
-      // Use fetch directly since invoke doesn't support query params well
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
       
