@@ -2,16 +2,22 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Building2, ExternalLink, Palette, Mail, Phone, User } from 'lucide-react';
+import { Building2, Palette, Mail, Phone, User, CheckSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Client } from '@/hooks/useClients';
 
+interface TaskCount {
+  pending: number;
+  total: number;
+}
+
 interface ClientCardProps {
   client: Client;
+  taskCount?: TaskCount;
   onClick: () => void;
 }
 
-export function ClientCard({ client, onClick }: ClientCardProps) {
+export function ClientCard({ client, taskCount, onClick }: ClientCardProps) {
   const hasLinks = client.google_drive_link || client.trello_link;
   const hasContact = client.contact_name || client.contact_email || client.contact_phone;
 
@@ -53,6 +59,22 @@ export function ClientCard({ client, onClick }: ClientCardProps) {
                   </Badge>
                 )}
               </div>
+              
+              {/* Task Count Badge */}
+              {taskCount && taskCount.pending > 0 && (
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "flex items-center gap-1 text-xs",
+                    taskCount.pending > 5 
+                      ? "border-destructive/50 text-destructive bg-destructive/10" 
+                      : "border-warning/50 text-warning bg-warning/10"
+                  )}
+                >
+                  <CheckSquare className="h-3 w-3" />
+                  {taskCount.pending}
+                </Badge>
+              )}
             </div>
 
             {/* Contact Info */}
