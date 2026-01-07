@@ -25,10 +25,14 @@ import {
   Facebook,
   Linkedin,
   Globe,
-  Upload
+  Upload,
+  Twitter,
+  Youtube,
+  Share2
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Client {
   id: string;
@@ -86,6 +90,11 @@ export default function ClientDetail() {
     name: '',
     description: '',
     file_url: '',
+  });
+  const [isSocialDialogOpen, setIsSocialDialogOpen] = useState(false);
+  const [socialForm, setSocialForm] = useState({
+    platform: 'instagram',
+    url: '',
   });
 
   useEffect(() => {
@@ -261,14 +270,75 @@ export default function ClientDetail() {
     }
   };
 
+  const handleAddSocialLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client || !socialForm.url.trim()) {
+      toast({ variant: 'destructive', title: 'URL é obrigatória' });
+      return;
+    }
+
+    // Validar URL
+    try {
+      new URL(socialForm.url);
+    } catch {
+      toast({ variant: 'destructive', title: 'URL inválida' });
+      return;
+    }
+
+    const newLinks = { ...client.social_links, [socialForm.platform]: socialForm.url };
+    const { error } = await supabase
+      .from('clients')
+      .update({ social_links: newLinks })
+      .eq('id', id);
+
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erro ao adicionar link' });
+    } else {
+      setClient({ ...client, social_links: newLinks });
+      setIsSocialDialogOpen(false);
+      setSocialForm({ platform: 'instagram', url: '' });
+      toast({ title: 'Link adicionado!' });
+    }
+  };
+
+  const handleRemoveSocialLink = async (platform: string) => {
+    if (!client) return;
+
+    const newLinks = { ...client.social_links };
+    delete newLinks[platform];
+    
+    const { error } = await supabase
+      .from('clients')
+      .update({ social_links: newLinks })
+      .eq('id', id);
+
+    if (!error) {
+      setClient({ ...client, social_links: newLinks });
+      toast({ title: 'Link removido!' });
+    }
+  };
+
   const getSocialIcon = (platform: string) => {
     switch (platform.toLowerCase()) {
       case 'instagram': return Instagram;
       case 'facebook': return Facebook;
       case 'linkedin': return Linkedin;
+      case 'twitter': return Twitter;
+      case 'youtube': return Youtube;
+      case 'tiktok': return Share2;
       default: return Globe;
     }
   };
+
+  const socialPlatforms = [
+    { value: 'instagram', label: 'Instagram', icon: Instagram },
+    { value: 'facebook', label: 'Facebook', icon: Facebook },
+    { value: 'linkedin', label: 'LinkedIn', icon: Linkedin },
+    { value: 'twitter', label: 'Twitter/X', icon: Twitter },
+    { value: 'youtube', label: 'YouTube', icon: Youtube },
+    { value: 'tiktok', label: 'TikTok', icon: Share2 },
+    { value: 'website', label: 'Website', icon: Globe },
+  ];
 
   const getFoldersByType = (type: string) => folders.filter(f => f.folder_type === type);
 
@@ -330,8 +400,9 @@ export default function ClientDetail() {
 
       {/* Tabs */}
       <Tabs defaultValue="info" className="w-full">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="info">Informações</TabsTrigger>
+          <TabsTrigger value="social">Redes Sociais</TabsTrigger>
           <TabsTrigger value="palette">Paleta de Cores</TabsTrigger>
           <TabsTrigger value="folders">Pastas</TabsTrigger>
           {isAdminOrManager && <TabsTrigger value="passwords">Senhas</TabsTrigger>}
@@ -365,6 +436,119 @@ export default function ClientDetail() {
                 <div>
                   <Label className="text-muted-foreground text-xs">Observações</Label>
                   <p className="font-medium whitespace-pre-wrap">{client.notes}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="social" className="mt-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Share2 className="h-5 w-5" />
+                Redes Sociais
+              </CardTitle>
+              <Dialog open={isSocialDialogOpen} onOpenChange={setIsSocialDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar Link
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Adicionar Rede Social</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleAddSocialLink} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Plataforma</Label>
+                      <Select
+                        value={socialForm.platform}
+                        onValueChange={(value) => setSocialForm({ ...socialForm, platform: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {socialPlatforms.map((platform) => (
+                            <SelectItem key={platform.value} value={platform.value}>
+                              <div className="flex items-center gap-2">
+                                <platform.icon className="h-4 w-4" />
+                                {platform.label}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>URL *</Label>
+                      <Input
+                        value={socialForm.url}
+                        onChange={(e) => setSocialForm({ ...socialForm, url: e.target.value })}
+                        placeholder="https://instagram.com/usuario"
+                        required
+                      />
+                    </div>
+                    <div className="flex justify-end gap-3">
+                      <Button type="button" variant="outline" onClick={() => setIsSocialDialogOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit">Adicionar</Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              {Object.keys(client.social_links).length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  Nenhuma rede social cadastrada
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {Object.entries(client.social_links).map(([platform, url]) => {
+                    const Icon = getSocialIcon(platform);
+                    const platformInfo = socialPlatforms.find(p => p.value === platform.toLowerCase());
+                    return (
+                      <div key={platform} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 group">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <Icon className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium capitalize">{platformInfo?.label || platform}</p>
+                            <a 
+                              href={url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-sm text-muted-foreground hover:text-primary truncate max-w-[300px] block"
+                            >
+                              {url}
+                            </a>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(url, '_blank')}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="opacity-0 group-hover:opacity-100 text-destructive"
+                            onClick={() => handleRemoveSocialLink(platform)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
