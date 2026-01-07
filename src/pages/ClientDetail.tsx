@@ -34,6 +34,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 
 interface Client {
   id: string;
@@ -98,6 +99,13 @@ export default function ClientDetail() {
     url: '',
   });
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    type: 'folder' | 'color' | 'social' | 'password';
+    id: string;
+    name: string;
+    index?: number;
+  }>({ open: false, type: 'folder', id: '', name: '' });
   const [editForm, setEditForm] = useState({
     name: '',
     segment: '',
@@ -231,7 +239,13 @@ export default function ClientDetail() {
 
     if (!error) {
       setClient({ ...client, color_palette: newPalette });
+      toast({ title: 'Cor removida!' });
     }
+    setConfirmDialog({ open: false, type: 'folder', id: '', name: '' });
+  };
+
+  const openRemoveColorDialog = (index: number, color: string) => {
+    setConfirmDialog({ open: true, type: 'color', id: '', name: color, index });
   };
 
   const handleLogoUpload = async (url: string) => {
@@ -280,6 +294,11 @@ export default function ClientDetail() {
       toast({ title: 'Arquivo removido!' });
       fetchFolders();
     }
+    setConfirmDialog({ open: false, type: 'folder', id: '', name: '' });
+  };
+
+  const openDeleteFolderDialog = (folderId: string, folderName: string) => {
+    setConfirmDialog({ open: true, type: 'folder', id: folderId, name: folderName });
   };
 
   const handleAddSocialLink = async (e: React.FormEvent) => {
@@ -327,6 +346,26 @@ export default function ClientDetail() {
     if (!error) {
       setClient({ ...client, social_links: newLinks });
       toast({ title: 'Link removido!' });
+    }
+    setConfirmDialog({ open: false, type: 'folder', id: '', name: '' });
+  };
+
+  const openRemoveSocialDialog = (platform: string) => {
+    setConfirmDialog({ open: true, type: 'social', id: platform, name: platform });
+  };
+
+  const handleConfirmAction = () => {
+    const { type, id, index } = confirmDialog;
+    switch (type) {
+      case 'folder':
+        handleDeleteFolder(id);
+        break;
+      case 'color':
+        if (index !== undefined) handleRemoveColor(index);
+        break;
+      case 'social':
+        handleRemoveSocialLink(id);
+        break;
     }
   };
 
@@ -694,7 +733,7 @@ export default function ClientDetail() {
                             variant="ghost"
                             size="sm"
                             className="opacity-0 group-hover:opacity-100 text-destructive"
-                            onClick={() => handleRemoveSocialLink(platform)}
+                            onClick={() => openRemoveSocialDialog(platform)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -764,7 +803,7 @@ export default function ClientDetail() {
                         style={{ backgroundColor: color }}
                       >
                         <button
-                          onClick={() => handleRemoveColor(index)}
+                          onClick={() => openRemoveColorDialog(index, color)}
                           className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
                         >
                           <Trash2 className="h-3 w-3" />
@@ -836,7 +875,7 @@ export default function ClientDetail() {
                                 variant="ghost" 
                                 size="sm" 
                                 className="opacity-0 group-hover:opacity-100 text-destructive"
-                                onClick={() => handleDeleteFolder(folder.id)}
+                                onClick={() => openDeleteFolderDialog(folder.id, folder.name)}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -1013,6 +1052,27 @@ export default function ClientDetail() {
           </TabsContent>
         )}
       </Tabs>
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+        title={
+          confirmDialog.type === 'folder' ? 'Excluir arquivo' :
+          confirmDialog.type === 'color' ? 'Remover cor' :
+          'Remover link'
+        }
+        description={
+          confirmDialog.type === 'folder' 
+            ? `Tem certeza que deseja excluir "${confirmDialog.name}"? Esta ação não pode ser desfeita.`
+            : confirmDialog.type === 'color'
+            ? `Tem certeza que deseja remover a cor ${confirmDialog.name} da paleta?`
+            : `Tem certeza que deseja remover o link do ${confirmDialog.name}?`
+        }
+        confirmText="Remover"
+        onConfirm={handleConfirmAction}
+        variant="destructive"
+      />
     </div>
   );
 }
