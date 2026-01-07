@@ -10,9 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Shield, UserCog, User, Plus, Trash2, Video } from 'lucide-react';
+import { Users, Shield, UserCog, User, Plus, Trash2, Video, Palette } from 'lucide-react';
 
-type AppRole = 'admin' | 'gerente' | 'colaborador' | 'filmmaker';
+type AppRole = 'admin' | 'gerente' | 'colaborador' | 'filmmaker' | 'designer';
 
 interface TeamMember {
   user_id: string;
@@ -187,6 +187,7 @@ export default function Team() {
       case 'admin': return Shield;
       case 'gerente': return UserCog;
       case 'filmmaker': return Video;
+      case 'designer': return Palette;
       default: return User;
     }
   };
@@ -196,6 +197,7 @@ export default function Team() {
       case 'admin': return 'default';
       case 'gerente': return 'secondary';
       case 'filmmaker': return 'secondary';
+      case 'designer': return 'secondary';
       default: return 'outline';
     }
   };
@@ -205,6 +207,7 @@ export default function Team() {
       case 'admin': return 'Administrador';
       case 'gerente': return 'Gerente';
       case 'filmmaker': return 'Filmmaker';
+      case 'designer': return 'Designer';
       default: return 'Colaborador';
     }
   };
@@ -213,6 +216,7 @@ export default function Team() {
     admin: members.filter(m => m.role === 'admin'),
     gerente: members.filter(m => m.role === 'gerente'),
     filmmaker: members.filter(m => m.role === 'filmmaker'),
+    designer: members.filter(m => m.role === 'designer'),
     colaborador: members.filter(m => m.role === 'colaborador'),
   };
 
@@ -278,6 +282,7 @@ export default function Team() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="colaborador">Colaborador</SelectItem>
+                      <SelectItem value="designer">Designer</SelectItem>
                       <SelectItem value="filmmaker">Filmmaker</SelectItem>
                       <SelectItem value="gerente">Gerente</SelectItem>
                       <SelectItem value="admin">Administrador</SelectItem>
@@ -299,7 +304,7 @@ export default function Team() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
@@ -337,6 +342,20 @@ export default function Team() {
               <div>
                 <p className="text-2xl font-semibold">{groupedMembers.filmmaker.length}</p>
                 <p className="text-sm text-muted-foreground">Filmmakers</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl bg-primary/20 flex items-center justify-center">
+                <Palette className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="text-2xl font-semibold">{groupedMembers.designer.length}</p>
+                <p className="text-sm text-muted-foreground">Designers</p>
               </div>
             </div>
           </CardContent>
@@ -406,6 +425,7 @@ export default function Team() {
                               <SelectItem value="admin">Administrador</SelectItem>
                               <SelectItem value="gerente">Gerente</SelectItem>
                               <SelectItem value="filmmaker">Filmmaker</SelectItem>
+                              <SelectItem value="designer">Designer</SelectItem>
                               <SelectItem value="colaborador">Colaborador</SelectItem>
                             </SelectContent>
                           </Select>
