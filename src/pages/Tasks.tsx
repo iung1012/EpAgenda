@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Clock, User, Building2, CheckSquare, ListTodo, Loader2, Trash2 } from 'lucide-react';
+import { Plus, Clock, User, Building2, CheckSquare, ListTodo, Loader2, Trash2, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -23,6 +23,15 @@ export default function Tasks() {
   const { clients } = useClients({ minimal: true });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingTask, setEditingTask] = useState<{
+    id: string;
+    title: string;
+    description: string | null;
+    priority: 'baixa' | 'media' | 'alta';
+    due_date: string | null;
+    assigned_to: string | null;
+    client_id: string | null;
+  } | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; taskId: string; taskTitle: string }>({
     open: false,
     taskId: '',
@@ -35,24 +44,60 @@ export default function Tasks() {
 
   const handleSubmit = async (data: TaskFormValues) => {
     setIsSubmitting(true);
-    const { error } = await supabase.from('tasks').insert({
-      title: data.title,
-      description: data.description || null,
-      priority: data.priority,
-      due_date: data.due_date || null,
-      assigned_to: data.assigned_to || null,
-      client_id: data.client_id || null,
-      created_by: user?.id,
-      status: 'a_fazer',
-    });
-    setIsSubmitting(false);
+    
+    if (editingTask) {
+      // Update existing task
+      const { error } = await supabase.from('tasks').update({
+        title: data.title,
+        description: data.description || null,
+        priority: data.priority,
+        due_date: data.due_date || null,
+        assigned_to: data.assigned_to || null,
+        client_id: data.client_id || null,
+      }).eq('id', editingTask.id);
+      setIsSubmitting(false);
 
-    if (error) {
-      toast({ variant: 'destructive', title: 'Erro ao criar tarefa', description: error.message });
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao atualizar tarefa', description: error.message });
+      } else {
+        toast({ title: 'Tarefa atualizada com sucesso!' });
+        setIsDialogOpen(false);
+        setEditingTask(null);
+        refetch();
+      }
     } else {
-      toast({ title: 'Tarefa criada com sucesso!' });
-      setIsDialogOpen(false);
-      refetch();
+      // Create new task
+      const { error } = await supabase.from('tasks').insert({
+        title: data.title,
+        description: data.description || null,
+        priority: data.priority,
+        due_date: data.due_date || null,
+        assigned_to: data.assigned_to || null,
+        client_id: data.client_id || null,
+        created_by: user?.id,
+        status: 'a_fazer',
+      });
+      setIsSubmitting(false);
+
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao criar tarefa', description: error.message });
+      } else {
+        toast({ title: 'Tarefa criada com sucesso!' });
+        setIsDialogOpen(false);
+        refetch();
+      }
+    }
+  };
+
+  const handleEdit = (task: typeof editingTask) => {
+    setEditingTask(task);
+    setIsDialogOpen(true);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      setEditingTask(null);
     }
   };
 
@@ -124,7 +169,7 @@ export default function Tasks() {
         title="Tarefas" 
         description="Gerencie as tarefas da equipe"
         action={
-          <Button onClick={() => setIsDialogOpen(true)}>
+          <Button onClick={() => { setEditingTask(null); setIsDialogOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
             Nova Tarefa
           </Button>
@@ -134,11 +179,20 @@ export default function Tasks() {
       {/* Form Dialog */}
       <TaskFormDialog
         open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
+        onOpenChange={handleDialogClose}
         onSubmit={handleSubmit}
         profiles={profiles}
         clients={clients}
+        isEditing={!!editingTask}
         isLoading={isSubmitting}
+        defaultValues={editingTask ? {
+          title: editingTask.title,
+          description: editingTask.description || '',
+          priority: editingTask.priority,
+          due_date: editingTask.due_date || '',
+          assigned_to: editingTask.assigned_to || '',
+          client_id: editingTask.client_id || '',
+        } : undefined}
       />
 
       {/* Stats */}
@@ -240,6 +294,22 @@ export default function Tasks() {
                                 {col.title}
                               </Button>
                             ))}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => handleEdit({
+                                id: task.id,
+                                title: task.title,
+                                description: task.description,
+                                priority: task.priority,
+                                due_date: task.due_date,
+                                assigned_to: task.assigned_to,
+                                client_id: task.client_id,
+                              })}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
