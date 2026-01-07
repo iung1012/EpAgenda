@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Shield, UserCog, User } from 'lucide-react';
+import { Users, Shield, UserCog, User, Plus, Trash2 } from 'lucide-react';
 
 type AppRole = 'admin' | 'gerente' | 'colaborador';
 
@@ -22,6 +25,14 @@ interface TeamMember {
 
 export default function Team() {
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [newMemberForm, setNewMemberForm] = useState({
+    email: '',
+    password: '',
+    full_name: '',
+    role: 'colaborador' as AppRole,
+  });
   const { isAdmin, user } = useAuth();
   const { toast } = useToast();
 
@@ -41,7 +52,7 @@ export default function Team() {
         return {
           ...profile,
           role: (userRole?.role || 'colaborador') as AppRole,
-          email: '', // We don't expose emails for security
+          email: '',
         };
       });
       setMembers(membersWithRoles);
@@ -51,6 +62,64 @@ export default function Team() {
   useEffect(() => {
     fetchTeamMembers();
   }, []);
+
+  const handleAddMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMemberForm.email || !newMemberForm.password || !newMemberForm.full_name) {
+      toast({ variant: 'destructive', title: 'Preencha todos os campos obrigatórios' });
+      return;
+    }
+
+    if (newMemberForm.password.length < 6) {
+      toast({ variant: 'destructive', title: 'A senha deve ter pelo menos 6 caracteres' });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Create user via Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: newMemberForm.email,
+        password: newMemberForm.password,
+        options: {
+          data: { full_name: newMemberForm.full_name }
+        }
+      });
+
+      if (authError) {
+        toast({ variant: 'destructive', title: 'Erro ao criar usuário', description: authError.message });
+        return;
+      }
+
+      if (authData.user) {
+        // Update role if not colaborador (default)
+        if (newMemberForm.role !== 'colaborador') {
+          const { error: roleError } = await supabase
+            .from('user_roles')
+            .update({ role: newMemberForm.role })
+            .eq('user_id', authData.user.id);
+
+          if (roleError) {
+            console.error('Error updating role:', roleError);
+          }
+        }
+
+        toast({ title: 'Colaborador adicionado com sucesso!' });
+        setIsAddDialogOpen(false);
+        setNewMemberForm({ email: '', password: '', full_name: '', role: 'colaborador' });
+        
+        // Wait a bit for the trigger to create profile
+        setTimeout(() => {
+          fetchTeamMembers();
+        }, 1000);
+      }
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Erro ao adicionar colaborador' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleRoleChange = async (userId: string, newRole: AppRole) => {
     if (!isAdmin) {
@@ -72,6 +141,34 @@ export default function Team() {
       toast({ variant: 'destructive', title: 'Erro ao atualizar cargo', description: error.message });
     } else {
       toast({ title: 'Cargo atualizado com sucesso!' });
+      fetchTeamMembers();
+    }
+  };
+
+  const handleRemoveMember = async (userId: string, memberName: string) => {
+    if (!isAdmin) {
+      toast({ variant: 'destructive', title: 'Apenas administradores podem remover membros' });
+      return;
+    }
+
+    if (userId === user?.id) {
+      toast({ variant: 'destructive', title: 'Você não pode remover sua própria conta' });
+      return;
+    }
+
+    const confirmed = window.confirm(`Tem certeza que deseja remover ${memberName}?`);
+    if (!confirmed) return;
+
+    // Delete profile (will cascade to user_roles due to FK constraints)
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erro ao remover membro', description: error.message });
+    } else {
+      toast({ title: 'Membro removido com sucesso!' });
       fetchTeamMembers();
     }
   };
@@ -117,11 +214,83 @@ export default function Team() {
 
   return (
     <div className="space-y-6 animate-in">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Equipe</h1>
-        <p className="text-muted-foreground mt-1">
-          Gerencie os membros da sua agência
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Equipe</h1>
+          <p className="text-muted-foreground mt-1">
+            Gerencie os membros da sua agência
+          </p>
+        </div>
+        {isAdmin && (
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Colaborador
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Adicionar Novo Colaborador</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleAddMember} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Nome Completo *</Label>
+                  <Input
+                    value={newMemberForm.full_name}
+                    onChange={(e) => setNewMemberForm({ ...newMemberForm, full_name: e.target.value })}
+                    placeholder="Nome do colaborador"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email *</Label>
+                  <Input
+                    type="email"
+                    value={newMemberForm.email}
+                    onChange={(e) => setNewMemberForm({ ...newMemberForm, email: e.target.value })}
+                    placeholder="email@exemplo.com"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Senha *</Label>
+                  <Input
+                    type="password"
+                    value={newMemberForm.password}
+                    onChange={(e) => setNewMemberForm({ ...newMemberForm, password: e.target.value })}
+                    placeholder="Mínimo 6 caracteres"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Cargo</Label>
+                  <Select
+                    value={newMemberForm.role}
+                    onValueChange={(value: AppRole) => setNewMemberForm({ ...newMemberForm, role: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="colaborador">Colaborador</SelectItem>
+                      <SelectItem value="gerente">Gerente</SelectItem>
+                      <SelectItem value="admin">Administrador</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? 'Adicionando...' : 'Adicionar'}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {/* Stats */}
@@ -204,21 +373,31 @@ export default function Team() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                       {isAdmin && member.user_id !== user?.id ? (
-                        <Select
-                          value={member.role}
-                          onValueChange={(value: AppRole) => handleRoleChange(member.user_id, value)}
-                        >
-                          <SelectTrigger className="w-40">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="admin">Administrador</SelectItem>
-                            <SelectItem value="gerente">Gerente</SelectItem>
-                            <SelectItem value="colaborador">Colaborador</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <>
+                          <Select
+                            value={member.role}
+                            onValueChange={(value: AppRole) => handleRoleChange(member.user_id, value)}
+                          >
+                            <SelectTrigger className="w-40">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">Administrador</SelectItem>
+                              <SelectItem value="gerente">Gerente</SelectItem>
+                              <SelectItem value="colaborador">Colaborador</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleRemoveMember(member.user_id, member.full_name)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
                       ) : (
                         <Badge variant={getRoleBadgeVariant(member.role)} className="flex items-center gap-1.5">
                           <RoleIcon className="h-3 w-3" />
