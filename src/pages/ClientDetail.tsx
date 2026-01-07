@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { FileUpload } from '@/components/FileUpload';
+import { DriveExplorer } from '@/components/drive/DriveExplorer';
 import { 
   ArrowLeft, 
   Building2, 
@@ -31,7 +32,8 @@ import {
   Share2,
   Pencil,
   Image as ImageIcon,
-  Download
+  Download,
+  HardDrive
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -69,6 +71,13 @@ interface ClientFolder {
   file_url: string | null;
 }
 
+interface ClientDriveFolder {
+  id: string;
+  folder_id: string;
+  folder_name: string;
+  folder_type: string | null;
+}
+
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -78,6 +87,9 @@ export default function ClientDetail() {
   const [client, setClient] = useState<Client | null>(null);
   const [passwords, setPasswords] = useState<ClientPassword[]>([]);
   const [folders, setFolders] = useState<ClientFolder[]>([]);
+  const [driveFolder, setDriveFolder] = useState<ClientDriveFolder | null>(null);
+  const [isDriveLinkDialogOpen, setIsDriveLinkDialogOpen] = useState(false);
+  const [driveLinkInput, setDriveLinkInput] = useState('');
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [isColorDialogOpen, setIsColorDialogOpen] = useState(false);
@@ -124,6 +136,7 @@ export default function ClientDetail() {
       fetchClient();
       fetchPasswords();
       fetchFolders();
+      fetchDriveFolder();
     }
   }, [id]);
 
@@ -166,6 +179,75 @@ export default function ClientDetail() {
 
     if (data) {
       setFolders(data);
+    }
+  };
+
+  const fetchDriveFolder = async () => {
+    const { data } = await supabase
+      .from('client_drive_folders')
+      .select('*')
+      .eq('client_id', id)
+      .limit(1)
+      .maybeSingle();
+
+    if (data) {
+      setDriveFolder(data);
+    }
+  };
+
+  const extractFolderIdFromUrl = (url: string): string | null => {
+    // Patterns: 
+    // https://drive.google.com/drive/folders/FOLDER_ID
+    // https://drive.google.com/drive/u/0/folders/FOLDER_ID
+    const match = url.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+    return match ? match[1] : null;
+  };
+
+  const handleLinkDriveFolder = async () => {
+    const folderId = extractFolderIdFromUrl(driveLinkInput) || driveLinkInput.trim();
+    
+    if (!folderId) {
+      toast({ variant: 'destructive', title: 'ID da pasta inválido' });
+      return;
+    }
+
+    // Check if already exists
+    if (driveFolder) {
+      // Update existing
+      const { error } = await supabase
+        .from('client_drive_folders')
+        .update({ folder_id: folderId, folder_name: 'Pasta Principal' })
+        .eq('id', driveFolder.id);
+
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao atualizar pasta', description: error.message });
+      } else {
+        setDriveFolder({ ...driveFolder, folder_id: folderId });
+        setIsDriveLinkDialogOpen(false);
+        setDriveLinkInput('');
+        toast({ title: 'Pasta do Drive atualizada!' });
+      }
+    } else {
+      // Insert new
+      const { data, error } = await supabase
+        .from('client_drive_folders')
+        .insert({
+          client_id: id,
+          folder_id: folderId,
+          folder_name: 'Pasta Principal',
+          created_by: user?.id,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao vincular pasta', description: error.message });
+      } else {
+        setDriveFolder(data);
+        setIsDriveLinkDialogOpen(false);
+        setDriveLinkInput('');
+        toast({ title: 'Pasta do Drive vinculada!' });
+      }
     }
   };
 
@@ -544,6 +626,10 @@ export default function ClientDetail() {
           <TabsTrigger value="social">Redes Sociais</TabsTrigger>
           <TabsTrigger value="palette">Paleta de Cores</TabsTrigger>
           <TabsTrigger value="folders">Pastas</TabsTrigger>
+          <TabsTrigger value="drive" className="flex items-center gap-1">
+            <HardDrive className="h-4 w-4" />
+            Drive
+          </TabsTrigger>
           {isAdminOrManager && <TabsTrigger value="passwords">Senhas</TabsTrigger>}
         </TabsList>
 
@@ -1084,6 +1170,77 @@ export default function ClientDetail() {
             </Card>
           </TabsContent>
         )}
+
+        {/* Drive Tab */}
+        <TabsContent value="drive" className="mt-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <HardDrive className="h-5 w-5" />
+                Google Drive
+              </CardTitle>
+              <Dialog open={isDriveLinkDialogOpen} onOpenChange={setIsDriveLinkDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant={driveFolder ? "outline" : "default"}>
+                    {driveFolder ? (
+                      <>
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Alterar Pasta
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Vincular Pasta
+                      </>
+                    )}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>
+                      {driveFolder ? 'Alterar Pasta do Drive' : 'Vincular Pasta do Google Drive'}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Link ou ID da Pasta</Label>
+                      <Input
+                        value={driveLinkInput}
+                        onChange={(e) => setDriveLinkInput(e.target.value)}
+                        placeholder="https://drive.google.com/drive/folders/..."
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Cole o link da pasta do Google Drive ou apenas o ID da pasta
+                      </p>
+                    </div>
+                    <div className="flex justify-end gap-3">
+                      <Button variant="outline" onClick={() => setIsDriveLinkDialogOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button onClick={handleLinkDriveFolder}>
+                        {driveFolder ? 'Atualizar' : 'Vincular'}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              {driveFolder ? (
+                <DriveExplorer folderId={driveFolder.folder_id} />
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <HardDrive className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="mb-4">Nenhuma pasta do Drive vinculada a este cliente</p>
+                  <Button onClick={() => setIsDriveLinkDialogOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Vincular Pasta do Drive
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Confirm Dialog */}
