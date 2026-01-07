@@ -1,18 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { StatsCard } from '@/components/layout/StatsCard';
 import { EmptyState } from '@/components/layout/EmptyState';
+import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
+import { VisitFormDialog, VisitFormValues } from '@/components/forms/VisitFormDialog';
 import { Plus, MapPin, Calendar, Video, Package, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -43,28 +39,6 @@ interface Visit {
   equipment?: Equipment[];
 }
 
-interface VisitForm {
-  title: string;
-  description: string;
-  location: string;
-  visit_date: string;
-  client_id: string;
-  status: 'agendada' | 'realizada' | 'cancelada';
-  notes: string;
-  equipment_ids: string[];
-}
-
-const initialForm: VisitForm = {
-  title: '',
-  description: '',
-  location: '',
-  visit_date: '',
-  client_id: '',
-  status: 'agendada',
-  notes: '',
-  equipment_ids: [],
-};
-
 export default function FilmmakerVisits() {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -72,7 +46,11 @@ export default function FilmmakerVisits() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
-  const [form, setForm] = useState<VisitForm>(initialForm);
+  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; id: string; title: string }>({
+    open: false,
+    id: '',
+    title: '',
+  });
   const { user, role, isAdminOrManager } = useAuth();
   const { toast } = useToast();
 
@@ -114,13 +92,7 @@ export default function FilmmakerVisits() {
     fetchData();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.title || !form.visit_date) {
-      toast({ variant: 'destructive', title: 'Preencha os campos obrigatórios' });
-      return;
-    }
-
+  const handleSubmit = async (data: VisitFormValues) => {
     setIsLoading(true);
 
     try {
@@ -128,13 +100,13 @@ export default function FilmmakerVisits() {
         const { error } = await supabase
           .from('filmmaker_visits')
           .update({
-            title: form.title,
-            description: form.description || null,
-            location: form.location || null,
-            visit_date: form.visit_date,
-            client_id: form.client_id || null,
-            status: form.status,
-            notes: form.notes || null,
+            title: data.title,
+            description: data.description || null,
+            location: data.location || null,
+            visit_date: data.visit_date,
+            client_id: data.client_id || null,
+            status: data.status,
+            notes: data.notes || null,
           })
           .eq('id', editingVisit.id);
 
@@ -142,9 +114,9 @@ export default function FilmmakerVisits() {
 
         await supabase.from('visit_equipment').delete().eq('visit_id', editingVisit.id);
         
-        if (form.equipment_ids.length > 0) {
+        if (data.equipment_ids.length > 0) {
           await supabase.from('visit_equipment').insert(
-            form.equipment_ids.map(eq_id => ({
+            data.equipment_ids.map(eq_id => ({
               visit_id: editingVisit.id,
               equipment_id: eq_id,
             }))
@@ -153,27 +125,27 @@ export default function FilmmakerVisits() {
 
         toast({ title: 'Visita atualizada com sucesso!' });
       } else {
-        const { data, error } = await supabase
+        const { data: newVisit, error } = await supabase
           .from('filmmaker_visits')
           .insert({
             filmmaker_id: user?.id,
-            title: form.title,
-            description: form.description || null,
-            location: form.location || null,
-            visit_date: form.visit_date,
-            client_id: form.client_id || null,
-            status: form.status,
-            notes: form.notes || null,
+            title: data.title,
+            description: data.description || null,
+            location: data.location || null,
+            visit_date: data.visit_date,
+            client_id: data.client_id || null,
+            status: data.status,
+            notes: data.notes || null,
           })
           .select()
           .single();
 
         if (error) throw error;
 
-        if (data && form.equipment_ids.length > 0) {
+        if (newVisit && data.equipment_ids.length > 0) {
           await supabase.from('visit_equipment').insert(
-            form.equipment_ids.map(eq_id => ({
-              visit_id: data.id,
+            data.equipment_ids.map(eq_id => ({
+              visit_id: newVisit.id,
               equipment_id: eq_id,
             }))
           );
@@ -184,7 +156,6 @@ export default function FilmmakerVisits() {
 
       setIsDialogOpen(false);
       setEditingVisit(null);
-      setForm(initialForm);
       fetchData();
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao salvar visita', description: error.message });
@@ -195,23 +166,11 @@ export default function FilmmakerVisits() {
 
   const handleEdit = (visit: Visit) => {
     setEditingVisit(visit);
-    setForm({
-      title: visit.title,
-      description: visit.description || '',
-      location: visit.location || '',
-      visit_date: visit.visit_date.slice(0, 16),
-      client_id: visit.client_id || '',
-      status: visit.status,
-      notes: visit.notes || '',
-      equipment_ids: visit.equipment?.map(e => e.id) || [],
-    });
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (visitId: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta visita?')) return;
-
-    const { error } = await supabase.from('filmmaker_visits').delete().eq('id', visitId);
+  const handleDelete = async () => {
+    const { error } = await supabase.from('filmmaker_visits').delete().eq('id', confirmDialog.id);
 
     if (error) {
       toast({ variant: 'destructive', title: 'Erro ao excluir visita', description: error.message });
@@ -219,6 +178,7 @@ export default function FilmmakerVisits() {
       toast({ title: 'Visita excluída com sucesso!' });
       fetchData();
     }
+    setConfirmDialog({ open: false, id: '', title: '' });
   };
 
   const getStatusBadge = (status: string) => {
@@ -240,6 +200,20 @@ export default function FilmmakerVisits() {
     cancelada: visits.filter(v => v.status === 'cancelada'),
   };
 
+  const getDefaultValues = (): Partial<VisitFormValues> | undefined => {
+    if (!editingVisit) return undefined;
+    return {
+      title: editingVisit.title,
+      description: editingVisit.description || '',
+      location: editingVisit.location || '',
+      visit_date: editingVisit.visit_date.slice(0, 16),
+      client_id: editingVisit.client_id || '',
+      status: editingVisit.status,
+      notes: editingVisit.notes || '',
+      equipment_ids: editingVisit.equipment?.map(e => e.id) || [],
+    };
+  };
+
   return (
     <div className="space-y-6 animate-in">
       <PageHeader
@@ -247,146 +221,27 @@ export default function FilmmakerVisits() {
         description="Gerencie suas visitas de filmagem"
         action={
           canCreate && (
-            <Dialog open={isDialogOpen} onOpenChange={(open) => {
-              setIsDialogOpen(open);
-              if (!open) {
-                setEditingVisit(null);
-                setForm(initialForm);
-              }
-            }}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Nova Visita
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>{editingVisit ? 'Editar Visita' : 'Nova Visita'}</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-                  <div className="space-y-2">
-                    <Label>Título</Label>
-                    <Input
-                      value={form.title}
-                      onChange={(e) => setForm({ ...form, title: e.target.value })}
-                      placeholder="Título da visita"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Data e Hora</Label>
-                      <Input
-                        type="datetime-local"
-                        value={form.visit_date}
-                        onChange={(e) => setForm({ ...form, visit_date: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Status</Label>
-                      <Select
-                        value={form.status}
-                        onValueChange={(value: 'agendada' | 'realizada' | 'cancelada') => setForm({ ...form, status: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="agendada">Agendada</SelectItem>
-                          <SelectItem value="realizada">Realizada</SelectItem>
-                          <SelectItem value="cancelada">Cancelada</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Cliente</Label>
-                    <Select
-                      value={form.client_id}
-                      onValueChange={(value) => setForm({ ...form, client_id: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um cliente" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clients.map((client) => (
-                          <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Local</Label>
-                    <Input
-                      value={form.location}
-                      onChange={(e) => setForm({ ...form, location: e.target.value })}
-                      placeholder="Endereço ou local da visita"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Descrição</Label>
-                    <Textarea
-                      value={form.description}
-                      onChange={(e) => setForm({ ...form, description: e.target.value })}
-                      placeholder="Detalhes da visita"
-                      rows={2}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Equipamentos</Label>
-                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-xl p-3 bg-muted/30">
-                      {equipment.map((eq) => (
-                        <div key={eq.id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={eq.id}
-                            checked={form.equipment_ids.includes(eq.id)}
-                            onCheckedChange={(checked) => {
-                              setForm({
-                                ...form,
-                                equipment_ids: checked
-                                  ? [...form.equipment_ids, eq.id]
-                                  : form.equipment_ids.filter(id => id !== eq.id),
-                              });
-                            }}
-                          />
-                          <label htmlFor={eq.id} className="text-sm cursor-pointer">
-                            {eq.name}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Observações</Label>
-                    <Textarea
-                      value={form.notes}
-                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                      placeholder="Notas adicionais"
-                      rows={2}
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-2">
-                    <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>
-                      Cancelar
-                    </Button>
-                    <Button type="submit" disabled={isLoading}>
-                      {isLoading ? 'Salvando...' : (editingVisit ? 'Salvar' : 'Criar')}
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <Button size="sm" className="gap-2" onClick={() => setIsDialogOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Nova Visita
+            </Button>
           )
         }
+      />
+
+      {/* Form Dialog */}
+      <VisitFormDialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setEditingVisit(null);
+        }}
+        onSubmit={handleSubmit}
+        defaultValues={getDefaultValues()}
+        clients={clients}
+        equipment={equipment}
+        isEditing={!!editingVisit}
+        isLoading={isLoading}
       />
 
       {/* Stats */}
@@ -466,7 +321,12 @@ export default function FilmmakerVisits() {
                         Editar
                       </Button>
                       {isAdminOrManager && (
-                        <Button variant="ghost" size="sm" className="text-xs h-7 text-destructive hover:text-destructive" onClick={() => handleDelete(visit.id)}>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-xs h-7 text-destructive hover:text-destructive" 
+                          onClick={() => setConfirmDialog({ open: true, id: visit.id, title: visit.title })}
+                        >
                           Excluir
                         </Button>
                       )}
@@ -478,6 +338,17 @@ export default function FilmmakerVisits() {
           )}
         </div>
       </div>
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+        title="Excluir visita"
+        description={`Tem certeza que deseja excluir "${confirmDialog.title}"? Esta ação não pode ser desfeita.`}
+        confirmText="Excluir"
+        onConfirm={handleDelete}
+        variant="destructive"
+      />
     </div>
   );
 }
