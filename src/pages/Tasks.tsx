@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,7 +10,7 @@ import {
   Circle, 
   Loader2,
   ListTodo,
-  LayoutGrid
+  AlertTriangle
 } from 'lucide-react';
 import { 
   DndContext, 
@@ -23,6 +23,7 @@ import {
   useSensors,
   TouchSensor
 } from '@dnd-kit/core';
+import { isPast, isToday } from 'date-fns';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { StatsCard } from '@/components/layout/StatsCard';
 import { StatsSkeleton } from '@/components/layout/CardSkeleton';
@@ -35,6 +36,7 @@ import { useClients } from '@/hooks/useClients';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { TaskCard } from '@/components/kanban/TaskCard';
 import { TaskFilters } from '@/components/kanban/TaskFilters';
+import { TaskAlerts } from '@/components/kanban/TaskAlerts';
 
 type TaskStatus = 'a_fazer' | 'fazendo' | 'feito';
 
@@ -126,11 +128,30 @@ export default function Tasks() {
     return filteredTasks.filter(t => t.status === status);
   };
 
+  // Count overdue tasks
+  const overdueCount = useMemo(() => {
+    return tasks.filter(t => 
+      t.status !== 'feito' && 
+      t.due_date && 
+      isPast(new Date(t.due_date)) && 
+      !isToday(new Date(t.due_date))
+    ).length;
+  }, [tasks]);
+
   const clearFilters = () => {
     setSearchTerm('');
     setPriorityFilter('all');
     setAssignedFilter('all');
     setClientFilter('all');
+  };
+
+  const handleTaskAlertClick = (taskId: string) => {
+    // Find the task and scroll to it / highlight it
+    const task = tasks.find(t => t.id === taskId);
+    if (task) {
+      setEditingTask(task as Task);
+      setIsDialogOpen(true);
+    }
   };
 
   const handleSubmit = async (data: TaskFormValues) => {
@@ -327,6 +348,18 @@ export default function Tasks() {
         } : undefined}
       />
 
+      {/* Task Alerts */}
+      {!isLoading && tasks.length > 0 && (
+        <Card>
+          <CardContent className="py-4">
+            <TaskAlerts 
+              tasks={tasks as Task[]} 
+              onTaskClick={handleTaskAlertClick}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {/* Filters */}
       <Card>
         <CardContent className="py-4">
@@ -349,13 +382,21 @@ export default function Tasks() {
 
       {/* Stats */}
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-3">
-          {[...Array(3)].map((_, i) => (
+        <div className="grid gap-4 sm:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
             <StatsSkeleton key={i} />
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-4">
+          {overdueCount > 0 && (
+            <StatsCard
+              title="Atrasadas"
+              value={overdueCount}
+              icon={AlertTriangle}
+              variant="destructive"
+            />
+          )}
           <StatsCard
             title="A Fazer"
             value={getTasksByStatus('a_fazer').length}
