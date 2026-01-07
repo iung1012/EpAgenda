@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,27 +14,13 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { CardSkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
-
-interface Client {
-  id: string;
-  name: string;
-  logo_url: string | null;
-  segment: string | null;
-  contact_name: string | null;
-  contact_email: string | null;
-  color_palette: string[];
-  social_links: Record<string, string>;
-  google_drive_link: string | null;
-  trello_link: string | null;
-}
+import { useClients } from '@/hooks/useClients';
 
 export default function Clients() {
-  const [clients, setClients] = useState<Client[]>([]);
+  const { clients, isLoading, error, refetch } = useClients();
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     segment: '',
@@ -49,37 +35,6 @@ export default function Clients() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  const fetchClients = async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    const { data, error: fetchError } = await supabase
-      .from('clients')
-      .select('*')
-      .order('name');
-
-    if (fetchError) {
-      setError(fetchError.message);
-      setIsLoading(false);
-      return;
-    }
-
-    if (data) {
-      setClients(data.map(c => ({
-        ...c,
-        color_palette: Array.isArray(c.color_palette) ? (c.color_palette as string[]) : [],
-        social_links: typeof c.social_links === 'object' && c.social_links !== null 
-          ? c.social_links as Record<string, string> 
-          : {},
-      })));
-    }
-    setIsLoading(false);
-  };
-
-  useEffect(() => {
-    fetchClients();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,7 +65,7 @@ export default function Clients() {
         trello_link: '',
         notes: '',
       });
-      fetchClients();
+      refetch();
     }
   };
 
@@ -128,7 +83,7 @@ export default function Clients() {
         />
         <Card>
           <CardContent className="pt-6">
-            <ErrorState onRetry={fetchClients} />
+            <ErrorState onRetry={refetch} />
           </CardContent>
         </Card>
       </div>
