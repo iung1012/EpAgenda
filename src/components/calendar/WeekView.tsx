@@ -4,7 +4,7 @@ import { CalendarEvent } from '@/hooks/useCalendarEvents';
 import { Clock } from 'lucide-react';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CSS } from '@dnd-kit/utilities';
 
 interface WeekViewProps {
@@ -61,9 +61,11 @@ interface DroppableSlotProps {
   children: React.ReactNode;
   onClick: () => void;
   isToday: boolean;
+  isCurrentHour?: boolean;
+  currentMinuteOffset?: number;
 }
 
-function DroppableSlot({ day, hour, children, onClick, isToday }: DroppableSlotProps) {
+function DroppableSlot({ day, hour, children, onClick, isToday, isCurrentHour, currentMinuteOffset }: DroppableSlotProps) {
   const slotId = `${format(day, 'yyyy-MM-dd')}-${hour}`;
   const { setNodeRef, isOver } = useDroppable({
     id: slotId,
@@ -78,6 +80,12 @@ function DroppableSlot({ day, hour, children, onClick, isToday }: DroppableSlotP
       } ${isToday ? 'bg-primary/5' : ''}`}
       onClick={onClick}
     >
+      {isCurrentHour && currentMinuteOffset !== undefined && (
+        <div 
+          className="absolute left-0 right-0 h-0.5 bg-destructive z-20"
+          style={{ top: `${(currentMinuteOffset / 60) * 100}%` }}
+        />
+      )}
       {children}
     </div>
   );
@@ -88,6 +96,15 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 });
   const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
   const [activeEvent, setActiveEvent] = useState<CalendarEvent | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update current time every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -159,31 +176,44 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
 
         {/* Time grid */}
         <div className="grid grid-cols-8">
-          {/* Hours column */}
+        {/* Hours column */}
           <div className="border-r">
-            {HOURS.map((hour) => (
-              <div
-                key={hour}
-                className="h-16 border-b text-xs text-muted-foreground p-1 text-right pr-2"
-              >
-                {String(hour).padStart(2, '0')}:00
-              </div>
-            ))}
+            {HOURS.map((hour) => {
+              const isCurrentHour = isSameDay(currentTime, new Date()) && currentTime.getHours() === hour;
+              return (
+                <div
+                  key={hour}
+                  className={`h-16 border-b text-xs text-muted-foreground p-1 text-right pr-2 ${isCurrentHour ? 'bg-primary/10 font-medium text-destructive' : ''}`}
+                >
+                  {String(hour).padStart(2, '0')}:00
+                </div>
+              );
+            })}
           </div>
 
           {/* Day columns */}
           {days.map((day) => {
             const isToday = isSameDay(day, new Date());
             return (
-              <div key={day.toISOString()} className="border-r last:border-r-0">
+              <div key={day.toISOString()} className="border-r last:border-r-0 relative">
+                {/* Current time indicator for today column */}
+                {isToday && (
+                  <div 
+                    className="absolute left-0 w-2 h-2 rounded-full bg-destructive z-30 -translate-x-1/2"
+                    style={{ top: `${((currentTime.getHours() * 60 + currentTime.getMinutes()) / (24 * 60)) * (16 * 24)}px` }}
+                  />
+                )}
                 {HOURS.map((hour) => {
                   const hourEvents = getEventsForDayAndHour(day, hour);
+                  const isCurrentHour = isToday && currentTime.getHours() === hour;
                   return (
                     <DroppableSlot
                       key={hour}
                       day={day}
                       hour={hour}
                       isToday={isToday}
+                      isCurrentHour={isCurrentHour}
+                      currentMinuteOffset={isCurrentHour ? currentTime.getMinutes() : undefined}
                       onClick={() => onTimeSlotClick(day, `${String(hour).padStart(2, '0')}:00`)}
                     >
                       {hourEvents.map((event) => (
