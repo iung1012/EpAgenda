@@ -233,10 +233,21 @@ serve(async (req) => {
     const serviceAccount: ServiceAccountKey = JSON.parse(serviceAccountKeyJson);
     const accessToken = await getAccessToken(serviceAccount);
 
+    // Helper to extract folder ID from URL or return as-is
+    const extractFolderId = (input: string | null | undefined): string | null => {
+      if (!input) return null;
+      // If it's a Google Drive URL, extract the folder ID
+      const match = input.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+      if (match) return match[1];
+      // Otherwise return as-is (assuming it's already an ID)
+      return input;
+    };
+
     // Parse URL and get action
     const url = new URL(req.url);
     const action = url.searchParams.get('action');
-    const folderId = url.searchParams.get('folderId') || Deno.env.get('GOOGLE_DRIVE_ROOT_FOLDER_ID');
+    const rawFolderId = url.searchParams.get('folderId') || Deno.env.get('GOOGLE_DRIVE_ROOT_FOLDER_ID');
+    const folderId = extractFolderId(rawFolderId);
     const fileId = url.searchParams.get('fileId');
     const searchQuery = url.searchParams.get('search');
 
