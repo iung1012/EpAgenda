@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { StatsCard } from '@/components/layout/StatsCard';
+import { EmptyState } from '@/components/layout/EmptyState';
 import { Plus, MapPin, Calendar, Video, Package, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -88,7 +90,6 @@ export default function FilmmakerVisits() {
     if (equipmentRes.data) setEquipment(equipmentRes.data);
 
     if (visitsRes.data) {
-      // Fetch equipment for each visit
       const visitsWithDetails = await Promise.all(
         visitsRes.data.map(async (visit) => {
           const client = clientsRes.data?.find(c => c.id === visit.client_id) || null;
@@ -124,7 +125,6 @@ export default function FilmmakerVisits() {
 
     try {
       if (editingVisit) {
-        // Update visit
         const { error } = await supabase
           .from('filmmaker_visits')
           .update({
@@ -140,7 +140,6 @@ export default function FilmmakerVisits() {
 
         if (error) throw error;
 
-        // Update equipment
         await supabase.from('visit_equipment').delete().eq('visit_id', editingVisit.id);
         
         if (form.equipment_ids.length > 0) {
@@ -154,7 +153,6 @@ export default function FilmmakerVisits() {
 
         toast({ title: 'Visita atualizada com sucesso!' });
       } else {
-        // Create visit
         const { data, error } = await supabase
           .from('filmmaker_visits')
           .insert({
@@ -172,7 +170,6 @@ export default function FilmmakerVisits() {
 
         if (error) throw error;
 
-        // Add equipment
         if (data && form.equipment_ids.length > 0) {
           await supabase.from('visit_equipment').insert(
             form.equipment_ids.map(eq_id => ({
@@ -227,11 +224,11 @@ export default function FilmmakerVisits() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'agendada':
-        return <Badge variant="outline" className="gap-1"><Clock className="h-3 w-3" /> Agendada</Badge>;
+        return <Badge variant="outline" className="gap-1 text-xs"><Clock className="h-3 w-3" /> Agendada</Badge>;
       case 'realizada':
-        return <Badge variant="default" className="gap-1 bg-green-600"><CheckCircle className="h-3 w-3" /> Realizada</Badge>;
+        return <Badge className="gap-1 text-xs bg-green-600 hover:bg-green-600"><CheckCircle className="h-3 w-3" /> Realizada</Badge>;
       case 'cancelada':
-        return <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" /> Cancelada</Badge>;
+        return <Badge variant="destructive" className="gap-1 text-xs"><XCircle className="h-3 w-3" /> Cancelada</Badge>;
       default:
         return null;
     }
@@ -245,277 +242,242 @@ export default function FilmmakerVisits() {
 
   return (
     <div className="space-y-6 animate-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Visitas</h1>
-          <p className="text-muted-foreground mt-1">
-            Gerencie suas visitas de filmagem
-          </p>
-        </div>
-        {canCreate && (
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) {
-              setEditingVisit(null);
-              setForm(initialForm);
-            }
-          }}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Visita
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{editingVisit ? 'Editar Visita' : 'Nova Visita'}</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Título *</Label>
-                  <Input
-                    value={form.title}
-                    onChange={(e) => setForm({ ...form, title: e.target.value })}
-                    placeholder="Título da visita"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+      <PageHeader
+        title="Visitas"
+        description="Gerencie suas visitas de filmagem"
+        action={
+          canCreate && (
+            <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) {
+                setEditingVisit(null);
+                setForm(initialForm);
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Nova Visita
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{editingVisit ? 'Editar Visita' : 'Nova Visita'}</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4 pt-2">
                   <div className="space-y-2">
-                    <Label>Data e Hora *</Label>
+                    <Label>Título</Label>
                     <Input
-                      type="datetime-local"
-                      value={form.visit_date}
-                      onChange={(e) => setForm({ ...form, visit_date: e.target.value })}
+                      value={form.title}
+                      onChange={(e) => setForm({ ...form, title: e.target.value })}
+                      placeholder="Título da visita"
                       required
                     />
                   </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Data e Hora</Label>
+                      <Input
+                        type="datetime-local"
+                        value={form.visit_date}
+                        onChange={(e) => setForm({ ...form, visit_date: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      <Select
+                        value={form.status}
+                        onValueChange={(value: 'agendada' | 'realizada' | 'cancelada') => setForm({ ...form, status: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="agendada">Agendada</SelectItem>
+                          <SelectItem value="realizada">Realizada</SelectItem>
+                          <SelectItem value="cancelada">Cancelada</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <Label>Status</Label>
+                    <Label>Cliente</Label>
                     <Select
-                      value={form.status}
-                      onValueChange={(value: 'agendada' | 'realizada' | 'cancelada') => setForm({ ...form, status: value })}
+                      value={form.client_id}
+                      onValueChange={(value) => setForm({ ...form, client_id: value })}
                     >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder="Selecione um cliente" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="agendada">Agendada</SelectItem>
-                        <SelectItem value="realizada">Realizada</SelectItem>
-                        <SelectItem value="cancelada">Cancelada</SelectItem>
+                        {clients.map((client) => (
+                          <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label>Cliente</Label>
-                  <Select
-                    value={form.client_id}
-                    onValueChange={(value) => setForm({ ...form, client_id: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um cliente" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Local</Label>
-                  <Input
-                    value={form.location}
-                    onChange={(e) => setForm({ ...form, location: e.target.value })}
-                    placeholder="Endereço ou local da visita"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Descrição</Label>
-                  <Textarea
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    placeholder="Detalhes da visita"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Equipamentos</Label>
-                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-lg p-3">
-                    {equipment.map((eq) => (
-                      <div key={eq.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={eq.id}
-                          checked={form.equipment_ids.includes(eq.id)}
-                          onCheckedChange={(checked) => {
-                            setForm({
-                              ...form,
-                              equipment_ids: checked
-                                ? [...form.equipment_ids, eq.id]
-                                : form.equipment_ids.filter(id => id !== eq.id),
-                            });
-                          }}
-                        />
-                        <label htmlFor={eq.id} className="text-sm cursor-pointer">
-                          {eq.name}
-                        </label>
-                      </div>
-                    ))}
+                  <div className="space-y-2">
+                    <Label>Local</Label>
+                    <Input
+                      value={form.location}
+                      onChange={(e) => setForm({ ...form, location: e.target.value })}
+                      placeholder="Endereço ou local da visita"
+                    />
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label>Observações</Label>
-                  <Textarea
-                    value={form.notes}
-                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                    placeholder="Notas adicionais"
-                    rows={2}
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <Label>Descrição</Label>
+                    <Textarea
+                      value={form.description}
+                      onChange={(e) => setForm({ ...form, description: e.target.value })}
+                      placeholder="Detalhes da visita"
+                      rows={2}
+                    />
+                  </div>
 
-                <div className="flex justify-end gap-3 pt-2">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={isLoading}>
-                    {isLoading ? 'Salvando...' : (editingVisit ? 'Salvar' : 'Criar')}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
+                  <div className="space-y-2">
+                    <Label>Equipamentos</Label>
+                    <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border rounded-xl p-3 bg-muted/30">
+                      {equipment.map((eq) => (
+                        <div key={eq.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={eq.id}
+                            checked={form.equipment_ids.includes(eq.id)}
+                            onCheckedChange={(checked) => {
+                              setForm({
+                                ...form,
+                                equipment_ids: checked
+                                  ? [...form.equipment_ids, eq.id]
+                                  : form.equipment_ids.filter(id => id !== eq.id),
+                              });
+                            }}
+                          />
+                          <label htmlFor={eq.id} className="text-sm cursor-pointer">
+                            {eq.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Observações</Label>
+                    <Textarea
+                      value={form.notes}
+                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                      placeholder="Notas adicionais"
+                      rows={2}
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit" disabled={isLoading}>
+                      {isLoading ? 'Salvando...' : (editingVisit ? 'Salvar' : 'Criar')}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )
+        }
+      />
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Clock className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-semibold">{groupedVisits.agendada.length}</p>
-                <p className="text-sm text-muted-foreground">Agendadas</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-semibold">{groupedVisits.realizada.length}</p>
-                <p className="text-sm text-muted-foreground">Realizadas</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-destructive/10 flex items-center justify-center">
-                <XCircle className="h-6 w-6 text-destructive" />
-              </div>
-              <div>
-                <p className="text-2xl font-semibold">{groupedVisits.cancelada.length}</p>
-                <p className="text-sm text-muted-foreground">Canceladas</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StatsCard
+          title="Agendadas"
+          value={groupedVisits.agendada.length}
+          icon={Clock}
+        />
+        <StatsCard
+          title="Realizadas"
+          value={groupedVisits.realizada.length}
+          icon={CheckCircle}
+          variant="success"
+        />
+        <StatsCard
+          title="Canceladas"
+          value={groupedVisits.cancelada.length}
+          icon={XCircle}
+          variant="destructive"
+        />
       </div>
 
       {/* Visits List */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Video className="h-5 w-5" />
-            Todas as Visitas
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="space-y-4">
+        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+          Todas as Visitas
+        </h2>
+        <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
           {visits.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              Nenhuma visita encontrada
-            </p>
+            <EmptyState
+              icon={Video}
+              title="Nenhuma visita encontrada"
+              description="Crie uma nova visita para começar"
+            />
           ) : (
-            <div className="space-y-4">
+            <div className="divide-y divide-border/50">
               {visits.map((visit) => (
-                <div
-                  key={visit.id}
-                  className="p-4 rounded-xl bg-secondary/30 space-y-3"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-medium">{visit.title}</h3>
+                <div key={visit.id} className="p-4 hover:bg-muted/30 transition-colors">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-medium text-sm">{visit.title}</h3>
                         {getStatusBadge(visit.status)}
                       </div>
-                      {visit.client && (
-                        <p className="text-sm text-muted-foreground">
-                          Cliente: {visit.client.name}
-                        </p>
+                      
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {format(new Date(visit.visit_date), "dd MMM 'às' HH:mm", { locale: ptBR })}
+                        </span>
+                        {visit.client && (
+                          <span>{visit.client.name}</span>
+                        )}
+                        {visit.location && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {visit.location}
+                          </span>
+                        )}
+                      </div>
+
+                      {visit.equipment && visit.equipment.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {visit.equipment.map((eq) => (
+                            <span key={eq.id} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                              <Package className="h-3 w-3" />
+                              {eq.name}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => handleEdit(visit)}>
+                    
+                    <div className="flex gap-1 flex-shrink-0">
+                      <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => handleEdit(visit)}>
                         Editar
                       </Button>
                       {isAdminOrManager && (
-                        <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(visit.id)}>
+                        <Button variant="ghost" size="sm" className="text-xs h-7 text-destructive hover:text-destructive" onClick={() => handleDelete(visit.id)}>
                           Excluir
                         </Button>
                       )}
                     </div>
                   </div>
-
-                  <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      {format(new Date(visit.visit_date), "dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
-                    </span>
-                    {visit.location && (
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {visit.location}
-                      </span>
-                    )}
-                  </div>
-
-                  {visit.equipment && visit.equipment.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      <Package className="h-4 w-4 text-muted-foreground mr-1" />
-                      {visit.equipment.map((eq) => (
-                        <Badge key={eq.id} variant="outline" className="text-xs">
-                          {eq.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  {visit.description && (
-                    <p className="text-sm text-muted-foreground">{visit.description}</p>
-                  )}
                 </div>
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
