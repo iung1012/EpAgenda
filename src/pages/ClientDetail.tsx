@@ -28,7 +28,8 @@ import {
   Upload,
   Twitter,
   Youtube,
-  Share2
+  Share2,
+  Pencil
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -95,6 +96,17 @@ export default function ClientDetail() {
   const [socialForm, setSocialForm] = useState({
     platform: 'instagram',
     url: '',
+  });
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    segment: '',
+    contact_name: '',
+    contact_email: '',
+    contact_phone: '',
+    google_drive_link: '',
+    trello_link: '',
+    notes: '',
   });
 
   useEffect(() => {
@@ -342,6 +354,61 @@ export default function ClientDetail() {
 
   const getFoldersByType = (type: string) => folders.filter(f => f.folder_type === type);
 
+  const openEditDialog = () => {
+    if (!client) return;
+    setEditForm({
+      name: client.name || '',
+      segment: client.segment || '',
+      contact_name: client.contact_name || '',
+      contact_email: client.contact_email || '',
+      contact_phone: client.contact_phone || '',
+      google_drive_link: client.google_drive_link || '',
+      trello_link: client.trello_link || '',
+      notes: client.notes || '',
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editForm.name.trim()) {
+      toast({ variant: 'destructive', title: 'Nome é obrigatório' });
+      return;
+    }
+
+    const { error } = await supabase
+      .from('clients')
+      .update({
+        name: editForm.name.trim(),
+        segment: editForm.segment || null,
+        contact_name: editForm.contact_name || null,
+        contact_email: editForm.contact_email || null,
+        contact_phone: editForm.contact_phone || null,
+        google_drive_link: editForm.google_drive_link || null,
+        trello_link: editForm.trello_link || null,
+        notes: editForm.notes || null,
+      })
+      .eq('id', id);
+
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erro ao atualizar cliente', description: error.message });
+    } else {
+      setClient({
+        ...client!,
+        name: editForm.name.trim(),
+        segment: editForm.segment || null,
+        contact_name: editForm.contact_name || null,
+        contact_email: editForm.contact_email || null,
+        contact_phone: editForm.contact_phone || null,
+        google_drive_link: editForm.google_drive_link || null,
+        trello_link: editForm.trello_link || null,
+        notes: editForm.notes || null,
+      });
+      setIsEditDialogOpen(false);
+      toast({ title: 'Cliente atualizado com sucesso!' });
+    }
+  };
+
   if (!client) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -410,8 +477,94 @@ export default function ClientDetail() {
 
         <TabsContent value="info" className="mt-6">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Informações de Contato</CardTitle>
+              <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline" onClick={openEditDialog}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Editar
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Editar Cliente</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleEditClient} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Nome do Cliente *</Label>
+                      <Input
+                        value={editForm.name}
+                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Segmento</Label>
+                      <Input
+                        value={editForm.segment}
+                        onChange={(e) => setEditForm({ ...editForm, segment: e.target.value })}
+                        placeholder="Ex: Tecnologia, Saúde, Varejo..."
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Nome do Contato</Label>
+                        <Input
+                          value={editForm.contact_name}
+                          onChange={(e) => setEditForm({ ...editForm, contact_name: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Telefone</Label>
+                        <Input
+                          value={editForm.contact_phone}
+                          onChange={(e) => setEditForm({ ...editForm, contact_phone: e.target.value })}
+                          placeholder="(00) 00000-0000"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={editForm.contact_email}
+                        onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Link Google Drive</Label>
+                      <Input
+                        value={editForm.google_drive_link}
+                        onChange={(e) => setEditForm({ ...editForm, google_drive_link: e.target.value })}
+                        placeholder="https://drive.google.com/..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Link Trello</Label>
+                      <Input
+                        value={editForm.trello_link}
+                        onChange={(e) => setEditForm({ ...editForm, trello_link: e.target.value })}
+                        placeholder="https://trello.com/..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Observações</Label>
+                      <Textarea
+                        value={editForm.notes}
+                        onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                        rows={3}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-3 pt-2">
+                      <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit">Salvar</Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
