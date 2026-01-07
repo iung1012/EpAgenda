@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Clock, User, Building2, CheckSquare, ListTodo, Loader2 } from 'lucide-react';
+import { Plus, Clock, User, Building2, CheckSquare, ListTodo, Loader2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { StatsCard } from '@/components/layout/StatsCard';
 import { TaskCardSkeleton, StatsSkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
+import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 import { TaskFormDialog, TaskFormValues } from '@/components/forms/TaskFormDialog';
 import { useTasks, TaskPriority } from '@/hooks/useTasks';
 import { useProfiles } from '@/hooks/useProfiles';
@@ -22,6 +23,12 @@ export default function Tasks() {
   const { clients } = useClients({ minimal: true });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; taskId: string; taskTitle: string }>({
+    open: false,
+    taskId: '',
+    taskTitle: '',
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { user } = useAuth();
   const { toast } = useToast();
@@ -53,6 +60,20 @@ export default function Tasks() {
     const { error } = await updateTaskStatus(taskId, newStatus);
     if (error) {
       toast({ variant: 'destructive', title: 'Erro ao atualizar tarefa' });
+    }
+  };
+
+  const handleDeleteTask = async () => {
+    setIsDeleting(true);
+    const { error } = await supabase.from('tasks').delete().eq('id', deleteDialog.taskId);
+    setIsDeleting(false);
+
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir tarefa', description: error.message });
+    } else {
+      toast({ title: 'Tarefa excluída com sucesso!' });
+      setDeleteDialog({ open: false, taskId: '', taskTitle: '' });
+      refetch();
     }
   };
 
@@ -219,6 +240,14 @@ export default function Tasks() {
                                 {col.title}
                               </Button>
                             ))}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => setDeleteDialog({ open: true, taskId: task.id, taskTitle: task.title })}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
                           </div>
                         </CardContent>
                       </Card>
@@ -236,6 +265,18 @@ export default function Tasks() {
           );
         })}
       </div>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
+        title="Excluir tarefa"
+        description={`Tem certeza que deseja excluir a tarefa "${deleteDialog.taskTitle}"? Esta ação não pode ser desfeita.`}
+        confirmText="Excluir"
+        onConfirm={handleDeleteTask}
+        variant="destructive"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }
