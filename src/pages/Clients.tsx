@@ -1,28 +1,57 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useMemo } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Search, Building2, ExternalLink, Palette } from 'lucide-react';
+import { Plus, Building2, Users, Palette, Link2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { CardSkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
+import { StatsCard } from '@/components/layout/StatsCard';
 import { ClientFormDialog, ClientFormValues } from '@/components/forms/ClientFormDialog';
+import { ClientCard } from '@/components/clients/ClientCard';
+import { ClientListItem } from '@/components/clients/ClientListItem';
+import { ClientFilters } from '@/components/clients/ClientFilters';
 import { useClients } from '@/hooks/useClients';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Clients() {
   const { clients, isLoading, error, refetch } = useClients();
   const [search, setSearch] = useState('');
+  const [selectedSegment, setSelectedSegment] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Extract unique segments
+  const segments = useMemo(() => {
+    const segmentSet = new Set<string>();
+    clients.forEach(client => {
+      if (client.segment) {
+        segmentSet.add(client.segment);
+      }
+    });
+    return Array.from(segmentSet).sort();
+  }, [clients]);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const withPalette = clients.filter(c => c.color_palette.length > 0).length;
+    const withLinks = clients.filter(c => c.google_drive_link || c.trello_link).length;
+    return {
+      total: clients.length,
+      segments: segments.length,
+      withPalette,
+      withLinks,
+    };
+  }, [clients, segments]);
 
   const handleSubmit = async (data: ClientFormValues) => {
     setIsSubmitting(true);
@@ -48,10 +77,19 @@ export default function Clients() {
     }
   };
 
-  const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(search.toLowerCase()) ||
-    client.segment?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredClients = useMemo(() => {
+    return clients.filter(client => {
+      const matchesSearch = 
+        client.name.toLowerCase().includes(search.toLowerCase()) ||
+        client.segment?.toLowerCase().includes(search.toLowerCase()) ||
+        client.contact_name?.toLowerCase().includes(search.toLowerCase()) ||
+        client.contact_email?.toLowerCase().includes(search.toLowerCase());
+      
+      const matchesSegment = selectedSegment === null || client.segment === selectedSegment;
+      
+      return matchesSearch && matchesSegment;
+    });
+  }, [clients, search, selectedSegment]);
 
   if (error) {
     return (
@@ -75,8 +113,8 @@ export default function Clients() {
         title="Clientes" 
         description="Gerencie os clientes da sua agência"
         action={
-          <Button onClick={() => setIsDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
+          <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
             Novo Cliente
           </Button>
         }
@@ -90,115 +128,104 @@ export default function Clients() {
         isLoading={isSubmitting}
       />
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar clientes..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      {/* Stats */}
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatsCard
+            title="Total de Clientes"
+            value={stats.total}
+            icon={Building2}
+            subtitle="clientes ativos"
+          />
+          <StatsCard
+            title="Segmentos"
+            value={stats.segments}
+            icon={Users}
+            subtitle="categorias diferentes"
+          />
+          <StatsCard
+            title="Com Paleta"
+            value={stats.withPalette}
+            icon={Palette}
+            subtitle={`${stats.total > 0 ? Math.round((stats.withPalette / stats.total) * 100) : 0}% do total`}
+          />
+          <StatsCard
+            title="Com Links"
+            value={stats.withLinks}
+            icon={Link2}
+            subtitle="Drive ou Trello"
+          />
+        </div>
+      )}
+
+      {/* Filters */}
+      <ClientFilters
+        search={search}
+        onSearchChange={setSearch}
+        segments={segments}
+        selectedSegment={selectedSegment}
+        onSegmentChange={setSelectedSegment}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
 
       {/* Loading State */}
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className={viewMode === 'grid' 
+          ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3" 
+          : "space-y-3"
+        }>
           {[...Array(6)].map((_, i) => (
-            <CardSkeleton key={i} />
+            viewMode === 'grid' ? (
+              <CardSkeleton key={i} />
+            ) : (
+              <Skeleton key={i} className="h-20 rounded-xl" />
+            )
           ))}
         </div>
       ) : filteredClients.length === 0 ? (
         <Card className="border-dashed">
-          <CardContent>
+          <CardContent className="py-12">
             <EmptyState
               icon={Building2}
               title="Nenhum cliente encontrado"
-              description={search ? 'Tente outra busca' : 'Adicione seu primeiro cliente'}
+              description={search || selectedSegment ? 'Tente outro filtro' : 'Adicione seu primeiro cliente'}
             />
           </CardContent>
         </Card>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredClients.map((client) => (
-            <Card 
+            <ClientCard 
               key={client.id} 
-              className="hover-lift cursor-pointer group"
+              client={client}
               onClick={() => navigate(`/clients/${client.id}`)}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    {client.logo_url ? (
-                      <img 
-                        src={client.logo_url} 
-                        alt={client.name} 
-                        className="h-10 w-10 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Building2 className="h-5 w-5 text-primary" />
-                      </div>
-                    )}
-                    <div>
-                      <CardTitle className="text-base">{client.name}</CardTitle>
-                      {client.segment && (
-                        <p className="text-xs text-muted-foreground mt-0.5">{client.segment}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {/* Color Palette Preview */}
-                {client.color_palette.length > 0 && (
-                  <div className="flex items-center gap-1 mb-3">
-                    <Palette className="h-3 w-3 text-muted-foreground mr-1" />
-                    {client.color_palette.slice(0, 5).map((color, i) => (
-                      <div 
-                        key={i} 
-                        className="h-4 w-4 rounded-full border"
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {/* Quick Links */}
-                <div className="flex gap-2">
-                  {client.google_drive_link && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="h-7 text-xs"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(client.google_drive_link!, '_blank');
-                      }}
-                    >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      Drive
-                    </Button>
-                  )}
-                  {client.trello_link && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="h-7 text-xs"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(client.trello_link!, '_blank');
-                      }}
-                    >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      Trello
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            />
           ))}
         </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredClients.map((client) => (
+            <ClientListItem
+              key={client.id}
+              client={client}
+              onClick={() => navigate(`/clients/${client.id}`)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Results count */}
+      {!isLoading && filteredClients.length > 0 && (
+        <p className="text-sm text-muted-foreground text-center">
+          Exibindo {filteredClients.length} de {clients.length} clientes
+        </p>
       )}
     </div>
   );
