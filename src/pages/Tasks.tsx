@@ -1,19 +1,22 @@
 import { useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Plus } from 'lucide-react';
+import { Plus, CheckSquare, ListTodo, Loader2 } from 'lucide-react';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { StatsCard } from '@/components/layout/StatsCard';
+import { StatsSkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 import { TaskFormDialog, TaskFormValues } from '@/components/forms/TaskFormDialog';
 import { useTasks, TaskPriority } from '@/hooks/useTasks';
 import { useProfiles } from '@/hooks/useProfiles';
 import { useClients } from '@/hooks/useClients';
-import { KanbanColumn } from '@/components/kanban/KanbanColumn';
-import { KanbanTaskCard } from '@/components/kanban/KanbanTaskCard';
-import { KanbanStats } from '@/components/kanban/KanbanStats';
+import { DroppableColumn } from '@/components/kanban/DroppableColumn';
+import { DraggableTaskCard } from '@/components/kanban/DraggableTaskCard';
 
 type TaskStatus = 'a_fazer' | 'fazendo' | 'feito';
 
@@ -142,6 +145,7 @@ export default function Tasks() {
     const taskId = active.id as string;
     const overId = over.id as string;
 
+    // Check if dropped on a column
     const newStatus = columns.find(col => col.id === overId)?.id;
     
     if (newStatus) {
@@ -161,46 +165,53 @@ export default function Tasks() {
     return client?.name || null;
   };
 
+  const getPriorityColor = (priority: TaskPriority) => {
+    switch (priority) {
+      case 'alta': return 'bg-destructive/10 text-destructive border-destructive/20';
+      case 'media': return 'bg-warning/10 text-warning border-warning/20';
+      case 'baixa': return 'bg-muted text-muted-foreground border-muted';
+    }
+  };
+
+  const getPriorityLabel = (priority: TaskPriority) => {
+    switch (priority) {
+      case 'alta': return 'Alta';
+      case 'media': return 'Média';
+      case 'baixa': return 'Baixa';
+    }
+  };
+
   const columns = [
-    { id: 'a_fazer' as const, title: 'A Fazer' },
-    { id: 'fazendo' as const, title: 'Em Andamento' },
-    { id: 'feito' as const, title: 'Concluído' },
+    { id: 'a_fazer' as const, title: 'A Fazer', color: 'bg-muted' },
+    { id: 'fazendo' as const, title: 'Fazendo', color: 'bg-info/10' },
+    { id: 'feito' as const, title: 'Feito', color: 'bg-success/10' },
   ];
 
   if (error) {
     return (
-      <div className="space-y-8 animate-in">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Tarefas</h1>
-            <p className="text-sm text-muted-foreground mt-1">Gerencie as tarefas da equipe</p>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-border/40 bg-card p-8">
-          <ErrorState onRetry={refetch} />
-        </div>
+      <div className="space-y-6 animate-in">
+        <PageHeader title="Tarefas" description="Gerencie as tarefas da equipe" />
+        <Card>
+          <CardContent className="pt-6">
+            <ErrorState onRetry={refetch} />
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 animate-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Tarefas</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gerencie e organize as tarefas da sua equipe
-          </p>
-        </div>
-        <Button 
-          onClick={() => { setEditingTask(null); setIsDialogOpen(true); }}
-          className="rounded-xl h-10 px-5 font-medium shadow-sm"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Nova Tarefa
-        </Button>
-      </div>
+    <div className="space-y-6 animate-in">
+      <PageHeader 
+        title="Tarefas" 
+        description="Gerencie as tarefas da equipe"
+        action={
+          <Button onClick={() => { setEditingTask(null); setIsDialogOpen(true); }}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Tarefa
+          </Button>
+        }
+      />
 
       {/* Form Dialog */}
       <TaskFormDialog
@@ -222,27 +233,53 @@ export default function Tasks() {
       />
 
       {/* Stats */}
-      <KanbanStats
-        todoCount={getTasksByStatus('a_fazer').length}
-        inProgressCount={getTasksByStatus('fazendo').length}
-        doneCount={getTasksByStatus('feito').length}
-      />
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[...Array(3)].map((_, i) => (
+            <StatsSkeleton key={i} />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <StatsCard
+            title="A Fazer"
+            value={getTasksByStatus('a_fazer').length}
+            icon={ListTodo}
+            variant="default"
+          />
+          <StatsCard
+            title="Fazendo"
+            value={getTasksByStatus('fazendo').length}
+            icon={Loader2}
+            variant="info"
+          />
+          <StatsCard
+            title="Feito"
+            value={getTasksByStatus('feito').length}
+            icon={CheckSquare}
+            variant="success"
+          />
+        </div>
+      )}
 
-      {/* Kanban Board */}
+      {/* Kanban Board with Drag and Drop */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {columns.map((column) => (
-            <KanbanColumn
+            <DroppableColumn
               key={column.id}
               id={column.id}
               title={column.title}
+              color={column.color}
               tasks={getTasksByStatus(column.id) as Task[]}
               isLoading={isLoading}
+              getPriorityColor={getPriorityColor}
+              getPriorityLabel={getPriorityLabel}
               getProfileName={getProfileName}
               getClientName={getClientName}
               onEdit={handleEdit}
@@ -251,18 +288,18 @@ export default function Tasks() {
           ))}
         </div>
 
-        {/* Drag Overlay */}
+        {/* Drag Overlay for visual feedback */}
         <DragOverlay>
           {activeTask ? (
-            <div className="rotate-3 scale-105">
-              <KanbanTaskCard
-                task={activeTask}
-                getProfileName={getProfileName}
-                getClientName={getClientName}
-                onEdit={() => {}}
-                onDelete={() => {}}
-              />
-            </div>
+            <DraggableTaskCard
+              task={activeTask}
+              getPriorityColor={getPriorityColor}
+              getPriorityLabel={getPriorityLabel}
+              getProfileName={getProfileName}
+              getClientName={getClientName}
+              onEdit={() => {}}
+              onDelete={() => {}}
+            />
           ) : null}
         </DragOverlay>
       </DndContext>
