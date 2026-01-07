@@ -106,24 +106,20 @@ export function ClientCard({ client, taskCount, onClick }: ClientCardProps) {
         {/* Footer with palette and links */}
         <div className="mt-4 pt-3 border-t flex items-center justify-between gap-2">
           {/* Color Palette Preview */}
-          <div className="flex items-center gap-1.5">
-            {client.color_palette.length > 0 ? (
-              <>
-                <Palette className="h-3.5 w-3.5 text-muted-foreground" />
-                <div className="flex -space-x-1">
-                  {client.color_palette.slice(0, 5).map((color, i) => (
-                    <div 
-                      key={i} 
-                      className="h-5 w-5 rounded-full border-2 border-background shadow-sm"
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </>
-            ) : (
-              <span className="text-xs text-muted-foreground">Sem paleta definida</span>
-            )}
-          </div>
+          {client.color_palette.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+              <div className="flex -space-x-1">
+                {client.color_palette.slice(0, 5).map((color, i) => (
+                  <div 
+                    key={i} 
+                    className="h-5 w-5 rounded-full border-2 border-background shadow-sm"
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Quick Links */}
           {hasLinks && (
