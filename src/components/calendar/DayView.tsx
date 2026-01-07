@@ -4,7 +4,7 @@ import { CalendarEvent } from '@/hooks/useCalendarEvents';
 import { Clock, MapPin } from 'lucide-react';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CSS } from '@dnd-kit/utilities';
 
 interface DayViewProps {
@@ -72,7 +72,7 @@ interface DroppableHourSlotProps {
   isCurrentHour: boolean;
 }
 
-function DroppableHourSlot({ currentDate, hour, children, onClick, isCurrentHour }: DroppableHourSlotProps) {
+function DroppableHourSlot({ currentDate, hour, children, onClick, isCurrentHour, currentMinuteOffset }: DroppableHourSlotProps & { currentMinuteOffset?: number }) {
   const slotId = `day-${format(currentDate, 'yyyy-MM-dd')}-${hour}`;
   const { setNodeRef, isOver } = useDroppable({
     id: slotId,
@@ -87,8 +87,13 @@ function DroppableHourSlot({ currentDate, hour, children, onClick, isCurrentHour
       } ${isCurrentHour ? 'bg-primary/5' : ''}`}
       onClick={onClick}
     >
-      {isCurrentHour && (
-        <div className="absolute left-0 right-0 top-0 h-0.5 bg-primary z-20" />
+      {isCurrentHour && currentMinuteOffset !== undefined && (
+        <div 
+          className="absolute left-0 right-0 h-0.5 bg-destructive z-20 flex items-center"
+          style={{ top: `${(currentMinuteOffset / 60) * 100}%` }}
+        >
+          <div className="absolute -left-1.5 w-3 h-3 rounded-full bg-destructive" />
+        </div>
       )}
       <div className="flex flex-wrap gap-1 p-1">
         {children}
@@ -100,6 +105,15 @@ function DroppableHourSlot({ currentDate, hour, children, onClick, isCurrentHour
 export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, onEventMove }: DayViewProps) {
   const isToday = isSameDay(currentDate, new Date());
   const [activeEvent, setActiveEvent] = useState<CalendarEvent | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update current time every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -160,13 +174,12 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
         <div className="grid grid-cols-[80px_1fr]">
           {HOURS.map((hour) => {
             const hourEvents = getEventsForHour(hour);
-            const now = new Date();
-            const isCurrentHour = isToday && now.getHours() === hour;
+            const isCurrentHour = isToday && currentTime.getHours() === hour;
 
             return (
               <div key={hour} className="contents">
                 {/* Hour label */}
-                <div className={`h-20 border-b border-r text-sm text-muted-foreground p-2 text-right ${isCurrentHour ? 'bg-primary/10' : ''}`}>
+                <div className={`h-20 border-b border-r text-sm text-muted-foreground p-2 text-right ${isCurrentHour ? 'bg-primary/10 font-medium text-destructive' : ''}`}>
                   {String(hour).padStart(2, '0')}:00
                 </div>
 
@@ -175,6 +188,7 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
                   currentDate={currentDate}
                   hour={hour}
                   isCurrentHour={isCurrentHour}
+                  currentMinuteOffset={isCurrentHour ? currentTime.getMinutes() : undefined}
                   onClick={() => onTimeSlotClick(currentDate, `${String(hour).padStart(2, '0')}:00`)}
                 >
                   {hourEvents.map((event) => (
