@@ -1,10 +1,13 @@
+import { useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Shield, UserCog, User, Video, Palette, Trash2, Mail, Phone } from 'lucide-react';
+import { Shield, UserCog, User, Video, Palette, Trash2, Phone, Camera, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 type AppRole = 'admin' | 'gerente' | 'colaborador' | 'filmmaker' | 'designer';
 
@@ -22,6 +25,7 @@ interface TeamMemberCardProps {
   isCurrentUser: boolean;
   onRoleChange: (userId: string, role: AppRole) => void;
   onRemove: (userId: string, name: string) => void;
+  onAvatarUpdate?: () => void;
 }
 
 const roleConfig: Record<AppRole, { 
@@ -68,9 +72,14 @@ export function TeamMemberCard({
   isCurrentUser,
   onRoleChange,
   onRemove,
+  onAvatarUpdate,
 }: TeamMemberCardProps) {
   const config = roleConfig[member.role];
   const RoleIcon = config.icon;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(member.avatar_url);
+  const { toast } = useToast();
 
   const getInitials = (name: string) => {
     return name
@@ -79,6 +88,68 @@ export function TeamMemberCard({
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const handleAvatarClick = () => {
+    if (isAdmin || isCurrentUser) {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Erro",
+        description: "A imagem deve ter no máximo 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${member.user_id}/avatar.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("client-files")
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("client-files")
+        .getPublicUrl(fileName);
+
+      const newAvatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      
+      // Update profile in database
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: newAvatarUrl })
+        .eq("user_id", member.user_id);
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl(newAvatarUrl);
+      onAvatarUpdate?.();
+      
+      toast({
+        title: "Sucesso",
+        description: "Foto atualizada com sucesso",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao fazer upload",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -91,14 +162,46 @@ export function TeamMemberCard({
       
       <CardContent className="p-4">
         <div className="flex items-start gap-4">
-          {/* Avatar */}
-          <div className="relative">
-            <Avatar className="h-14 w-14 ring-2 ring-background shadow-md">
-              <AvatarImage src={member.avatar_url ?? undefined} />
+          {/* Avatar with upload */}
+          <div className="relative group/avatar">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <Avatar 
+              className={cn(
+                "h-14 w-14 ring-2 ring-background shadow-md",
+                (isAdmin || isCurrentUser) && "cursor-pointer"
+              )}
+              onClick={handleAvatarClick}
+            >
+              <AvatarImage src={avatarUrl ?? undefined} />
               <AvatarFallback className={cn("text-lg font-medium", config.bgColor, config.color)}>
                 {getInitials(member.full_name)}
               </AvatarFallback>
             </Avatar>
+            
+            {/* Upload overlay */}
+            {(isAdmin || isCurrentUser) && (
+              <div 
+                className={cn(
+                  "absolute inset-0 flex items-center justify-center rounded-full bg-black/50 transition-opacity cursor-pointer",
+                  isUploading ? "opacity-100" : "opacity-0 group-hover/avatar:opacity-100"
+                )}
+                onClick={handleAvatarClick}
+              >
+                {isUploading ? (
+                  <Loader2 className="h-5 w-5 text-white animate-spin" />
+                ) : (
+                  <Camera className="h-5 w-5 text-white" />
+                )}
+              </div>
+            )}
+            
+            {/* Role indicator */}
             <div className={cn(
               "absolute -bottom-1 -right-1 p-1 rounded-full",
               config.bgColor

@@ -333,6 +333,7 @@ export default function Team() {
                   isCurrentUser={member.user_id === user?.id}
                   onRoleChange={handleRoleChange}
                   onRemove={openRemoveDialog}
+                  onAvatarUpdate={refetch}
                 />
               ))}
             </RoleSection>
