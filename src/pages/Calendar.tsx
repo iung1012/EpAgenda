@@ -6,15 +6,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, MapPin, Clock, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, MapPin, Clock, CalendarDays, Pencil, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { StatsCard } from '@/components/layout/StatsCard';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { CalendarDaySkeleton, StatsSkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { EventFormDialog, EventFormValues } from '@/components/forms/EventFormDialog';
-import { useCalendarEvents } from '@/hooks/useCalendarEvents';
+import { useCalendarEvents, CalendarEvent } from '@/hooks/useCalendarEvents';
 import { useProfiles } from '@/hooks/useProfiles';
+import { DayEventsDialog } from '@/components/calendar/DayEventsDialog';
+import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -23,6 +25,17 @@ export default function Calendar() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  
+  // Day events dialog
+  const [dayDialogOpen, setDayDialogOpen] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [selectedDayEvents, setSelectedDayEvents] = useState<CalendarEvent[]>([]);
+  
+  // Delete confirmation
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<CalendarEvent | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { user } = useAuth();
   const { toast } = useToast();
@@ -44,34 +57,129 @@ export default function Calendar() {
       ? new Date(`${data.start_date}T${data.end_time}`).toISOString()
       : null;
 
-    const { error } = await supabase.from('calendar_events').insert({
-      title: data.title,
-      description: data.description || null,
-      event_type: data.event_type,
-      start_date: startDateTime,
-      end_date: endDateTime,
-      all_day: false,
-      location: data.location || null,
-      assigned_to: data.assigned_to || null,
-      created_by: user?.id,
-      color: getEventColor(data.event_type),
-    });
+    if (editingEvent) {
+      // Update existing event
+      const { error } = await supabase
+        .from('calendar_events')
+        .update({
+          title: data.title,
+          description: data.description || null,
+          event_type: data.event_type,
+          start_date: startDateTime,
+          end_date: endDateTime,
+          location: data.location || null,
+          assigned_to: data.assigned_to || null,
+          color: getEventColor(data.event_type),
+        })
+        .eq('id', editingEvent.id);
 
-    setIsSubmitting(false);
+      setIsSubmitting(false);
+
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao atualizar evento', description: error.message });
+      } else {
+        toast({ title: 'Evento atualizado com sucesso!' });
+        setIsDialogOpen(false);
+        setEditingEvent(null);
+        setDayDialogOpen(false);
+        refetch();
+      }
+    } else {
+      // Create new event
+      const { error } = await supabase.from('calendar_events').insert({
+        title: data.title,
+        description: data.description || null,
+        event_type: data.event_type,
+        start_date: startDateTime,
+        end_date: endDateTime,
+        all_day: false,
+        location: data.location || null,
+        assigned_to: data.assigned_to || null,
+        created_by: user?.id,
+        color: getEventColor(data.event_type),
+      });
+
+      setIsSubmitting(false);
+
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao criar evento', description: error.message });
+      } else {
+        toast({ title: 'Evento criado com sucesso!' });
+        setIsDialogOpen(false);
+        setSelectedDate('');
+        setDayDialogOpen(false);
+        refetch();
+      }
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!eventToDelete) return;
+
+    setIsDeleting(true);
+    const { error } = await supabase
+      .from('calendar_events')
+      .delete()
+      .eq('id', eventToDelete.id);
+
+    setIsDeleting(false);
+    setDeleteDialogOpen(false);
+    setEventToDelete(null);
 
     if (error) {
-      toast({ variant: 'destructive', title: 'Erro ao criar evento', description: error.message });
+      toast({ variant: 'destructive', title: 'Erro ao excluir evento', description: error.message });
     } else {
-      toast({ title: 'Evento criado com sucesso!' });
-      setIsDialogOpen(false);
-      setSelectedDate('');
+      toast({ title: 'Evento excluído com sucesso!' });
+      setDayDialogOpen(false);
       refetch();
     }
   };
 
-  const handleDateClick = (date: Date) => {
-    setSelectedDate(format(date, 'yyyy-MM-dd'));
+  const handleDateClick = (day: Date) => {
+    const dayEvents = getEventsForDay(day);
+    setSelectedDay(day);
+    setSelectedDayEvents(dayEvents);
+    setDayDialogOpen(true);
+  };
+
+  const handleEditEvent = (event: CalendarEvent) => {
+    const startDate = new Date(event.start_date);
+    setEditingEvent(event);
+    setSelectedDate(format(startDate, 'yyyy-MM-dd'));
     setIsDialogOpen(true);
+  };
+
+  const handleDeleteEvent = (event: CalendarEvent) => {
+    setEventToDelete(event);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleAddNewFromDay = () => {
+    if (selectedDay) {
+      setSelectedDate(format(selectedDay, 'yyyy-MM-dd'));
+      setEditingEvent(null);
+      setIsDialogOpen(true);
+    }
+  };
+
+  const getDefaultValues = (): Partial<EventFormValues> | undefined => {
+    if (editingEvent) {
+      const startDate = new Date(editingEvent.start_date);
+      return {
+        title: editingEvent.title,
+        description: editingEvent.description || '',
+        event_type: editingEvent.event_type as 'demanda' | 'visita' | 'reuniao' | 'outro',
+        start_date: format(startDate, 'yyyy-MM-dd'),
+        start_time: format(startDate, 'HH:mm'),
+        end_time: editingEvent.end_date ? format(new Date(editingEvent.end_date), 'HH:mm') : '',
+        location: editingEvent.location || '',
+        assigned_to: editingEvent.assigned_to || '',
+      };
+    }
+    if (selectedDate) {
+      return { start_date: selectedDate };
+    }
+    return undefined;
   };
 
   const monthStart = startOfMonth(currentDate);
@@ -103,7 +211,11 @@ export default function Calendar() {
         title="Calendário" 
         description="Gerencie eventos, demandas e visitas"
         action={
-          <Button onClick={() => setIsDialogOpen(true)}>
+          <Button onClick={() => {
+            setEditingEvent(null);
+            setSelectedDate('');
+            setIsDialogOpen(true);
+          }}>
             <Plus className="h-4 w-4 mr-2" />
             Novo Evento
           </Button>
@@ -115,12 +227,39 @@ export default function Calendar() {
         open={isDialogOpen}
         onOpenChange={(open) => {
           setIsDialogOpen(open);
-          if (!open) setSelectedDate('');
+          if (!open) {
+            setSelectedDate('');
+            setEditingEvent(null);
+          }
         }}
         onSubmit={handleSubmit}
-        defaultValues={selectedDate ? { start_date: selectedDate } : undefined}
+        defaultValues={getDefaultValues()}
         profiles={profiles}
+        isEditing={!!editingEvent}
         isLoading={isSubmitting}
+      />
+
+      {/* Day Events Dialog */}
+      <DayEventsDialog
+        open={dayDialogOpen}
+        onOpenChange={setDayDialogOpen}
+        date={selectedDay}
+        events={selectedDayEvents}
+        onEdit={handleEditEvent}
+        onDelete={handleDeleteEvent}
+        onAddNew={handleAddNewFromDay}
+      />
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Excluir Evento"
+        description={`Tem certeza que deseja excluir "${eventToDelete?.title}"? Esta ação não pode ser desfeita.`}
+        confirmText="Excluir"
+        onConfirm={handleDelete}
+        variant="destructive"
+        isLoading={isDeleting}
       />
 
       {/* Stats */}
@@ -255,7 +394,7 @@ export default function Calendar() {
           ) : (
             <div className="space-y-3">
               {todayEvents.map((event) => (
-                <div key={event.id} className="flex items-start gap-4 p-4 rounded-lg bg-secondary/50">
+                <div key={event.id} className="flex items-start gap-4 p-4 rounded-lg bg-secondary/50 group">
                   <div
                     className="h-10 w-1 rounded-full flex-shrink-0"
                     style={{ backgroundColor: event.color || '#3b82f6' }}
@@ -274,6 +413,24 @@ export default function Calendar() {
                         </span>
                       )}
                     </div>
+                  </div>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleEditEvent(event)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => handleDeleteEvent(event)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
