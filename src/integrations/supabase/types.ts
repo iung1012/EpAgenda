@@ -73,6 +73,44 @@ export type Database = {
           },
         ]
       }
+      client_drive_folders: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          folder_id: string
+          folder_name: string
+          folder_type: string | null
+          id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          folder_id: string
+          folder_name: string
+          folder_type?: string | null
+          id?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          folder_id?: string
+          folder_name?: string
+          folder_type?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_drive_folders_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_folders: {
         Row: {
           client_id: string
