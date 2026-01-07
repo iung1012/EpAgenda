@@ -1,8 +1,8 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
 interface AppLayoutProps {
@@ -11,17 +11,20 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const { user, loading } = useAuth();
+  const navigate = useNavigate();
 
-  if (loading) {
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth', { replace: true });
+    }
+  }, [loading, user, navigate]);
+
+  if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
-  }
-
-  if (!user) {
-    return <Navigate to="/auth" replace />;
   }
 
   return (
