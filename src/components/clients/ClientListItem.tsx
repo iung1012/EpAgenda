@@ -1,15 +1,22 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Building2, ExternalLink, Palette, Mail, Phone, User, ChevronRight } from 'lucide-react';
+import { Mail, Phone, User, ChevronRight, CheckSquare } from 'lucide-react';
 import { Client } from '@/hooks/useClients';
+import { cn } from '@/lib/utils';
+
+interface TaskCount {
+  pending: number;
+  total: number;
+}
 
 interface ClientListItemProps {
   client: Client;
+  taskCount?: TaskCount;
   onClick: () => void;
 }
 
-export function ClientListItem({ client, onClick }: ClientListItemProps) {
+export function ClientListItem({ client, taskCount, onClick }: ClientListItemProps) {
   return (
     <div 
       className="group flex items-center gap-4 p-4 bg-card rounded-xl border hover:shadow-md hover:border-primary/20 transition-all cursor-pointer"
@@ -32,6 +39,20 @@ export function ClientListItem({ client, onClick }: ClientListItemProps) {
           {client.segment && (
             <Badge variant="secondary" className="text-xs font-normal">
               {client.segment}
+            </Badge>
+          )}
+          {taskCount && taskCount.pending > 0 && (
+            <Badge 
+              variant="outline" 
+              className={cn(
+                "flex items-center gap-1 text-xs",
+                taskCount.pending > 5 
+                  ? "border-destructive/50 text-destructive bg-destructive/10" 
+                  : "border-warning/50 text-warning bg-warning/10"
+              )}
+            >
+              <CheckSquare className="h-3 w-3" />
+              {taskCount.pending}
             </Badge>
           )}
         </div>

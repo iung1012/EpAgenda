@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +18,8 @@ import { ClientFilters } from '@/components/clients/ClientFilters';
 import { useClients } from '@/hooks/useClients';
 import { Skeleton } from '@/components/ui/skeleton';
 
+type TaskCountMap = Record<string, { pending: number; total: number }>;
+
 export default function Clients() {
   const { clients, isLoading, error, refetch } = useClients();
   const [search, setSearch] = useState('');
@@ -25,11 +27,39 @@ export default function Clients() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [taskCounts, setTaskCounts] = useState<TaskCountMap>({});
   
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Fetch task counts per client
+  useEffect(() => {
+    const fetchTaskCounts = async () => {
+      const { data: tasks } = await supabase
+        .from('tasks')
+        .select('client_id, status')
+        .not('client_id', 'is', null);
+
+      if (tasks) {
+        const counts: TaskCountMap = {};
+        tasks.forEach(task => {
+          if (task.client_id) {
+            if (!counts[task.client_id]) {
+              counts[task.client_id] = { pending: 0, total: 0 };
+            }
+            counts[task.client_id].total++;
+            if (task.status !== 'feito') {
+              counts[task.client_id].pending++;
+            }
+          }
+        });
+        setTaskCounts(counts);
+      }
+    };
+
+    fetchTaskCounts();
+  }, [clients]);
   // Extract unique segments
   const segments = useMemo(() => {
     const segmentSet = new Set<string>();
@@ -205,6 +235,7 @@ export default function Clients() {
             <ClientCard 
               key={client.id} 
               client={client}
+              taskCount={taskCounts[client.id]}
               onClick={() => navigate(`/clients/${client.id}`)}
             />
           ))}
@@ -215,6 +246,7 @@ export default function Clients() {
             <ClientListItem
               key={client.id}
               client={client}
+              taskCount={taskCounts[client.id]}
               onClick={() => navigate(`/clients/${client.id}`)}
             />
           ))}
