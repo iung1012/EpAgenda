@@ -130,7 +130,11 @@ export function AppSidebar() {
 
       <SidebarFooter className="p-3">
         <Separator className="mb-3" />
-        <div className="flex items-center gap-3">
+        <NavLink 
+          to="/profile"
+          className="flex items-center gap-3 rounded-lg hover:bg-sidebar-accent transition-colors p-1 -m-1"
+          activeClassName="bg-sidebar-accent"
+        >
           <Avatar className="h-9 w-9 flex-shrink-0">
             <AvatarImage src={profile?.avatar_url ?? undefined} />
             <AvatarFallback className="text-xs">
@@ -143,17 +147,18 @@ export function AppSidebar() {
               <p className="text-xs text-muted-foreground">{getRoleBadge(role)}</p>
             </div>
           )}
-          {!collapsed && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={signOut}
-              className="flex-shrink-0 h-8 w-8"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
+        </NavLink>
+        {!collapsed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={signOut}
+            className="w-full justify-start gap-2 mt-2 text-muted-foreground hover:text-foreground"
+          >
+            <LogOut className="h-4 w-4" />
+            Sair
+          </Button>
+        )}
       </SidebarFooter>
     </Sidebar>
   );
