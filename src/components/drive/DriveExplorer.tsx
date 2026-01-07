@@ -78,6 +78,14 @@ function formatDate(dateString?: string): string {
 
 const isImage = (mimeType: string) => mimeType.includes('image');
 const isVideo = (mimeType: string) => mimeType.includes('video');
+const isAudio = (mimeType: string) => mimeType.includes('audio');
+const isPdf = (mimeType: string) => mimeType.includes('pdf');
+
+// Generate stream URL for media
+function getStreamUrl(fileId: string): string {
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  return `https://${projectId}.supabase.co/functions/v1/google-drive?action=stream&fileId=${fileId}`;
+}
 
 // Thumbnail component that fetches via edge function proxy
 function ThumbnailImage({ 
@@ -150,6 +158,85 @@ function ThumbnailImage({
         large ? "max-w-full max-h-[70vh] object-contain" : "h-10 w-10"
       )}
     />
+  );
+}
+
+// Video player component that streams via edge function proxy
+function VideoPlayer({ 
+  fileId, 
+  fileName, 
+  authToken 
+}: { 
+  fileId: string; 
+  fileName: string; 
+  authToken: string | null;
+}) {
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!authToken) return;
+    
+    const fetchVideo = async () => {
+      try {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/google-drive?action=stream&fileId=${fileId}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const blob = await response.blob();
+          setVideoUrl(URL.createObjectURL(blob));
+        } else {
+          setError(true);
+        }
+      } catch (e) {
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVideo();
+  }, [fileId, authToken]);
+
+  if (loading) {
+    return (
+      <div className="w-full max-w-3xl aspect-video bg-muted rounded-lg flex items-center justify-center">
+        <div className="text-center space-y-2">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Carregando vídeo...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !videoUrl) {
+    return (
+      <div className="w-full max-w-3xl aspect-video bg-muted rounded-lg flex items-center justify-center">
+        <div className="text-center space-y-2">
+          <FileVideo className="h-12 w-12 text-purple-500 mx-auto" />
+          <p className="text-sm text-muted-foreground">Não foi possível carregar o vídeo</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <video
+      src={videoUrl}
+      controls
+      autoPlay
+      className="w-full max-w-3xl max-h-[70vh] rounded-lg"
+    >
+      Seu navegador não suporta a reprodução de vídeo.
+    </video>
   );
 }
 
@@ -464,16 +551,17 @@ export function DriveExplorer({ folderId, className }: DriveExplorerProps) {
                   authToken={authToken}
                   large
                 />
-              ) : isVideo(selectedFile.mimeType) ? (
-                <div className="text-center space-y-4">
-                  <FileVideo className="h-16 w-16 text-purple-500 mx-auto" />
-                  <p className="text-muted-foreground">
-                    Clique em "Abrir no Drive" para assistir ao vídeo
-                  </p>
-                </div>
+              ) : isVideo(selectedFile.mimeType) && authToken ? (
+                <VideoPlayer
+                  fileId={selectedFile.id}
+                  fileName={selectedFile.name}
+                  authToken={authToken}
+                />
               ) : (
                 <div className="text-center space-y-4">
-                  {getFileIcon(selectedFile.mimeType)}
+                  <div className="mx-auto w-fit">
+                    {getFileIcon(selectedFile.mimeType)}
+                  </div>
                   <p className="text-muted-foreground">
                     Clique em "Abrir no Drive" para visualizar o arquivo
                   </p>
