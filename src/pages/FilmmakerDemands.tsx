@@ -10,7 +10,7 @@ import { StatsCard } from '@/components/layout/StatsCard';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 import { DemandFormDialog, DemandFormValues } from '@/components/forms/DemandFormDialog';
-import { Plus, Film, Clock, CheckCircle, RefreshCw, Calendar } from 'lucide-react';
+import { Plus, Film, Clock, CheckCircle, RefreshCw, Calendar, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -298,16 +298,18 @@ export default function FilmmakerDemands() {
                           <SelectItem value="alteracoes">Alterações</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => handleEdit(demand)}>
+                      <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" onClick={() => handleEdit(demand)}>
+                        <Pencil className="h-3 w-3" />
                         Editar
                       </Button>
                       {isAdminOrManager && (
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="text-xs h-7 text-destructive hover:text-destructive" 
+                          className="text-xs h-7 gap-1 text-destructive hover:text-destructive" 
                           onClick={() => setConfirmDialog({ open: true, id: demand.id, title: demand.title })}
                         >
+                          <Trash2 className="h-3 w-3" />
                           Excluir
                         </Button>
                       )}

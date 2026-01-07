@@ -9,7 +9,7 @@ import { StatsCard } from '@/components/layout/StatsCard';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 import { VisitFormDialog, VisitFormValues } from '@/components/forms/VisitFormDialog';
-import { Plus, MapPin, Calendar, Video, Package, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, MapPin, Calendar, Video, Package, Clock, CheckCircle, XCircle, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -317,16 +317,18 @@ export default function FilmmakerVisits() {
                     </div>
                     
                     <div className="flex gap-1 flex-shrink-0">
-                      <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => handleEdit(visit)}>
+                      <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" onClick={() => handleEdit(visit)}>
+                        <Pencil className="h-3 w-3" />
                         Editar
                       </Button>
                       {isAdminOrManager && (
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="text-xs h-7 text-destructive hover:text-destructive" 
+                          className="text-xs h-7 gap-1 text-destructive hover:text-destructive" 
                           onClick={() => setConfirmDialog({ open: true, id: visit.id, title: visit.title })}
                         >
+                          <Trash2 className="h-3 w-3" />
                           Excluir
                         </Button>
                       )}
