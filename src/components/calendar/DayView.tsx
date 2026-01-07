@@ -1,19 +1,113 @@
-import { format, isSameDay } from 'date-fns';
+import { format, isSameDay, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarEvent } from '@/hooks/useCalendarEvents';
 import { Clock, MapPin } from 'lucide-react';
+import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
+import { useState } from 'react';
+import { CSS } from '@dnd-kit/utilities';
 
 interface DayViewProps {
   currentDate: Date;
   events: CalendarEvent[];
   onEventClick: (event: CalendarEvent) => void;
   onTimeSlotClick: (date: Date, time: string) => void;
+  onEventMove?: (eventId: string, newDate: Date) => void;
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-export function DayView({ currentDate, events, onEventClick, onTimeSlotClick }: DayViewProps) {
+interface DraggableEventCardProps {
+  event: CalendarEvent;
+  onClick: (event: CalendarEvent) => void;
+}
+
+function DraggableEventCard({ event, onClick }: DraggableEventCardProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: event.id,
+    data: { event },
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.5 : 1,
+    backgroundColor: event.color || '#3b82f6',
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className="flex-1 min-w-[200px] max-w-[300px] p-2 rounded text-sm text-white cursor-grab z-10 active:cursor-grabbing"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick(event);
+      }}
+    >
+      <div className="font-medium truncate">{event.title}</div>
+      <div className="flex items-center gap-3 mt-1 text-xs opacity-80">
+        <span className="flex items-center gap-1">
+          <Clock className="h-3 w-3" />
+          {format(new Date(event.start_date), 'HH:mm')}
+          {event.end_date && ` - ${format(new Date(event.end_date), 'HH:mm')}`}
+        </span>
+        {event.location && (
+          <span className="flex items-center gap-1">
+            <MapPin className="h-3 w-3" />
+            {event.location}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface DroppableHourSlotProps {
+  currentDate: Date;
+  hour: number;
+  children: React.ReactNode;
+  onClick: () => void;
+  isCurrentHour: boolean;
+}
+
+function DroppableHourSlot({ currentDate, hour, children, onClick, isCurrentHour }: DroppableHourSlotProps) {
+  const slotId = `day-${format(currentDate, 'yyyy-MM-dd')}-${hour}`;
+  const { setNodeRef, isOver } = useDroppable({
+    id: slotId,
+    data: { day: currentDate, hour },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`h-20 border-b relative cursor-pointer transition-colors ${
+        isOver ? 'bg-primary/20' : 'hover:bg-secondary/30'
+      } ${isCurrentHour ? 'bg-primary/5' : ''}`}
+      onClick={onClick}
+    >
+      {isCurrentHour && (
+        <div className="absolute left-0 right-0 top-0 h-0.5 bg-primary z-20" />
+      )}
+      <div className="flex flex-wrap gap-1 p-1">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, onEventMove }: DayViewProps) {
   const isToday = isSameDay(currentDate, new Date());
+  const [activeEvent, setActiveEvent] = useState<CalendarEvent | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
 
   const getEventsForHour = (hour: number) => {
     return events.filter((event) => {
@@ -22,73 +116,95 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick }: 
     });
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const draggedEvent = event.active.data.current?.event as CalendarEvent;
+    setActiveEvent(draggedEvent);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveEvent(null);
+    
+    if (!event.over || !onEventMove) return;
+
+    const { day, hour } = event.over.data.current as { day: Date; hour: number };
+    const draggedEvent = event.active.data.current?.event as CalendarEvent;
+    
+    if (!draggedEvent) return;
+
+    const originalDate = new Date(draggedEvent.start_date);
+    const originalMinutes = originalDate.getMinutes();
+    
+    let newDate = setHours(day, hour);
+    newDate = setMinutes(newDate, originalMinutes);
+
+    // Only update if the time actually changed
+    if (newDate.getTime() !== originalDate.getTime()) {
+      onEventMove(draggedEvent.id, newDate);
+    }
+  };
+
   return (
-    <div className="overflow-auto">
-      {/* Header */}
-      <div className={`p-4 text-center border-b sticky top-0 bg-background z-10 ${isToday ? 'bg-primary/10' : ''}`}>
-        <div className="text-lg font-medium">
-          {format(currentDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div className="overflow-auto">
+        {/* Header */}
+        <div className={`p-4 text-center border-b sticky top-0 bg-background z-10 ${isToday ? 'bg-primary/10' : ''}`}>
+          <div className="text-lg font-medium">
+            {format(currentDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
+          </div>
+          {isToday && (
+            <div className="text-sm text-primary font-medium">Hoje</div>
+          )}
         </div>
-        {isToday && (
-          <div className="text-sm text-primary font-medium">Hoje</div>
-        )}
-      </div>
 
-      {/* Time grid */}
-      <div className="grid grid-cols-[80px_1fr]">
-        {HOURS.map((hour) => {
-          const hourEvents = getEventsForHour(hour);
-          const now = new Date();
-          const isCurrentHour = isToday && now.getHours() === hour;
+        {/* Time grid */}
+        <div className="grid grid-cols-[80px_1fr]">
+          {HOURS.map((hour) => {
+            const hourEvents = getEventsForHour(hour);
+            const now = new Date();
+            const isCurrentHour = isToday && now.getHours() === hour;
 
-          return (
-            <div key={hour} className="contents">
-              {/* Hour label */}
-              <div className={`h-20 border-b border-r text-sm text-muted-foreground p-2 text-right ${isCurrentHour ? 'bg-primary/10' : ''}`}>
-                {String(hour).padStart(2, '0')}:00
-              </div>
-
-              {/* Events area */}
-              <div
-                className={`h-20 border-b relative cursor-pointer hover:bg-secondary/30 transition-colors ${isCurrentHour ? 'bg-primary/5' : ''}`}
-                onClick={() => onTimeSlotClick(currentDate, `${String(hour).padStart(2, '0')}:00`)}
-              >
-                {isCurrentHour && (
-                  <div className="absolute left-0 right-0 top-0 h-0.5 bg-primary z-20" />
-                )}
-                <div className="flex flex-wrap gap-1 p-1">
-                  {hourEvents.map((event) => (
-                    <div
-                      key={event.id}
-                      className="flex-1 min-w-[200px] max-w-[300px] p-2 rounded text-sm text-white cursor-pointer z-10"
-                      style={{ backgroundColor: event.color || '#3b82f6' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEventClick(event);
-                      }}
-                    >
-                      <div className="font-medium truncate">{event.title}</div>
-                      <div className="flex items-center gap-3 mt-1 text-xs opacity-80">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {format(new Date(event.start_date), 'HH:mm')}
-                          {event.end_date && ` - ${format(new Date(event.end_date), 'HH:mm')}`}
-                        </span>
-                        {event.location && (
-                          <span className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {event.location}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+            return (
+              <div key={hour} className="contents">
+                {/* Hour label */}
+                <div className={`h-20 border-b border-r text-sm text-muted-foreground p-2 text-right ${isCurrentHour ? 'bg-primary/10' : ''}`}>
+                  {String(hour).padStart(2, '0')}:00
                 </div>
+
+                {/* Events area */}
+                <DroppableHourSlot
+                  currentDate={currentDate}
+                  hour={hour}
+                  isCurrentHour={isCurrentHour}
+                  onClick={() => onTimeSlotClick(currentDate, `${String(hour).padStart(2, '0')}:00`)}
+                >
+                  {hourEvents.map((event) => (
+                    <DraggableEventCard
+                      key={event.id}
+                      event={event}
+                      onClick={onEventClick}
+                    />
+                  ))}
+                </DroppableHourSlot>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-    </div>
+
+      <DragOverlay>
+        {activeEvent && (
+          <div
+            className="p-2 rounded text-sm text-white shadow-lg cursor-grabbing"
+            style={{ backgroundColor: activeEvent.color || '#3b82f6', width: '200px' }}
+          >
+            <div className="font-medium truncate">{activeEvent.title}</div>
+            <div className="flex items-center gap-1 mt-1 text-xs opacity-80">
+              <Clock className="h-3 w-3" />
+              {format(new Date(activeEvent.start_date), 'HH:mm')}
+            </div>
+          </div>
+        )}
+      </DragOverlay>
+    </DndContext>
   );
 }
