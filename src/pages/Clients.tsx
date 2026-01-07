@@ -10,6 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { EmptyState } from '@/components/layout/EmptyState';
+import { CardSkeleton } from '@/components/layout/CardSkeleton';
+import { ErrorState } from '@/components/layout/ErrorState';
 
 interface Client {
   id: string;
@@ -28,7 +32,9 @@ export default function Clients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     segment: '',
@@ -45,10 +51,19 @@ export default function Clients() {
   const { toast } = useToast();
 
   const fetchClients = async () => {
-    const { data, error } = await supabase
+    setIsLoading(true);
+    setError(null);
+    
+    const { data, error: fetchError } = await supabase
       .from('clients')
       .select('*')
       .order('name');
+
+    if (fetchError) {
+      setError(fetchError.message);
+      setIsLoading(false);
+      return;
+    }
 
     if (data) {
       setClients(data.map(c => ({
@@ -59,6 +74,7 @@ export default function Clients() {
           : {},
       })));
     }
+    setIsLoading(false);
   };
 
   useEffect(() => {
@@ -72,12 +88,12 @@ export default function Clients() {
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
     const { error } = await supabase.from('clients').insert({
       ...formData,
       created_by: user?.id,
     });
-    setIsLoading(false);
+    setIsSubmitting(false);
 
     if (error) {
       toast({ variant: 'destructive', title: 'Erro ao criar cliente', description: error.message });
@@ -103,117 +119,130 @@ export default function Clients() {
     client.segment?.toLowerCase().includes(search.toLowerCase())
   );
 
+  if (error) {
+    return (
+      <div className="space-y-6 animate-in">
+        <PageHeader 
+          title="Clientes" 
+          description="Gerencie os clientes da sua agência" 
+        />
+        <Card>
+          <CardContent className="pt-6">
+            <ErrorState onRetry={fetchClients} />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Clientes</h1>
-          <p className="text-muted-foreground mt-1">
-            Gerencie os clientes da sua agência
-          </p>
-        </div>
-
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Cliente
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Novo Cliente</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2 col-span-2">
-                  <Label htmlFor="name">Nome da empresa *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Nome do cliente"
-                    required
-                  />
+      <PageHeader 
+        title="Clientes" 
+        description="Gerencie os clientes da sua agência"
+        action={
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Cliente
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Novo Cliente</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="name">Nome da empresa *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Nome do cliente"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="segment">Segmento</Label>
+                    <Input
+                      id="segment"
+                      value={formData.segment}
+                      onChange={(e) => setFormData({ ...formData, segment: e.target.value })}
+                      placeholder="Ex: Varejo, Tech..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contact_name">Contato</Label>
+                    <Input
+                      id="contact_name"
+                      value={formData.contact_name}
+                      onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                      placeholder="Nome do contato"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contact_email">Email</Label>
+                    <Input
+                      id="contact_email"
+                      type="email"
+                      value={formData.contact_email}
+                      onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                      placeholder="email@empresa.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contact_phone">Telefone</Label>
+                    <Input
+                      id="contact_phone"
+                      value={formData.contact_phone}
+                      onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
+                      placeholder="(11) 99999-9999"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="google_drive_link">Link Google Drive</Label>
+                    <Input
+                      id="google_drive_link"
+                      value={formData.google_drive_link}
+                      onChange={(e) => setFormData({ ...formData, google_drive_link: e.target.value })}
+                      placeholder="https://drive.google.com/..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="trello_link">Link Trello</Label>
+                    <Input
+                      id="trello_link"
+                      value={formData.trello_link}
+                      onChange={(e) => setFormData({ ...formData, trello_link: e.target.value })}
+                      placeholder="https://trello.com/..."
+                    />
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="notes">Observações</Label>
+                    <Textarea
+                      id="notes"
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      placeholder="Notas sobre o cliente..."
+                      rows={3}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="segment">Segmento</Label>
-                  <Input
-                    id="segment"
-                    value={formData.segment}
-                    onChange={(e) => setFormData({ ...formData, segment: e.target.value })}
-                    placeholder="Ex: Varejo, Tech..."
-                  />
+                <div className="flex justify-end gap-3">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? 'Salvando...' : 'Criar Cliente'}
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contact_name">Contato</Label>
-                  <Input
-                    id="contact_name"
-                    value={formData.contact_name}
-                    onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
-                    placeholder="Nome do contato"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contact_email">Email</Label>
-                  <Input
-                    id="contact_email"
-                    type="email"
-                    value={formData.contact_email}
-                    onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
-                    placeholder="email@empresa.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contact_phone">Telefone</Label>
-                  <Input
-                    id="contact_phone"
-                    value={formData.contact_phone}
-                    onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
-                    placeholder="(11) 99999-9999"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="google_drive_link">Link Google Drive</Label>
-                  <Input
-                    id="google_drive_link"
-                    value={formData.google_drive_link}
-                    onChange={(e) => setFormData({ ...formData, google_drive_link: e.target.value })}
-                    placeholder="https://drive.google.com/..."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="trello_link">Link Trello</Label>
-                  <Input
-                    id="trello_link"
-                    value={formData.trello_link}
-                    onChange={(e) => setFormData({ ...formData, trello_link: e.target.value })}
-                    placeholder="https://trello.com/..."
-                  />
-                </div>
-                <div className="space-y-2 col-span-2">
-                  <Label htmlFor="notes">Observações</Label>
-                  <Textarea
-                    id="notes"
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    placeholder="Notas sobre o cliente..."
-                    rows={3}
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-3">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? 'Salvando...' : 'Criar Cliente'}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       {/* Search */}
       <div className="relative max-w-md">
@@ -226,15 +255,21 @@ export default function Clients() {
         />
       </div>
 
-      {/* Clients Grid */}
-      {filteredClients.length === 0 ? (
+      {/* Loading State */}
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <CardSkeleton key={i} />
+          ))}
+        </div>
+      ) : filteredClients.length === 0 ? (
         <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Building2 className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <h3 className="text-lg font-medium">Nenhum cliente encontrado</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              {search ? 'Tente outra busca' : 'Adicione seu primeiro cliente'}
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={Building2}
+              title="Nenhum cliente encontrado"
+              description={search ? 'Tente outra busca' : 'Adicione seu primeiro cliente'}
+            />
           </CardContent>
         </Card>
       ) : (

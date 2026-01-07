@@ -11,6 +11,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Users, Shield, UserCog, User, Plus, Trash2, Video, Palette } from 'lucide-react';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { StatsCard } from '@/components/layout/StatsCard';
+import { EmptyState } from '@/components/layout/EmptyState';
+import { TableRowSkeleton, StatsSkeleton } from '@/components/layout/CardSkeleton';
+import { ErrorState } from '@/components/layout/ErrorState';
+import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 
 type AppRole = 'admin' | 'gerente' | 'colaborador' | 'filmmaker' | 'designer';
 
@@ -26,7 +32,14 @@ interface TeamMember {
 export default function Team() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    userId: string;
+    memberName: string;
+  }>({ open: false, userId: '', memberName: '' });
   const [newMemberForm, setNewMemberForm] = useState({
     email: '',
     password: '',
@@ -37,10 +50,19 @@ export default function Team() {
   const { toast } = useToast();
 
   const fetchTeamMembers = async () => {
-    const { data: profiles } = await supabase
+    setIsLoading(true);
+    setError(null);
+
+    const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('user_id, full_name, avatar_url, phone')
       .order('full_name');
+
+    if (profilesError) {
+      setError(profilesError.message);
+      setIsLoading(false);
+      return;
+    }
 
     const { data: roles } = await supabase
       .from('user_roles')
@@ -57,6 +79,7 @@ export default function Team() {
       });
       setMembers(membersWithRoles);
     }
+    setIsLoading(false);
   };
 
   useEffect(() => {
@@ -75,10 +98,9 @@ export default function Team() {
       return;
     }
 
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     try {
-      // Create user via Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: newMemberForm.email,
         password: newMemberForm.password,
@@ -93,7 +115,6 @@ export default function Team() {
       }
 
       if (authData.user) {
-        // Update role if not colaborador (default)
         if (newMemberForm.role !== 'colaborador') {
           const { error: roleError } = await supabase
             .from('user_roles')
@@ -109,7 +130,6 @@ export default function Team() {
         setIsAddDialogOpen(false);
         setNewMemberForm({ email: '', password: '', full_name: '', role: 'colaborador' });
         
-        // Wait a bit for the trigger to create profile
         setTimeout(() => {
           fetchTeamMembers();
         }, 1000);
@@ -117,7 +137,7 @@ export default function Team() {
     } catch (error) {
       toast({ variant: 'destructive', title: 'Erro ao adicionar colaborador' });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -145,21 +165,9 @@ export default function Team() {
     }
   };
 
-  const handleRemoveMember = async (userId: string, memberName: string) => {
-    if (!isAdmin) {
-      toast({ variant: 'destructive', title: 'Apenas administradores podem remover membros' });
-      return;
-    }
-
-    if (userId === user?.id) {
-      toast({ variant: 'destructive', title: 'Você não pode remover sua própria conta' });
-      return;
-    }
-
-    const confirmed = window.confirm(`Tem certeza que deseja remover ${memberName}?`);
-    if (!confirmed) return;
-
-    // Delete profile (will cascade to user_roles due to FK constraints)
+  const handleRemoveMember = async () => {
+    const { userId, memberName } = confirmDialog;
+    
     const { error } = await supabase
       .from('profiles')
       .delete()
@@ -171,6 +179,22 @@ export default function Team() {
       toast({ title: 'Membro removido com sucesso!' });
       fetchTeamMembers();
     }
+    
+    setConfirmDialog({ open: false, userId: '', memberName: '' });
+  };
+
+  const openRemoveDialog = (userId: string, memberName: string) => {
+    if (!isAdmin) {
+      toast({ variant: 'destructive', title: 'Apenas administradores podem remover membros' });
+      return;
+    }
+
+    if (userId === user?.id) {
+      toast({ variant: 'destructive', title: 'Você não pode remover sua própria conta' });
+      return;
+    }
+
+    setConfirmDialog({ open: true, userId, memberName });
   };
 
   const getInitials = (name: string) => {
@@ -220,161 +244,141 @@ export default function Team() {
     colaborador: members.filter(m => m.role === 'colaborador'),
   };
 
+  if (error) {
+    return (
+      <div className="space-y-6 animate-in">
+        <PageHeader title="Equipe" description="Gerencie os membros da sua agência" />
+        <Card>
+          <CardContent className="pt-6">
+            <ErrorState onRetry={fetchTeamMembers} />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Equipe</h1>
-          <p className="text-muted-foreground mt-1">
-            Gerencie os membros da sua agência
-          </p>
-        </div>
-        {isAdmin && (
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Adicionar Colaborador
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Adicionar Novo Colaborador</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleAddMember} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Nome Completo *</Label>
-                  <Input
-                    value={newMemberForm.full_name}
-                    onChange={(e) => setNewMemberForm({ ...newMemberForm, full_name: e.target.value })}
-                    placeholder="Nome do colaborador"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Email *</Label>
-                  <Input
-                    type="email"
-                    value={newMemberForm.email}
-                    onChange={(e) => setNewMemberForm({ ...newMemberForm, email: e.target.value })}
-                    placeholder="email@exemplo.com"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Senha *</Label>
-                  <Input
-                    type="password"
-                    value={newMemberForm.password}
-                    onChange={(e) => setNewMemberForm({ ...newMemberForm, password: e.target.value })}
-                    placeholder="Mínimo 6 caracteres"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Cargo</Label>
-                  <Select
-                    value={newMemberForm.role}
-                    onValueChange={(value: AppRole) => setNewMemberForm({ ...newMemberForm, role: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="colaborador">Colaborador</SelectItem>
-                      <SelectItem value="designer">Designer</SelectItem>
-                      <SelectItem value="filmmaker">Filmmaker</SelectItem>
-                      <SelectItem value="gerente">Gerente</SelectItem>
-                      <SelectItem value="admin">Administrador</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex justify-end gap-3 pt-2">
-                  <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={isLoading}>
-                    {isLoading ? 'Adicionando...' : 'Adicionar'}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
+      <PageHeader 
+        title="Equipe" 
+        description="Gerencie os membros da sua agência"
+        action={
+          isAdmin ? (
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Colaborador
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Adicionar Novo Colaborador</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleAddMember} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Nome Completo *</Label>
+                    <Input
+                      value={newMemberForm.full_name}
+                      onChange={(e) => setNewMemberForm({ ...newMemberForm, full_name: e.target.value })}
+                      placeholder="Nome do colaborador"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Email *</Label>
+                    <Input
+                      type="email"
+                      value={newMemberForm.email}
+                      onChange={(e) => setNewMemberForm({ ...newMemberForm, email: e.target.value })}
+                      placeholder="email@exemplo.com"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Senha *</Label>
+                    <Input
+                      type="password"
+                      value={newMemberForm.password}
+                      onChange={(e) => setNewMemberForm({ ...newMemberForm, password: e.target.value })}
+                      placeholder="Mínimo 6 caracteres"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Cargo</Label>
+                    <Select
+                      value={newMemberForm.role}
+                      onValueChange={(value: AppRole) => setNewMemberForm({ ...newMemberForm, role: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="colaborador">Colaborador</SelectItem>
+                        <SelectItem value="designer">Designer</SelectItem>
+                        <SelectItem value="filmmaker">Filmmaker</SelectItem>
+                        <SelectItem value="gerente">Gerente</SelectItem>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? 'Adicionando...' : 'Adicionar'}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          ) : undefined
+        }
+      />
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Shield className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-semibold">{groupedMembers.admin.length}</p>
-                <p className="text-sm text-muted-foreground">Administradores</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-secondary flex items-center justify-center">
-                <UserCog className="h-6 w-6 text-secondary-foreground" />
-              </div>
-              <div>
-                <p className="text-2xl font-semibold">{groupedMembers.gerente.length}</p>
-                <p className="text-sm text-muted-foreground">Gerentes</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-accent flex items-center justify-center">
-                <Video className="h-6 w-6 text-accent-foreground" />
-              </div>
-              <div>
-                <p className="text-2xl font-semibold">{groupedMembers.filmmaker.length}</p>
-                <p className="text-sm text-muted-foreground">Filmmakers</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-primary/20 flex items-center justify-center">
-                <Palette className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-semibold">{groupedMembers.designer.length}</p>
-                <p className="text-sm text-muted-foreground">Designers</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
-                <Users className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-2xl font-semibold">{groupedMembers.colaborador.length}</p>
-                <p className="text-sm text-muted-foreground">Colaboradores</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {[...Array(5)].map((_, i) => (
+            <StatsSkeleton key={i} />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <StatsCard
+            title="Administradores"
+            value={groupedMembers.admin.length}
+            icon={Shield}
+            variant="default"
+          />
+          <StatsCard
+            title="Gerentes"
+            value={groupedMembers.gerente.length}
+            icon={UserCog}
+            variant="default"
+          />
+          <StatsCard
+            title="Filmmakers"
+            value={groupedMembers.filmmaker.length}
+            icon={Video}
+            variant="default"
+          />
+          <StatsCard
+            title="Designers"
+            value={groupedMembers.designer.length}
+            icon={Palette}
+            variant="default"
+          />
+          <StatsCard
+            title="Colaboradores"
+            value={groupedMembers.colaborador.length}
+            icon={Users}
+            variant="default"
+          />
+        </div>
+      )}
 
       {/* Members List */}
       <Card>
@@ -385,10 +389,18 @@ export default function Team() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {members.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              Nenhum membro encontrado
-            </p>
+          {isLoading ? (
+            <div className="space-y-4">
+              {[...Array(4)].map((_, i) => (
+                <TableRowSkeleton key={i} />
+              ))}
+            </div>
+          ) : members.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="Nenhum membro encontrado"
+              description="Adicione seu primeiro colaborador"
+            />
           ) : (
             <div className="space-y-4">
               {members.map((member) => {
@@ -433,7 +445,7 @@ export default function Team() {
                             variant="ghost"
                             size="icon"
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => handleRemoveMember(member.user_id, member.full_name)}
+                            onClick={() => openRemoveDialog(member.user_id, member.full_name)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -452,6 +464,17 @@ export default function Team() {
           )}
         </CardContent>
       </Card>
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
+        title="Remover membro"
+        description={`Tem certeza que deseja remover ${confirmDialog.memberName}? Esta ação não pode ser desfeita.`}
+        confirmText="Remover"
+        onConfirm={handleRemoveMember}
+        variant="destructive"
+      />
     </div>
   );
 }
