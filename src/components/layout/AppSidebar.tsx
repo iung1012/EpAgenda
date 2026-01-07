@@ -8,7 +8,8 @@ import {
   LogOut,
   ChevronLeft,
   Video,
-  Film
+  Film,
+  Package
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,6 +39,7 @@ const mainNavItems = [
 
 const adminNavItems = [
   { title: 'Equipe', url: '/team', icon: Users },
+  { title: 'Equipamentos', url: '/equipment', icon: Package },
   { title: 'Configurações', url: '/settings', icon: Settings },
 ];
 
