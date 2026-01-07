@@ -197,6 +197,49 @@ async function getFileThumbnail(accessToken: string, fileId: string): Promise<{ 
   }
 }
 
+// Stream media file (video/audio)
+async function streamMedia(accessToken: string, fileId: string): Promise<Response> {
+  try {
+    // First get file metadata
+    const metaUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=mimeType,size,name`;
+    const metaResponse = await fetch(metaUrl, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+    
+    if (!metaResponse.ok) {
+      throw new Error('File not found');
+    }
+    
+    const meta = await metaResponse.json();
+    
+    // Stream the file content
+    const contentUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+    const contentResponse = await fetch(contentUrl, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    });
+    
+    if (!contentResponse.ok) {
+      throw new Error('Failed to stream file');
+    }
+    
+    // Return the stream with proper headers
+    return new Response(contentResponse.body, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, range',
+        'Access-Control-Expose-Headers': 'Content-Length, Content-Range',
+        'Content-Type': meta.mimeType || 'application/octet-stream',
+        'Content-Length': meta.size || '',
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'public, max-age=3600',
+      },
+    });
+  } catch (e) {
+    console.error('Error streaming media:', e);
+    throw e;
+  }
+}
+
 // Search files
 async function searchFiles(accessToken: string, folderId: string, searchQuery: string): Promise<DriveFile[]> {
   const query = `'${folderId}' in parents and trashed = false and name contains '${searchQuery}'`;
@@ -345,6 +388,12 @@ serve(async (req) => {
           });
         }
         return new Response(null, { status: 404, headers: corsHeaders });
+
+      case 'stream':
+        if (!fileId) {
+          throw new Error('File ID is required');
+        }
+        return await streamMedia(accessToken, fileId);
 
       default:
         // Default to list with root folder
