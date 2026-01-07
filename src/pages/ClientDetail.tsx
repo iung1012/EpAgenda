@@ -30,7 +30,8 @@ import {
   Youtube,
   Share2,
   Pencil,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Download
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -483,10 +484,35 @@ export default function ClientDetail() {
       {/* Quick Links */}
       <div className="flex flex-wrap gap-3">
         {client.logo_url && (
-          <Button variant="outline" onClick={() => window.open(client.logo_url!, '_blank')}>
-            <ImageIcon className="h-4 w-4 mr-2" />
-            Logo
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" onClick={() => window.open(client.logo_url!, '_blank')}>
+              <ImageIcon className="h-4 w-4 mr-2" />
+              Logo
+            </Button>
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={async () => {
+                try {
+                  const response = await fetch(client.logo_url!);
+                  const blob = await response.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${client.name}-logo.${blob.type.split('/')[1] || 'png'}`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  window.URL.revokeObjectURL(url);
+                  toast({ title: 'Logo baixado!' });
+                } catch {
+                  toast({ variant: 'destructive', title: 'Erro ao baixar logo' });
+                }
+              }}
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          </div>
         )}
         {client.google_drive_link && (
           <Button variant="outline" onClick={() => window.open(client.google_drive_link!, '_blank')}>
