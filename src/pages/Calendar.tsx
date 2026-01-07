@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from 'date-fns';
+import { format, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Plus, MapPin, Clock, CalendarDays, Pencil, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -17,14 +17,22 @@ import { useCalendarEvents, CalendarEvent } from '@/hooks/useCalendarEvents';
 import { useProfiles } from '@/hooks/useProfiles';
 import { DayEventsDialog } from '@/components/calendar/DayEventsDialog';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { MonthView } from '@/components/calendar/MonthView';
+import { WeekView } from '@/components/calendar/WeekView';
+import { DayView } from '@/components/calendar/DayView';
+
+type ViewType = 'month' | 'week' | 'day';
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewType, setViewType] = useState<ViewType>('month');
   const { events, isLoading, error, refetch, getEventsForDay, getTodayEvents } = useCalendarEvents(currentDate);
   const { profiles } = useProfiles();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedTime, setSelectedTime] = useState<string>('');
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   
   // Day events dialog
@@ -58,7 +66,6 @@ export default function Calendar() {
       : null;
 
     if (editingEvent) {
-      // Update existing event
       const { error } = await supabase
         .from('calendar_events')
         .update({
@@ -85,7 +92,6 @@ export default function Calendar() {
         refetch();
       }
     } else {
-      // Create new event
       const { error } = await supabase.from('calendar_events').insert({
         title: data.title,
         description: data.description || null,
@@ -107,6 +113,7 @@ export default function Calendar() {
         toast({ title: 'Evento criado com sucesso!' });
         setIsDialogOpen(false);
         setSelectedDate('');
+        setSelectedTime('');
         setDayDialogOpen(false);
         refetch();
       }
@@ -142,10 +149,22 @@ export default function Calendar() {
     setDayDialogOpen(true);
   };
 
+  const handleEventClick = (event: CalendarEvent) => {
+    handleEditEvent(event);
+  };
+
+  const handleTimeSlotClick = (date: Date, time: string) => {
+    setSelectedDate(format(date, 'yyyy-MM-dd'));
+    setSelectedTime(time);
+    setEditingEvent(null);
+    setIsDialogOpen(true);
+  };
+
   const handleEditEvent = (event: CalendarEvent) => {
     const startDate = new Date(event.start_date);
     setEditingEvent(event);
     setSelectedDate(format(startDate, 'yyyy-MM-dd'));
+    setSelectedTime(format(startDate, 'HH:mm'));
     setIsDialogOpen(true);
   };
 
@@ -157,6 +176,7 @@ export default function Calendar() {
   const handleAddNewFromDay = () => {
     if (selectedDay) {
       setSelectedDate(format(selectedDay, 'yyyy-MM-dd'));
+      setSelectedTime('');
       setEditingEvent(null);
       setIsDialogOpen(true);
     }
@@ -177,18 +197,43 @@ export default function Calendar() {
       };
     }
     if (selectedDate) {
-      return { start_date: selectedDate };
+      return { 
+        start_date: selectedDate,
+        start_time: selectedTime || undefined,
+      };
     }
     return undefined;
   };
 
-  const monthStart = startOfMonth(currentDate);
-  const monthEnd = endOfMonth(currentDate);
-  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
-  const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+  const navigatePrevious = () => {
+    if (viewType === 'month') {
+      setCurrentDate(subMonths(currentDate, 1));
+    } else if (viewType === 'week') {
+      setCurrentDate(subWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(subDays(currentDate, 1));
+    }
+  };
 
-  const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const navigateNext = () => {
+    if (viewType === 'month') {
+      setCurrentDate(addMonths(currentDate, 1));
+    } else if (viewType === 'week') {
+      setCurrentDate(addWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(addDays(currentDate, 1));
+    }
+  };
+
+  const getHeaderTitle = () => {
+    if (viewType === 'month') {
+      return format(currentDate, "MMMM 'de' yyyy", { locale: ptBR });
+    } else if (viewType === 'week') {
+      return format(currentDate, "'Semana de' d 'de' MMMM", { locale: ptBR });
+    } else {
+      return format(currentDate, "EEEE, d 'de' MMMM", { locale: ptBR });
+    }
+  };
 
   const todayEvents = getTodayEvents();
 
@@ -214,6 +259,7 @@ export default function Calendar() {
           <Button onClick={() => {
             setEditingEvent(null);
             setSelectedDate('');
+            setSelectedTime('');
             setIsDialogOpen(true);
           }}>
             <Plus className="h-4 w-4 mr-2" />
@@ -229,6 +275,7 @@ export default function Calendar() {
           setIsDialogOpen(open);
           if (!open) {
             setSelectedDate('');
+            setSelectedTime('');
             setEditingEvent(null);
           }
         }}
@@ -287,81 +334,62 @@ export default function Calendar() {
 
       {/* Calendar */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => setCurrentDate(subMonths(currentDate, 1))}>
+            <Button variant="ghost" size="icon" onClick={navigatePrevious}>
               <ChevronLeft className="h-5 w-5" />
             </Button>
-            <CardTitle className="text-xl">
-              {format(currentDate, "MMMM 'de' yyyy", { locale: ptBR })}
+            <CardTitle className="text-xl capitalize">
+              {getHeaderTitle()}
             </CardTitle>
-            <Button variant="ghost" size="icon" onClick={() => setCurrentDate(addMonths(currentDate, 1))}>
+            <Button variant="ghost" size="icon" onClick={navigateNext}>
               <ChevronRight className="h-5 w-5" />
             </Button>
           </div>
-          <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
-            Hoje
-          </Button>
+          <div className="flex items-center gap-2">
+            <Tabs value={viewType} onValueChange={(v) => setViewType(v as ViewType)}>
+              <TabsList>
+                <TabsTrigger value="month">Mês</TabsTrigger>
+                <TabsTrigger value="week">Semana</TabsTrigger>
+                <TabsTrigger value="day">Dia</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
+              Hoje
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          {/* Week days header */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {weekDays.map((day) => (
-              <div key={day} className="text-center text-sm font-medium text-muted-foreground py-2">
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* Calendar days */}
           {isLoading ? (
             <div className="grid grid-cols-7 gap-1">
               {[...Array(35)].map((_, i) => (
                 <CalendarDaySkeleton key={i} />
               ))}
             </div>
+          ) : viewType === 'month' ? (
+            <MonthView
+              currentDate={currentDate}
+              events={events}
+              getEventsForDay={getEventsForDay}
+              onDayClick={handleDateClick}
+            />
+          ) : viewType === 'week' ? (
+            <div className="max-h-[600px] overflow-auto">
+              <WeekView
+                currentDate={currentDate}
+                events={events}
+                onEventClick={handleEventClick}
+                onTimeSlotClick={handleTimeSlotClick}
+              />
+            </div>
           ) : (
-            <div className="grid grid-cols-7 gap-1">
-              {days.map((day) => {
-                const dayEvents = getEventsForDay(day);
-                const isToday = isSameDay(day, new Date());
-                const isCurrentMonth = isSameMonth(day, currentDate);
-
-                return (
-                  <button
-                    key={day.toISOString()}
-                    onClick={() => handleDateClick(day)}
-                    className={`
-                      min-h-[100px] p-2 rounded-lg text-left transition-colors
-                      ${isCurrentMonth ? 'bg-secondary/30 hover:bg-secondary/50' : 'bg-secondary/10 text-muted-foreground'}
-                      ${isToday ? 'ring-2 ring-primary' : ''}
-                    `}
-                  >
-                    <span className={`
-                      inline-flex items-center justify-center h-7 w-7 rounded-full text-sm
-                      ${isToday ? 'bg-primary text-primary-foreground font-medium' : ''}
-                    `}>
-                      {format(day, 'd')}
-                    </span>
-                    <div className="mt-1 space-y-1">
-                      {dayEvents.slice(0, 3).map((event) => (
-                        <div
-                          key={event.id}
-                          className="text-xs px-1.5 py-0.5 rounded truncate"
-                          style={{ backgroundColor: event.color || '#3b82f6', color: 'white' }}
-                        >
-                          {event.title}
-                        </div>
-                      ))}
-                      {dayEvents.length > 3 && (
-                        <div className="text-xs text-muted-foreground">
-                          +{dayEvents.length - 3} mais
-                        </div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
+            <div className="max-h-[600px] overflow-auto">
+              <DayView
+                currentDate={currentDate}
+                events={events}
+                onEventClick={handleEventClick}
+                onTimeSlotClick={handleTimeSlotClick}
+              />
             </div>
           )}
         </CardContent>
