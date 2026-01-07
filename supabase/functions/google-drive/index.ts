@@ -150,11 +150,11 @@ async function listFiles(accessToken: string, folderId: string): Promise<DriveFi
   return data.files || [];
 }
 
-// Get file thumbnail as base64
-async function getFileThumbnail(accessToken: string, fileId: string): Promise<{ base64: string; mimeType: string } | null> {
+// Get file content as stream (for images and thumbnails)
+async function getFileContent(accessToken: string, fileId: string): Promise<{ body: ReadableStream<Uint8Array>; mimeType: string } | null> {
   try {
-    // First get file metadata to check if it has a thumbnail
-    const metaUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=thumbnailLink,mimeType`;
+    // First get file metadata
+    const metaUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=mimeType,size`;
     const metaResponse = await fetch(metaUrl, {
       headers: { 'Authorization': `Bearer ${accessToken}` },
     });
@@ -170,29 +170,14 @@ async function getFileThumbnail(accessToken: string, fileId: string): Promise<{ 
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
       
-      if (contentResponse.ok) {
-        const buffer = await contentResponse.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
-        return { base64, mimeType: meta.mimeType };
-      }
-    }
-    
-    // For other files, try to get the thumbnail
-    if (meta.thumbnailLink) {
-      const thumbResponse = await fetch(meta.thumbnailLink.replace('=s220', '=s400'), {
-        headers: { 'Authorization': `Bearer ${accessToken}` },
-      });
-      
-      if (thumbResponse.ok) {
-        const buffer = await thumbResponse.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
-        return { base64, mimeType: 'image/png' };
+      if (contentResponse.ok && contentResponse.body) {
+        return { body: contentResponse.body, mimeType: meta.mimeType };
       }
     }
     
     return null;
   } catch (e) {
-    console.error('Error getting thumbnail:', e);
+    console.error('Error getting file content:', e);
     return null;
   }
 }
@@ -371,18 +356,12 @@ serve(async (req) => {
         if (!fileId) {
           throw new Error('File ID is required');
         }
-        const thumbnail = await getFileThumbnail(accessToken, fileId);
-        if (thumbnail) {
-          // Return image directly as binary
-          const binaryString = atob(thumbnail.base64);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          return new Response(bytes, {
+        const fileContent = await getFileContent(accessToken, fileId);
+        if (fileContent) {
+          return new Response(fileContent.body, {
             headers: { 
               ...corsHeaders, 
-              'Content-Type': thumbnail.mimeType,
+              'Content-Type': fileContent.mimeType,
               'Cache-Control': 'public, max-age=3600',
             },
           });
