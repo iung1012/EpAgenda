@@ -13,6 +13,8 @@ import Tasks from "./pages/Tasks";
 import Team from "./pages/Team";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
+import FilmmakerVisits from "./pages/FilmmakerVisits";
+import FilmmakerDemands from "./pages/FilmmakerDemands";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -31,6 +33,8 @@ function AppRoutes() {
         <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/filmmaker/visits" element={<ProtectedRoute><FilmmakerVisits /></ProtectedRoute>} />
+        <Route path="/filmmaker/demands" element={<ProtectedRoute><FilmmakerDemands /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AuthProvider>

@@ -6,7 +6,9 @@ import {
   LayoutDashboard,
   Settings,
   LogOut,
-  ChevronLeft
+  ChevronLeft,
+  Video,
+  Film
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,8 +41,14 @@ const adminNavItems = [
   { title: 'Configurações', url: '/settings', icon: Settings },
 ];
 
+const filmmakerNavItems = [
+  { title: 'Visitas', url: '/filmmaker/visits', icon: Video },
+  { title: 'Demandas', url: '/filmmaker/demands', icon: Film },
+];
+
 export function AppSidebar() {
   const { profile, role, signOut, isAdminOrManager } = useAuth();
+  const isFilmmaker = role === 'filmmaker';
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
 
@@ -58,6 +66,8 @@ export function AppSidebar() {
       case 'admin': return 'Admin';
       case 'gerente': return 'Gerente';
       case 'colaborador': return 'Colaborador';
+      case 'filmmaker': return 'Filmmaker';
+      case 'designer': return 'Designer';
       default: return '';
     }
   };
@@ -108,6 +118,32 @@ export function AppSidebar() {
               <SidebarGroupContent>
                 <SidebarMenu>
                   {adminNavItems.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild tooltip={item.title}>
+                        <NavLink 
+                          to={item.url}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                          activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                        >
+                          <item.icon className="h-5 w-5 flex-shrink-0" />
+                          {!collapsed && <span>{item.title}</span>}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
+
+        {(isFilmmaker || isAdminOrManager) && (
+          <>
+            <Separator className="my-2" />
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {filmmakerNavItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild tooltip={item.title}>
                         <NavLink 

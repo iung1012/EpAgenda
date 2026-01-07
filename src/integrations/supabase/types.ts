@@ -212,6 +212,131 @@ export type Database = {
         }
         Relationships: []
       }
+      equipment: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      filmmaker_demands: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          filmmaker_id: string
+          id: string
+          status: string
+          title: string
+          updated_at: string
+          visit_id: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          filmmaker_id: string
+          id?: string
+          status?: string
+          title: string
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          filmmaker_id?: string
+          id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "filmmaker_demands_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "filmmaker_demands_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "filmmaker_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      filmmaker_visits: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          description: string | null
+          filmmaker_id: string
+          id: string
+          location: string | null
+          notes: string | null
+          status: string
+          title: string
+          updated_at: string
+          visit_date: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          filmmaker_id: string
+          id?: string
+          location?: string | null
+          notes?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          visit_date: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          filmmaker_id?: string
+          id?: string
+          location?: string | null
+          notes?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          visit_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "filmmaker_visits_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -309,6 +434,39 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      visit_equipment: {
+        Row: {
+          equipment_id: string
+          id: string
+          visit_id: string
+        }
+        Insert: {
+          equipment_id: string
+          id?: string
+          visit_id: string
+        }
+        Update: {
+          equipment_id?: string
+          id?: string
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_equipment_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_equipment_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "filmmaker_visits"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
