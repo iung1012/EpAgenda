@@ -202,8 +202,12 @@ export function DriveExplorer({ folderId, className }: DriveExplorerProps) {
   const handleFileClick = (file: DriveFile) => {
     if (file.mimeType === 'application/vnd.google-apps.folder') {
       navigateToFolder(file);
-    } else {
+    } else if (isImage(file.mimeType)) {
+      // Open images in preview modal
       setSelectedFile(file);
+    } else if (file.webViewLink) {
+      // Open videos and other files directly in Google Drive
+      window.open(file.webViewLink, '_blank');
     }
   };
 
