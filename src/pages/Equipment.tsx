@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { EmptyState } from "@/components/layout/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -151,116 +152,117 @@ export default function Equipment() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Equipamentos</h1>
-            <p className="text-muted-foreground">
-              Gerencie a lista de equipamentos disponíveis para visitas
-            </p>
-          </div>
-          <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Equipamento
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>
-                  {editingEquipment ? "Editar Equipamento" : "Novo Equipamento"}
-                </DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nome *</Label>
-                  <Input
-                    id="name"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="Nome do equipamento"
-                    required
-                  />
+      <div className="animate-in">
+        <PageHeader
+          title="Equipamentos"
+          description="Gerencie os equipamentos disponíveis para as visitas"
+          action={
+            <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Adicionar
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingEquipment ? "Editar Equipamento" : "Novo Equipamento"}
+                  </DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome</Label>
+                    <Input
+                      id="name"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="Ex: Canon R5"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Descrição</Label>
+                    <Textarea
+                      id="description"
+                      value={form.description}
+                      onChange={(e) =>
+                        setForm({ ...form, description: e.target.value })
+                      }
+                      placeholder="Detalhes sobre o equipamento"
+                      rows={3}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => handleDialogClose(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button type="submit">
+                      {editingEquipment ? "Salvar" : "Adicionar"}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          }
+        />
+
+        <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
+          {equipment.length === 0 ? (
+            <EmptyState
+              icon={Package}
+              title="Nenhum equipamento cadastrado"
+              description="Adicione equipamentos para vincular às visitas de filmagem"
+            />
+          ) : (
+            <div className="divide-y divide-border/50">
+              {equipment.map((equip) => (
+                <div
+                  key={equip.id}
+                  className="flex items-center gap-4 p-4 hover:bg-muted/30 transition-colors"
+                >
+                  <div className="h-10 w-10 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0">
+                    <Package className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-sm">{equip.name}</h3>
+                    {equip.description && (
+                      <p className="text-sm text-muted-foreground truncate">
+                        {equip.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleEdit(equip)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => handleDelete(equip.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Descrição</Label>
-                  <Textarea
-                    id="description"
-                    value={form.description}
-                    onChange={(e) =>
-                      setForm({ ...form, description: e.target.value })
-                    }
-                    placeholder="Descrição do equipamento"
-                    rows={3}
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => handleDialogClose(false)}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button type="submit">
-                    {editingEquipment ? "Salvar" : "Criar"}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+              ))}
+            </div>
+          )}
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Lista de Equipamentos ({equipment.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {equipment.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">
-                Nenhum equipamento cadastrado
-              </p>
-            ) : (
-              <div className="divide-y">
-                {equipment.map((equip) => (
-                  <div
-                    key={equip.id}
-                    className="flex items-center justify-between py-4"
-                  >
-                    <div className="flex-1">
-                      <h3 className="font-medium">{equip.name}</h3>
-                      {equip.description && (
-                        <p className="text-sm text-muted-foreground">
-                          {equip.description}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEdit(equip)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(equip.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <p className="text-xs text-muted-foreground text-center mt-6">
+          {equipment.length} {equipment.length === 1 ? 'equipamento' : 'equipamentos'} cadastrado{equipment.length !== 1 ? 's' : ''}
+        </p>
       </div>
     </AppLayout>
   );

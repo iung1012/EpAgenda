@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Building2, Calendar, CheckSquare, Users, Clock, TrendingUp } from 'lucide-react';
+import { Building2, Calendar, CheckSquare, TrendingUp, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { StatsCard } from '@/components/layout/StatsCard';
 
 interface DashboardStats {
   totalClients: number;
@@ -29,7 +29,7 @@ interface UpcomingEvent {
 }
 
 export default function Dashboard() {
-  const { profile, role } = useAuth();
+  const { profile } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
     totalClients: 0,
     totalTasks: 0,
@@ -89,21 +89,12 @@ export default function Dashboard() {
     return 'Boa noite';
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'a_fazer': return 'bg-muted text-muted-foreground';
-      case 'fazendo': return 'bg-info/10 text-info';
-      case 'feito': return 'bg-success/10 text-success';
-      default: return 'bg-muted text-muted-foreground';
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
+  const getPriorityLabel = (priority: string) => {
     switch (priority) {
-      case 'alta': return 'text-destructive';
-      case 'media': return 'text-warning';
-      case 'baixa': return 'text-muted-foreground';
-      default: return 'text-muted-foreground';
+      case 'alta': return { label: 'Alta', className: 'text-destructive bg-destructive/10' };
+      case 'media': return { label: 'Média', className: 'text-orange-600 bg-orange-500/10' };
+      case 'baixa': return { label: 'Baixa', className: 'text-muted-foreground bg-muted' };
+      default: return { label: priority, className: 'text-muted-foreground bg-muted' };
     }
   };
 
@@ -112,148 +103,123 @@ export default function Dashboard() {
       case 'demanda': return 'Demanda';
       case 'visita': return 'Visita';
       case 'reuniao': return 'Reunião';
-      default: return 'Outro';
+      default: return 'Evento';
     }
   };
+
+  const productivity = stats.totalTasks > 0 
+    ? Math.round(((stats.totalTasks - stats.pendingTasks) / stats.totalTasks) * 100) 
+    : 0;
 
   return (
     <div className="space-y-8 animate-in">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight">
           {getGreeting()}, {profile?.full_name?.split(' ')[0]}
         </h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-sm text-muted-foreground">
           Aqui está o resumo da sua agência
         </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="hover-lift">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total de Clientes
-            </CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-semibold">{stats.totalClients}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="hover-lift">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Tarefas Pendentes
-            </CardTitle>
-            <CheckSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-semibold">{stats.pendingTasks}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              de {stats.totalTasks} total
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover-lift">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Eventos Hoje
-            </CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-semibold">{stats.todayEvents}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="hover-lift">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Produtividade
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-semibold">
-              {stats.totalTasks > 0 
-                ? Math.round(((stats.totalTasks - stats.pendingTasks) / stats.totalTasks) * 100) 
-                : 0}%
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              tarefas concluídas
-            </p>
-          </CardContent>
-        </Card>
+      {/* Stats Grid */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatsCard
+          title="Clientes"
+          value={stats.totalClients}
+          icon={Building2}
+        />
+        <StatsCard
+          title="Tarefas Pendentes"
+          value={stats.pendingTasks}
+          subtitle={`de ${stats.totalTasks} total`}
+          icon={CheckSquare}
+          variant="warning"
+        />
+        <StatsCard
+          title="Eventos Hoje"
+          value={stats.todayEvents}
+          icon={Calendar}
+          variant="info"
+        />
+        <StatsCard
+          title="Produtividade"
+          value={`${productivity}%`}
+          subtitle="tarefas concluídas"
+          icon={TrendingUp}
+          variant="success"
+        />
       </div>
 
       {/* Recent Activity */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Recent Tasks */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-medium">Tarefas Recentes</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="space-y-4">
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+            Tarefas Recentes
+          </h2>
+          <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
             {recentTasks.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
+              <p className="text-sm text-muted-foreground text-center py-12">
                 Nenhuma tarefa pendente
               </p>
             ) : (
-              <div className="space-y-3">
-                {recentTasks.map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{task.title}</p>
-                      {task.due_date && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                          <Clock className="h-3 w-3" />
-                          {format(new Date(task.due_date), "dd 'de' MMM", { locale: ptBR })}
-                        </p>
-                      )}
+              <div className="divide-y divide-border/50">
+                {recentTasks.map((task) => {
+                  const priority = getPriorityLabel(task.priority);
+                  return (
+                    <div key={task.id} className="flex items-center gap-3 p-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{task.title}</p>
+                        {task.due_date && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <Clock className="h-3 w-3" />
+                            {format(new Date(task.due_date), "dd MMM", { locale: ptBR })}
+                          </p>
+                        )}
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${priority.className}`}>
+                        {priority.label}
+                      </span>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${getPriorityColor(task.priority)}`}>
-                      {task.priority === 'alta' ? 'Alta' : task.priority === 'media' ? 'Média' : 'Baixa'}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Upcoming Events */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-medium">Próximos Eventos</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="space-y-4">
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+            Próximos Eventos
+          </h2>
+          <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
             {upcomingEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
+              <p className="text-sm text-muted-foreground text-center py-12">
                 Nenhum evento próximo
               </p>
             ) : (
-              <div className="space-y-3">
+              <div className="divide-y divide-border/50">
                 {upcomingEvents.map((event) => (
-                  <div key={event.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                  <div key={event.id} className="flex items-center gap-3 p-4">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{event.title}</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                         <Calendar className="h-3 w-3" />
-                        {format(new Date(event.start_date), "dd 'de' MMM 'às' HH:mm", { locale: ptBR })}
+                        {format(new Date(event.start_date), "dd MMM 'às' HH:mm", { locale: ptBR })}
                       </p>
                     </div>
-                    <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
                       {formatEventType(event.event_type)}
                     </span>
                   </div>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
