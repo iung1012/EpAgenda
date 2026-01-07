@@ -182,6 +182,35 @@ export default function Calendar() {
     }
   };
 
+  const handleEventMove = async (eventId: string, newDate: Date) => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return;
+
+    // Calculate the duration if end_date exists
+    let newEndDate: string | null = null;
+    if (event.end_date) {
+      const originalStart = new Date(event.start_date);
+      const originalEnd = new Date(event.end_date);
+      const duration = originalEnd.getTime() - originalStart.getTime();
+      newEndDate = new Date(newDate.getTime() + duration).toISOString();
+    }
+
+    const { error } = await supabase
+      .from('calendar_events')
+      .update({
+        start_date: newDate.toISOString(),
+        end_date: newEndDate,
+      })
+      .eq('id', eventId);
+
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erro ao mover evento', description: error.message });
+    } else {
+      toast({ title: 'Evento movido com sucesso!' });
+      refetch();
+    }
+  };
+
   const getDefaultValues = (): Partial<EventFormValues> | undefined => {
     if (editingEvent) {
       const startDate = new Date(editingEvent.start_date);
@@ -380,6 +409,7 @@ export default function Calendar() {
                 events={events}
                 onEventClick={handleEventClick}
                 onTimeSlotClick={handleTimeSlotClick}
+                onEventMove={handleEventMove}
               />
             </div>
           ) : (
@@ -389,6 +419,7 @@ export default function Calendar() {
                 events={events}
                 onEventClick={handleEventClick}
                 onTimeSlotClick={handleTimeSlotClick}
+                onEventMove={handleEventMove}
               />
             </div>
           )}
