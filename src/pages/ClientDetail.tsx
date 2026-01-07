@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { FileUpload } from '@/components/FileUpload';
 import { 
   ArrowLeft, 
   Building2, 
@@ -23,9 +24,11 @@ import {
   Instagram,
   Facebook,
   Linkedin,
-  Globe
+  Globe,
+  Upload
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Client {
   id: string;
@@ -70,12 +73,19 @@ export default function ClientDetail() {
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [isColorDialogOpen, setIsColorDialogOpen] = useState(false);
+  const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false);
+  const [currentFolderType, setCurrentFolderType] = useState('');
   const [newColor, setNewColor] = useState('#000000');
   const [passwordForm, setPasswordForm] = useState({
     service_name: '',
     username: '',
     password: '',
     notes: '',
+  });
+  const [folderForm, setFolderForm] = useState({
+    name: '',
+    description: '',
+    file_url: '',
   });
 
   useEffect(() => {
@@ -203,6 +213,54 @@ export default function ClientDetail() {
     }
   };
 
+  const handleLogoUpload = async (url: string) => {
+    if (!client) return;
+    
+    const { error } = await supabase
+      .from('clients')
+      .update({ logo_url: url || null })
+      .eq('id', id);
+
+    if (!error) {
+      setClient({ ...client, logo_url: url || null });
+      toast({ title: url ? 'Logo atualizado!' : 'Logo removido!' });
+    }
+  };
+
+  const handleAddFolder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!folderForm.name) {
+      toast({ variant: 'destructive', title: 'Nome é obrigatório' });
+      return;
+    }
+
+    const { error } = await supabase.from('client_folders').insert({
+      client_id: id,
+      folder_type: currentFolderType,
+      name: folderForm.name,
+      description: folderForm.description || null,
+      file_url: folderForm.file_url || null,
+      created_by: user?.id,
+    });
+
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erro ao adicionar arquivo', description: error.message });
+    } else {
+      toast({ title: 'Arquivo adicionado!' });
+      setIsFolderDialogOpen(false);
+      setFolderForm({ name: '', description: '', file_url: '' });
+      fetchFolders();
+    }
+  };
+
+  const handleDeleteFolder = async (folderId: string) => {
+    const { error } = await supabase.from('client_folders').delete().eq('id', folderId);
+    if (!error) {
+      toast({ title: 'Arquivo removido!' });
+      fetchFolders();
+    }
+  };
+
   const getSocialIcon = (platform: string) => {
     switch (platform.toLowerCase()) {
       case 'instagram': return Instagram;
@@ -230,13 +288,14 @@ export default function ClientDetail() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex items-center gap-4">
-          {client.logo_url ? (
-            <img src={client.logo_url} alt={client.name} className="h-14 w-14 rounded-xl object-cover" />
-          ) : (
-            <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Building2 className="h-7 w-7 text-primary" />
-            </div>
-          )}
+          <FileUpload
+            clientId={id!}
+            folder="logos"
+            accept="image/*"
+            currentUrl={client.logo_url}
+            onUploadComplete={handleLogoUpload}
+            isLogo
+          />
           <div>
             <h1 className="text-2xl font-semibold">{client.name}</h1>
             {client.segment && <p className="text-muted-foreground">{client.segment}</p>}
@@ -399,11 +458,22 @@ export default function ClientDetail() {
             };
             return (
               <Card key={type}>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <FileText className="h-4 w-4" />
                     {titles[type]}
                   </CardTitle>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => {
+                      setCurrentFolderType(type);
+                      setIsFolderDialogOpen(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Adicionar
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   {typeFolders.length === 0 ? (
@@ -411,18 +481,30 @@ export default function ClientDetail() {
                   ) : (
                     <div className="space-y-2">
                       {typeFolders.map((folder) => (
-                        <div key={folder.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                        <div key={folder.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 group">
                           <div>
                             <p className="font-medium text-sm">{folder.name}</p>
                             {folder.description && (
                               <p className="text-xs text-muted-foreground">{folder.description}</p>
                             )}
                           </div>
-                          {folder.file_url && (
-                            <Button variant="ghost" size="sm" onClick={() => window.open(folder.file_url!, '_blank')}>
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          )}
+                          <div className="flex items-center gap-1">
+                            {folder.file_url && (
+                              <Button variant="ghost" size="sm" onClick={() => window.open(folder.file_url!, '_blank')}>
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {isAdminOrManager && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="opacity-0 group-hover:opacity-100 text-destructive"
+                                onClick={() => handleDeleteFolder(folder.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -431,6 +513,51 @@ export default function ClientDetail() {
               </Card>
             );
           })}
+
+          {/* Dialog para adicionar arquivo/pasta */}
+          <Dialog open={isFolderDialogOpen} onOpenChange={setIsFolderDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Adicionar Arquivo</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleAddFolder} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Nome *</Label>
+                  <Input
+                    value={folderForm.name}
+                    onChange={(e) => setFolderForm({ ...folderForm, name: e.target.value })}
+                    placeholder="Nome do arquivo"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Descrição</Label>
+                  <Textarea
+                    value={folderForm.description}
+                    onChange={(e) => setFolderForm({ ...folderForm, description: e.target.value })}
+                    placeholder="Descrição opcional..."
+                    rows={2}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Arquivo</Label>
+                  <FileUpload
+                    clientId={id!}
+                    folder={currentFolderType}
+                    accept="*/*"
+                    onUploadComplete={(url) => setFolderForm({ ...folderForm, file_url: url })}
+                    label="Enviar arquivo"
+                  />
+                </div>
+                <div className="flex justify-end gap-3">
+                  <Button type="button" variant="outline" onClick={() => setIsFolderDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit">Adicionar</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {isAdminOrManager && (
