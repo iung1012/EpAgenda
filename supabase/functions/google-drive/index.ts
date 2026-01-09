@@ -222,8 +222,8 @@ async function getFileThumbnail(accessToken: string, fileId: string): Promise<{ 
   }
 }
 
-// Stream media file (video/audio)
-async function streamMedia(accessToken: string, fileId: string): Promise<Response> {
+// Stream media file (video/audio) with range request support
+async function streamMedia(accessToken: string, fileId: string, rangeHeader: string | null): Promise<Response> {
   try {
     // First get file metadata
     const metaUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=mimeType,size,name`;
@@ -236,8 +236,46 @@ async function streamMedia(accessToken: string, fileId: string): Promise<Respons
     }
     
     const meta = await metaResponse.json();
+    const fileSize = parseInt(meta.size || '0');
     
-    // Stream the file content
+    // Handle range requests for seeking
+    if (rangeHeader) {
+      const parts = rangeHeader.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : Math.min(start + 10 * 1024 * 1024, fileSize - 1); // 10MB chunks
+      const chunkSize = end - start + 1;
+      
+      console.log(`Range request: ${start}-${end}/${fileSize}`);
+      
+      // Stream the file content with range
+      const contentUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+      const contentResponse = await fetch(contentUrl, {
+        headers: { 
+          'Authorization': `Bearer ${accessToken}`,
+          'Range': `bytes=${start}-${end}`,
+        },
+      });
+      
+      if (!contentResponse.ok && contentResponse.status !== 206) {
+        throw new Error('Failed to stream file');
+      }
+      
+      return new Response(contentResponse.body, {
+        status: 206,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, range',
+          'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
+          'Content-Type': meta.mimeType || 'video/mp4',
+          'Content-Length': chunkSize.toString(),
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'public, max-age=3600',
+        },
+      });
+    }
+    
+    // No range header - return full file info for initial request
     const contentUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
     const contentResponse = await fetch(contentUrl, {
       headers: { 'Authorization': `Bearer ${accessToken}` },
@@ -252,7 +290,7 @@ async function streamMedia(accessToken: string, fileId: string): Promise<Respons
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, range',
-        'Access-Control-Expose-Headers': 'Content-Length, Content-Range',
+        'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Accept-Ranges',
         'Content-Type': meta.mimeType || 'application/octet-stream',
         'Content-Length': meta.size || '',
         'Accept-Ranges': 'bytes',
@@ -314,9 +352,23 @@ serve(async (req) => {
   }
 
   try {
-    // Validate authorization
+    // Parse URL early to check for token query param (for streaming)
+    const url = new URL(req.url);
+    const action = url.searchParams.get('action');
+    const tokenParam = url.searchParams.get('token');
+    
+    // Validate authorization - accept header or query param token for streaming
+    let authToken: string | null = null;
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
+    
+    if (authHeader?.startsWith('Bearer ')) {
+      authToken = authHeader.replace('Bearer ', '');
+    } else if (tokenParam && action === 'stream') {
+      // Allow token via query param only for streaming (video src can't send headers)
+      authToken = tokenParam;
+    }
+    
+    if (!authToken) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
         status: 401, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -326,11 +378,10 @@ serve(async (req) => {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
+      { global: { headers: { Authorization: `Bearer ${authToken}` } } }
     );
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(authToken);
     
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
@@ -358,13 +409,12 @@ serve(async (req) => {
       return input;
     };
 
-    // Parse URL and get action
-    const url = new URL(req.url);
-    const action = url.searchParams.get('action');
+    // Get additional params
     const rawFolderId = url.searchParams.get('folderId') || Deno.env.get('GOOGLE_DRIVE_ROOT_FOLDER_ID');
     const folderId = extractFolderId(rawFolderId);
     const fileId = url.searchParams.get('fileId');
     const searchQuery = url.searchParams.get('search');
+    const rangeHeader = req.headers.get('Range');
 
     console.log(`Google Drive action: ${action}, folderId: ${folderId}, fileId: ${fileId}`);
 
@@ -412,7 +462,7 @@ serve(async (req) => {
         if (!fileId) {
           throw new Error('File ID is required');
         }
-        return await streamMedia(accessToken, fileId);
+        return await streamMedia(accessToken, fileId, rangeHeader);
 
       default:
         // Default to list with root folder
