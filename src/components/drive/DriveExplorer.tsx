@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useDriveFiles, DriveFile } from '@/hooks/useDriveFiles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -161,7 +161,7 @@ function ThumbnailImage({
   );
 }
 
-// Video player component that streams via edge function proxy
+// Video player component with real-time streaming
 function VideoPlayer({ 
   fileId, 
   fileName, 
@@ -171,53 +171,32 @@ function VideoPlayer({
   fileName: string; 
   authToken: string | null;
 }) {
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-
-  useEffect(() => {
-    if (!authToken) return;
-    
-    const fetchVideo = async () => {
-      try {
-        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-        const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/google-drive?action=stream&fileId=${fileId}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${authToken}`,
-            },
-          }
-        );
-
-        if (response.ok) {
-          const blob = await response.blob();
-          setVideoUrl(URL.createObjectURL(blob));
-        } else {
-          setError(true);
-        }
-      } catch (e) {
-        setError(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchVideo();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  
+  // Build streaming URL with token as query param
+  const streamUrl = useMemo(() => {
+    if (!authToken) return null;
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    return `https://${projectId}.supabase.co/functions/v1/google-drive?action=stream&fileId=${fileId}&token=${encodeURIComponent(authToken)}`;
   }, [fileId, authToken]);
 
-  if (loading) {
+  const handleError = () => {
+    setError(true);
+  };
+
+  if (!authToken || !streamUrl) {
     return (
       <div className="w-full max-w-3xl aspect-video bg-muted rounded-lg flex items-center justify-center">
         <div className="text-center space-y-2">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Carregando vídeo...</p>
+          <FileVideo className="h-12 w-12 text-purple-500 mx-auto" />
+          <p className="text-sm text-muted-foreground">Autenticação necessária</p>
         </div>
       </div>
     );
   }
 
-  if (error || !videoUrl) {
+  if (error) {
     return (
       <div className="w-full max-w-3xl aspect-video bg-muted rounded-lg flex items-center justify-center">
         <div className="text-center space-y-2">
@@ -230,9 +209,12 @@ function VideoPlayer({
 
   return (
     <video
-      src={videoUrl}
+      ref={videoRef}
+      src={streamUrl}
       controls
       autoPlay
+      preload="metadata"
+      onError={handleError}
       className="w-full max-w-3xl max-h-[70vh] rounded-lg"
     >
       Seu navegador não suporta a reprodução de vídeo.
