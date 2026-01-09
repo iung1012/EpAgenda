@@ -153,22 +153,32 @@ async function listFiles(accessToken: string, folderId: string): Promise<DriveFi
 // Get file content as stream (for images and thumbnails)
 async function getFileContent(accessToken: string, fileId: string): Promise<{ body: ReadableStream<Uint8Array>; mimeType: string } | null> {
   try {
+    console.log(`Getting file content for fileId: ${fileId}`);
+    
     // First get file metadata
-    const metaUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=mimeType,size`;
+    const metaUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=mimeType,size,name`;
     const metaResponse = await fetch(metaUrl, {
       headers: { 'Authorization': `Bearer ${accessToken}` },
     });
     
-    if (!metaResponse.ok) return null;
+    if (!metaResponse.ok) {
+      console.error(`Failed to get file metadata: ${metaResponse.status}`);
+      return null;
+    }
     
     const meta = await metaResponse.json();
+    console.log(`File metadata: ${JSON.stringify(meta)}`);
     
-    // For images, get the actual content
-    if (meta.mimeType?.startsWith('image/')) {
+    // For images or regular files (not Google Docs types), get the actual content
+    if (meta.mimeType && !meta.mimeType.startsWith('application/vnd.google-apps.')) {
       const contentUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+      console.log(`Fetching content from: ${contentUrl}`);
+      
       const contentResponse = await fetch(contentUrl, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
+      
+      console.log(`Content response status: ${contentResponse.status}`);
       
       if (contentResponse.ok && contentResponse.body) {
         return { body: contentResponse.body, mimeType: meta.mimeType };
@@ -326,7 +336,7 @@ serve(async (req) => {
     const fileId = url.searchParams.get('fileId');
     const searchQuery = url.searchParams.get('search');
 
-    console.log(`Google Drive action: ${action}, folderId: ${folderId}`);
+    console.log(`Google Drive action: ${action}, folderId: ${folderId}, fileId: ${fileId}`);
 
     let result;
 
