@@ -150,13 +150,13 @@ async function listFiles(accessToken: string, folderId: string): Promise<DriveFi
   return data.files || [];
 }
 
-// Get file content as stream (for images and thumbnails)
-async function getFileContent(accessToken: string, fileId: string): Promise<{ body: ReadableStream<Uint8Array>; mimeType: string } | null> {
+// Get thumbnail for file (uses Google's thumbnail for videos, full image for images)
+async function getFileThumbnail(accessToken: string, fileId: string): Promise<{ body: ReadableStream<Uint8Array>; mimeType: string } | null> {
   try {
-    console.log(`Getting file content for fileId: ${fileId}`);
+    console.log(`Getting thumbnail for fileId: ${fileId}`);
     
-    // First get file metadata
-    const metaUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=mimeType,size,name`;
+    // First get file metadata including thumbnailLink
+    const metaUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=mimeType,size,name,thumbnailLink`;
     const metaResponse = await fetch(metaUrl, {
       headers: { 'Authorization': `Bearer ${accessToken}` },
     });
@@ -169,10 +169,28 @@ async function getFileContent(accessToken: string, fileId: string): Promise<{ bo
     const meta = await metaResponse.json();
     console.log(`File metadata: ${JSON.stringify(meta)}`);
     
-    // For images or regular files (not Google Docs types), get the actual content
-    if (meta.mimeType && !meta.mimeType.startsWith('application/vnd.google-apps.')) {
+    // For videos/audio, use Google's generated thumbnail
+    if (meta.mimeType?.startsWith('video/') || meta.mimeType?.startsWith('audio/')) {
+      if (meta.thumbnailLink) {
+        // Get higher resolution thumbnail
+        const thumbUrl = meta.thumbnailLink.replace('=s220', '=s400');
+        console.log(`Fetching video thumbnail from: ${thumbUrl}`);
+        
+        const thumbResponse = await fetch(thumbUrl, {
+          headers: { 'Authorization': `Bearer ${accessToken}` },
+        });
+        
+        if (thumbResponse.ok && thumbResponse.body) {
+          return { body: thumbResponse.body, mimeType: 'image/jpeg' };
+        }
+      }
+      return null;
+    }
+    
+    // For images, get the actual content
+    if (meta.mimeType?.startsWith('image/')) {
       const contentUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-      console.log(`Fetching content from: ${contentUrl}`);
+      console.log(`Fetching image content from: ${contentUrl}`);
       
       const contentResponse = await fetch(contentUrl, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
@@ -185,9 +203,21 @@ async function getFileContent(accessToken: string, fileId: string): Promise<{ bo
       }
     }
     
+    // For other files, try to use thumbnailLink
+    if (meta.thumbnailLink) {
+      const thumbUrl = meta.thumbnailLink.replace('=s220', '=s400');
+      const thumbResponse = await fetch(thumbUrl, {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      });
+      
+      if (thumbResponse.ok && thumbResponse.body) {
+        return { body: thumbResponse.body, mimeType: 'image/png' };
+      }
+    }
+    
     return null;
   } catch (e) {
-    console.error('Error getting file content:', e);
+    console.error('Error getting thumbnail:', e);
     return null;
   }
 }
@@ -366,12 +396,12 @@ serve(async (req) => {
         if (!fileId) {
           throw new Error('File ID is required');
         }
-        const fileContent = await getFileContent(accessToken, fileId);
-        if (fileContent) {
-          return new Response(fileContent.body, {
+        const thumbnail = await getFileThumbnail(accessToken, fileId);
+        if (thumbnail) {
+          return new Response(thumbnail.body, {
             headers: { 
               ...corsHeaders, 
-              'Content-Type': fileContent.mimeType,
+              'Content-Type': thumbnail.mimeType,
               'Cache-Control': 'public, max-age=3600',
             },
           });
