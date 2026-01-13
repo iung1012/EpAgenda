@@ -18,7 +18,7 @@ interface ClientCardProps {
 }
 
 export function ClientCard({ client, taskCount, onClick }: ClientCardProps) {
-  const hasLinks = client.google_drive_link || client.trello_link;
+  const hasLinks = client.google_drive_link || client.trello_link || client.canva_link;
   const hasContact = client.contact_name || client.contact_email || client.contact_phone;
 
   return (
@@ -154,6 +154,23 @@ export function ClientCard({ client, taskCount, onClick }: ClientCardProps) {
                   <img 
                     src="https://cdn.worldvectorlogo.com/logos/trello.svg" 
                     alt="Trello"
+                    className="h-4 w-4"
+                  />
+                </Button>
+              )}
+              {client.canva_link && (
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(client.canva_link!, '_blank');
+                  }}
+                >
+                  <img 
+                    src="https://upload.wikimedia.org/wikipedia/commons/0/08/Canva_icon_2021.svg" 
+                    alt="Canva"
                     className="h-4 w-4"
                   />
                 </Button>

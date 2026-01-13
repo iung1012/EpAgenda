@@ -128,6 +128,23 @@ export function ClientListItem({ client, taskCount, onClick }: ClientListItemPro
             />
           </Button>
         )}
+        {client.canva_link && (
+          <Button 
+            variant="ghost" 
+            size="icon"
+            className="h-8 w-8"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.open(client.canva_link!, '_blank');
+            }}
+          >
+            <img 
+              src="https://upload.wikimedia.org/wikipedia/commons/0/08/Canva_icon_2021.svg" 
+              alt="Canva"
+              className="h-4 w-4"
+            />
+          </Button>
+        )}
       </div>
 
       {/* Arrow */}

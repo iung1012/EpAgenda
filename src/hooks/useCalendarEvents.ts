@@ -17,6 +17,9 @@ export interface CalendarEvent {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // For visit events
+  isVisit?: boolean;
+  visitId?: string;
 }
 
 export function useCalendarEvents(currentDate: Date) {
@@ -31,22 +34,51 @@ export function useCalendarEvents(currentDate: Date) {
     const start = startOfMonth(currentDate);
     const end = endOfMonth(currentDate);
 
-    const { data, error: fetchError } = await supabase
-      .from('calendar_events')
-      .select('*')
-      .gte('start_date', start.toISOString())
-      .lte('start_date', end.toISOString())
-      .order('start_date');
+    // Fetch calendar events and visits in parallel
+    const [eventsResult, visitsResult] = await Promise.all([
+      supabase
+        .from('calendar_events')
+        .select('*')
+        .gte('start_date', start.toISOString())
+        .lte('start_date', end.toISOString())
+        .order('start_date'),
+      supabase
+        .from('filmmaker_visits')
+        .select('*')
+        .gte('visit_date', start.toISOString())
+        .lte('visit_date', end.toISOString())
+        .order('visit_date')
+    ]);
 
-    if (fetchError) {
-      setError(fetchError.message);
+    if (eventsResult.error) {
+      setError(eventsResult.error.message);
       setIsLoading(false);
       return;
     }
 
-    if (data) {
-      setEvents(data as CalendarEvent[]);
-    }
+    // Convert visits to calendar event format
+    const calendarEvents = (eventsResult.data || []) as CalendarEvent[];
+    
+    const visitEvents: CalendarEvent[] = (visitsResult.data || []).map(visit => ({
+      id: `visit-${visit.id}`,
+      title: visit.title,
+      description: visit.description,
+      event_type: 'visita',
+      start_date: visit.visit_date,
+      end_date: null,
+      all_day: false,
+      location: visit.location,
+      client_id: visit.client_id,
+      assigned_to: visit.filmmaker_id,
+      color: '#22c55e', // Green for visits
+      created_by: visit.filmmaker_id,
+      created_at: visit.created_at,
+      updated_at: visit.updated_at,
+      isVisit: true,
+      visitId: visit.id,
+    }));
+
+    setEvents([...calendarEvents, ...visitEvents]);
     setIsLoading(false);
   }, [currentDate]);
 
