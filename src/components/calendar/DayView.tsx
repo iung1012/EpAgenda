@@ -4,8 +4,9 @@ import { CalendarEvent } from '@/hooks/useCalendarEvents';
 import { Clock, MapPin } from 'lucide-react';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CSS } from '@dnd-kit/utilities';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface DayViewProps {
   currentDate: Date;
@@ -106,6 +107,8 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
   const isToday = isSameDay(currentDate, new Date());
   const [activeEvent, setActiveEvent] = useState<CalendarEvent | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const hasScrolled = useRef(false);
 
   // Update current time every minute
   useEffect(() => {
@@ -114,6 +117,31 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
     }, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // Scroll to current hour on mount (only for today)
+  useEffect(() => {
+    if (isToday && !hasScrolled.current && scrollAreaRef.current) {
+      const currentHour = new Date().getHours();
+      // Each hour slot is 80px high, scroll to 2 hours before current for context
+      const scrollPosition = Math.max(0, (currentHour - 2) * 80);
+      
+      // Small delay to ensure content is rendered
+      setTimeout(() => {
+        if (scrollAreaRef.current) {
+          const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+          if (viewport) {
+            viewport.scrollTop = scrollPosition;
+            hasScrolled.current = true;
+          }
+        }
+      }, 100);
+    }
+  }, [isToday, currentDate]);
+
+  // Reset scroll flag when date changes
+  useEffect(() => {
+    hasScrolled.current = false;
+  }, [currentDate]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -159,7 +187,7 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="overflow-auto">
+      <ScrollArea className="h-[600px]" ref={scrollAreaRef}>
         {/* Header */}
         <div className={`p-4 text-center border-b sticky top-0 bg-background z-10 ${isToday ? 'bg-primary/10' : ''}`}>
           <div className="text-lg font-medium">
@@ -203,7 +231,7 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
             );
           })}
         </div>
-      </div>
+      </ScrollArea>
 
       <DragOverlay>
         {activeEvent && (

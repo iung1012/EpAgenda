@@ -413,15 +413,13 @@ export default function Calendar() {
               />
             </div>
           ) : (
-            <div className="max-h-[600px] overflow-auto">
-              <DayView
-                currentDate={currentDate}
-                events={events}
-                onEventClick={handleEventClick}
-                onTimeSlotClick={handleTimeSlotClick}
-                onEventMove={handleEventMove}
-              />
-            </div>
+            <DayView
+              currentDate={currentDate}
+              events={events}
+              onEventClick={handleEventClick}
+              onTimeSlotClick={handleTimeSlotClick}
+              onEventMove={handleEventMove}
+            />
           )}
         </CardContent>
       </Card>

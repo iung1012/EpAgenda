@@ -198,6 +198,7 @@ export type Database = {
       }
       clients: {
         Row: {
+          canva_link: string | null
           color_palette: Json | null
           contact_email: string | null
           contact_name: string | null
@@ -215,6 +216,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          canva_link?: string | null
           color_palette?: Json | null
           contact_email?: string | null
           contact_name?: string | null
@@ -232,6 +234,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          canva_link?: string | null
           color_palette?: Json | null
           contact_email?: string | null
           contact_name?: string | null

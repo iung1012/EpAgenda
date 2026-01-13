@@ -13,6 +13,7 @@ export interface Client {
   social_links: Record<string, string>;
   google_drive_link: string | null;
   trello_link: string | null;
+  canva_link: string | null;
   notes: string | null;
 }
 
@@ -42,7 +43,7 @@ export function useClients(options: UseClientsOptions = {}) {
       }
 
       if (data) {
-        const mappedClients = data.map(c => ({
+      const mappedClients = data.map(c => ({
           ...c,
           logo_url: null,
           segment: null,
@@ -53,6 +54,7 @@ export function useClients(options: UseClientsOptions = {}) {
           social_links: {},
           google_drive_link: null,
           trello_link: null,
+          canva_link: null,
           notes: null,
         })) as Client[];
         setClients(mappedClients);
