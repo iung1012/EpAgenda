@@ -8,6 +8,7 @@ import { StatsCard } from '@/components/layout/StatsCard';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { RecentActivityWidget } from '@/components/dashboard/RecentActivityWidget';
 
 interface DashboardStats {
   totalClients: number;
@@ -175,7 +176,7 @@ export default function Dashboard() {
       </div>
 
       {/* Activity Section */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-3">
         {/* Recent Tasks */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -282,6 +283,9 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+        {/* Recent Activity */}
+        <RecentActivityWidget />
       </div>
     </div>
   );
