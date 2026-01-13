@@ -124,21 +124,42 @@ export default function Calendar() {
     if (!eventToDelete) return;
 
     setIsDeleting(true);
-    const { error } = await supabase
-      .from('calendar_events')
-      .delete()
-      .eq('id', eventToDelete.id);
 
-    setIsDeleting(false);
-    setDeleteDialogOpen(false);
-    setEventToDelete(null);
+    // Check if it's a visit event (id starts with 'visit-')
+    if (eventToDelete.isVisit && eventToDelete.visitId) {
+      const { error } = await supabase
+        .from('filmmaker_visits')
+        .delete()
+        .eq('id', eventToDelete.visitId);
 
-    if (error) {
-      toast({ variant: 'destructive', title: 'Erro ao excluir evento', description: error.message });
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setEventToDelete(null);
+
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao excluir visita', description: error.message });
+      } else {
+        toast({ title: 'Visita excluída com sucesso!' });
+        setDayDialogOpen(false);
+        refetch();
+      }
     } else {
-      toast({ title: 'Evento excluído com sucesso!' });
-      setDayDialogOpen(false);
-      refetch();
+      const { error } = await supabase
+        .from('calendar_events')
+        .delete()
+        .eq('id', eventToDelete.id);
+
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setEventToDelete(null);
+
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao excluir evento', description: error.message });
+      } else {
+        toast({ title: 'Evento excluído com sucesso!' });
+        setDayDialogOpen(false);
+        refetch();
+      }
     }
   };
 
