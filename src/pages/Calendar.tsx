@@ -361,6 +361,27 @@ export default function Calendar() {
         </div>
       )}
 
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-4 px-1">
+        <span className="text-sm text-muted-foreground font-medium">Legenda:</span>
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#22c55e' }} />
+          <span className="text-sm text-muted-foreground">Visita</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#a855f7' }} />
+          <span className="text-sm text-muted-foreground">Reunião</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#3b82f6' }} />
+          <span className="text-sm text-muted-foreground">Demanda</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#6b7280' }} />
+          <span className="text-sm text-muted-foreground">Outro</span>
+        </div>
+      </div>
+
       {/* Calendar */}
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
