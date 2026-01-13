@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Building2, Calendar, CheckSquare, TrendingUp, Clock } from 'lucide-react';
+import { Building2, Calendar, CheckSquare, TrendingUp, Clock, ArrowRight, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { StatsCard } from '@/components/layout/StatsCard';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 interface DashboardStats {
   totalClients: number;
@@ -89,12 +92,21 @@ export default function Dashboard() {
     return 'Boa noite';
   };
 
-  const getPriorityLabel = (priority: string) => {
+  const getPriorityStyles = (priority: string) => {
     switch (priority) {
-      case 'alta': return { label: 'Alta', className: 'text-destructive bg-destructive/10' };
-      case 'media': return { label: 'Média', className: 'text-orange-600 bg-orange-500/10' };
-      case 'baixa': return { label: 'Baixa', className: 'text-muted-foreground bg-muted' };
-      default: return { label: priority, className: 'text-muted-foreground bg-muted' };
+      case 'alta': return { dot: 'bg-destructive', text: 'text-destructive' };
+      case 'media': return { dot: 'bg-amber-500', text: 'text-amber-600' };
+      case 'baixa': return { dot: 'bg-muted-foreground', text: 'text-muted-foreground' };
+      default: return { dot: 'bg-muted-foreground', text: 'text-muted-foreground' };
+    }
+  };
+
+  const getEventTypeStyles = (type: string) => {
+    switch (type) {
+      case 'demanda': return 'bg-purple-500/10 text-purple-600 dark:text-purple-400';
+      case 'visita': return 'bg-blue-500/10 text-blue-600 dark:text-blue-400';
+      case 'reuniao': return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
+      default: return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -111,29 +123,39 @@ export default function Dashboard() {
     ? Math.round(((stats.totalTasks - stats.pendingTasks) / stats.totalTasks) * 100) 
     : 0;
 
+  const currentDate = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR });
+
   return (
     <div className="space-y-8 animate-in">
-      {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {getGreeting()}, {profile?.full_name?.split(' ')[0]}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Aqui está o resumo da sua agência
-        </p>
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/5 via-primary/10 to-transparent p-8 border border-border/50">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="relative z-10">
+          <p className="text-sm font-medium text-muted-foreground capitalize mb-2">
+            {currentDate}
+          </p>
+          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight mb-2">
+            {getGreeting()}, {profile?.full_name?.split(' ')[0]}
+          </h1>
+          <p className="text-muted-foreground max-w-lg">
+            Aqui está o resumo da sua agência. Você tem{' '}
+            <span className="font-medium text-foreground">{stats.pendingTasks} tarefas</span> pendentes e{' '}
+            <span className="font-medium text-foreground">{stats.todayEvents} eventos</span> hoje.
+          </p>
+        </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
-          title="Clientes"
+          title="Total de Clientes"
           value={stats.totalClients}
           icon={Building2}
         />
         <StatsCard
           title="Tarefas Pendentes"
           value={stats.pendingTasks}
-          subtitle={`de ${stats.totalTasks} total`}
+          subtitle={`de ${stats.totalTasks} no total`}
           icon={CheckSquare}
           variant="warning"
         />
@@ -152,36 +174,50 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Recent Activity */}
+      {/* Activity Section */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Recent Tasks */}
         <div className="space-y-4">
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-            Tarefas Recentes
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Tarefas Pendentes</h2>
+            <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground">
+              <Link to="/tasks">
+                Ver todas
+                <ArrowRight className="ml-1 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
           <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
             {recentTasks.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-12">
-                Nenhuma tarefa pendente
-              </p>
+              <div className="flex flex-col items-center justify-center py-12 px-4">
+                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <Sparkles className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium text-foreground mb-1">Tudo em dia!</p>
+                <p className="text-xs text-muted-foreground text-center">
+                  Nenhuma tarefa pendente no momento
+                </p>
+              </div>
             ) : (
               <div className="divide-y divide-border/50">
-                {recentTasks.map((task) => {
-                  const priority = getPriorityLabel(task.priority);
+                {recentTasks.map((task, index) => {
+                  const priority = getPriorityStyles(task.priority);
                   return (
-                    <div key={task.id} className="flex items-center gap-3 p-4">
+                    <div 
+                      key={task.id} 
+                      className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <div className={cn("h-2.5 w-2.5 rounded-full shrink-0", priority.dot)} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{task.title}</p>
                         {task.due_date && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
                             <Clock className="h-3 w-3" />
-                            {format(new Date(task.due_date), "dd MMM", { locale: ptBR })}
+                            {format(new Date(task.due_date), "dd 'de' MMM", { locale: ptBR })}
                           </p>
                         )}
                       </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${priority.className}`}>
-                        {priority.label}
-                      </span>
                     </div>
                   );
                 })}
@@ -192,26 +228,52 @@ export default function Dashboard() {
 
         {/* Upcoming Events */}
         <div className="space-y-4">
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-            Próximos Eventos
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Próximos Eventos</h2>
+            <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground">
+              <Link to="/calendar">
+                Ver calendário
+                <ArrowRight className="ml-1 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
           <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
             {upcomingEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-12">
-                Nenhum evento próximo
-              </p>
+              <div className="flex flex-col items-center justify-center py-12 px-4">
+                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <Calendar className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <p className="text-sm font-medium text-foreground mb-1">Agenda livre</p>
+                <p className="text-xs text-muted-foreground text-center">
+                  Nenhum evento agendado
+                </p>
+              </div>
             ) : (
               <div className="divide-y divide-border/50">
-                {upcomingEvents.map((event) => (
-                  <div key={event.id} className="flex items-center gap-3 p-4">
+                {upcomingEvents.map((event, index) => (
+                  <div 
+                    key={event.id} 
+                    className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <div className="h-10 w-10 rounded-xl bg-muted flex flex-col items-center justify-center shrink-0">
+                      <span className="text-xs font-semibold leading-none">
+                        {format(new Date(event.start_date), "dd")}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground uppercase">
+                        {format(new Date(event.start_date), "MMM", { locale: ptBR })}
+                      </span>
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{event.title}</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <Calendar className="h-3 w-3" />
-                        {format(new Date(event.start_date), "dd MMM 'às' HH:mm", { locale: ptBR })}
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {format(new Date(event.start_date), "HH:mm", { locale: ptBR })}
                       </p>
                     </div>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                    <span className={cn(
+                      "text-xs px-2.5 py-1 rounded-full font-medium shrink-0",
+                      getEventTypeStyles(event.event_type)
+                    )}>
                       {formatEventType(event.event_type)}
                     </span>
                   </div>
