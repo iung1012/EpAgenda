@@ -280,59 +280,22 @@ export default function Calendar() {
   }
 
   return (
-    <div className="min-h-screen">
-      {/* Hero Header */}
-      <div className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-muted/30 to-background">
-        <div className="absolute inset-0 bg-grid-pattern opacity-[0.02]" />
-        <div className="relative px-6 py-8 md:py-10">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CalendarDays className="h-4 w-4" />
-                  <span>Organização</span>
-                </div>
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-                  Calendário
-                </h1>
-                <p className="text-muted-foreground max-w-md">
-                  Gerencie eventos, demandas e visitas da sua equipe
-                </p>
-              </div>
-              
-              <Button 
-                size="lg" 
-                className="gap-2 shadow-lg shadow-primary/20 h-12 px-6"
-                onClick={() => {
-                  setEditingEvent(null);
-                  setSelectedDate('');
-                  setSelectedTime('');
-                  setIsDialogOpen(true);
-                }}
-              >
-                <Plus className="h-5 w-5" />
-                Novo Evento
-              </Button>
-            </div>
-
-            {/* Stats */}
-            <div className="grid gap-4 sm:grid-cols-2 mt-8">
-              <StatsCard
-                title="Eventos este mês"
-                value={events.length}
-                icon={CalendarDays}
-                variant="info"
-              />
-              <StatsCard
-                title="Eventos hoje"
-                value={todayEvents.length}
-                icon={Clock}
-                variant={todayEvents.length > 0 ? 'success' : 'default'}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-6 animate-in">
+      <PageHeader 
+        title="Calendário" 
+        description="Gerencie eventos, demandas e visitas"
+        action={
+          <Button onClick={() => {
+            setEditingEvent(null);
+            setSelectedDate('');
+            setSelectedTime('');
+            setIsDialogOpen(true);
+          }}>
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Evento
+          </Button>
+        }
+      />
 
       {/* Form Dialog */}
       <EventFormDialog
@@ -375,9 +338,28 @@ export default function Calendar() {
         isLoading={isDeleting}
       />
 
-      {/* Content */}
-      <div className="px-6 py-8">
-        <div className="max-w-7xl mx-auto space-y-6">
+      {/* Stats */}
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <StatsSkeleton />
+          <StatsSkeleton />
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <StatsCard
+            title="Eventos este mês"
+            value={events.length}
+            icon={CalendarDays}
+            variant="info"
+          />
+          <StatsCard
+            title="Eventos hoje"
+            value={todayEvents.length}
+            icon={Clock}
+            variant={todayEvents.length > 0 ? 'success' : 'default'}
+          />
+        </div>
+      )}
 
       {/* Calendar */}
       <Card>
@@ -515,8 +497,6 @@ export default function Calendar() {
           )}
         </CardContent>
       </Card>
-        </div>
-      </div>
     </div>
   );
 }
