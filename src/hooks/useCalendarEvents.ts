@@ -51,9 +51,15 @@ export function useCalendarEvents(currentDate: Date) {
     ]);
 
     if (eventsResult.error) {
+      console.error('Error fetching calendar events:', eventsResult.error);
       setError(eventsResult.error.message);
       setIsLoading(false);
       return;
+    }
+
+    if (visitsResult.error) {
+      console.error('Error fetching visits:', visitsResult.error);
+      // Don't fail completely, just log and continue with calendar events only
     }
 
     // Convert visits to calendar event format
@@ -61,7 +67,7 @@ export function useCalendarEvents(currentDate: Date) {
     
     const visitEvents: CalendarEvent[] = (visitsResult.data || []).map(visit => ({
       id: `visit-${visit.id}`,
-      title: visit.title,
+      title: `📹 ${visit.title}`,
       description: visit.description,
       event_type: 'visita',
       start_date: visit.visit_date,
@@ -78,6 +84,7 @@ export function useCalendarEvents(currentDate: Date) {
       visitId: visit.id,
     }));
 
+    console.log('Calendar events:', calendarEvents.length, 'Visit events:', visitEvents.length);
     setEvents([...calendarEvents, ...visitEvents]);
     setIsLoading(false);
   }, [currentDate]);
