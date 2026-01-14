@@ -50,7 +50,7 @@ type ViewType = 'month' | 'week' | 'day';
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewType, setViewType] = useState<ViewType>('month');
-  const { events, isLoading, error, refetch, getEventsForDay, getTodayEvents } = useCalendarEvents(currentDate);
+  const { events, isLoading, error, refetch, getEventsForDay, getTodayEvents, updateEventLocally } = useCalendarEvents(currentDate);
   const { profiles } = useProfiles();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -343,6 +343,18 @@ export default function Calendar() {
     const event = events.find(e => e.id === eventId);
     if (!event) return;
 
+    // Calculate new end date based on duration
+    let newEndDate: Date | null = null;
+    if (event.end_date) {
+      const originalStart = new Date(event.start_date);
+      const originalEnd = new Date(event.end_date);
+      const duration = originalEnd.getTime() - originalStart.getTime();
+      newEndDate = new Date(newDate.getTime() + duration);
+    }
+
+    // Optimistic update - update UI immediately
+    updateEventLocally(eventId, newDate, newEndDate);
+
     // Check if it's a visit event
     if (event.isVisit && event.visitId) {
       const { error } = await supabase
@@ -354,34 +366,27 @@ export default function Calendar() {
 
       if (error) {
         toast({ variant: 'destructive', title: 'Erro ao mover visita', description: error.message });
+        // Revert on error
+        refetch();
       } else {
         toast({ title: 'Visita movida com sucesso!' });
-        refetch();
       }
     } else {
       // Regular calendar event
-      // Calculate the duration if end_date exists
-      let newEndDate: string | null = null;
-      if (event.end_date) {
-        const originalStart = new Date(event.start_date);
-        const originalEnd = new Date(event.end_date);
-        const duration = originalEnd.getTime() - originalStart.getTime();
-        newEndDate = new Date(newDate.getTime() + duration).toISOString();
-      }
-
       const { error } = await supabase
         .from('calendar_events')
         .update({
           start_date: newDate.toISOString(),
-          end_date: newEndDate,
+          end_date: newEndDate?.toISOString() || null,
         })
         .eq('id', eventId);
 
       if (error) {
         toast({ variant: 'destructive', title: 'Erro ao mover evento', description: error.message });
+        // Revert on error
+        refetch();
       } else {
         toast({ title: 'Evento movido com sucesso!' });
-        refetch();
       }
     }
   };
