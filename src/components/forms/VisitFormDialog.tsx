@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -129,6 +130,9 @@ export function VisitFormDialog({
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar Visita' : 'Nova Visita'}</DialogTitle>
+          <DialogDescription>
+            {isEditing ? 'Atualize as informações da visita' : 'Preencha os dados para agendar uma nova visita'}
+          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 pt-2">
