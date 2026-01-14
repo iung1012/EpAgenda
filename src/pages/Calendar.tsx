@@ -105,10 +105,11 @@ export default function Calendar() {
   const handleSubmit = async (data: EventFormValues) => {
     setIsSubmitting(true);
 
-    const startDateTime = new Date(`${data.start_date}T${data.start_time || '00:00'}`).toISOString();
+    const startDateTime = new Date(`${data.start_date}T${data.start_time || '00:00'}`);
+    // If no end time, default to 1 hour after start
     const endDateTime = data.end_time
-      ? new Date(`${data.start_date}T${data.end_time}`).toISOString()
-      : null;
+      ? new Date(`${data.start_date}T${data.end_time}`)
+      : new Date(startDateTime.getTime() + 60 * 60 * 1000); // +1 hour
 
     if (editingEvent) {
       const { error } = await supabase
@@ -117,8 +118,8 @@ export default function Calendar() {
           title: data.title,
           description: data.description || null,
           event_type: data.event_type,
-          start_date: startDateTime,
-          end_date: endDateTime,
+          start_date: startDateTime.toISOString(),
+          end_date: endDateTime.toISOString(),
           location: data.location || null,
           assigned_to: data.assigned_to || null,
           color: getEventColor(data.event_type),
@@ -141,8 +142,8 @@ export default function Calendar() {
         title: data.title,
         description: data.description || null,
         event_type: data.event_type,
-        start_date: startDateTime,
-        end_date: endDateTime,
+        start_date: startDateTime.toISOString(),
+        end_date: endDateTime.toISOString(),
         all_day: false,
         location: data.location || null,
         assigned_to: data.assigned_to || null,
