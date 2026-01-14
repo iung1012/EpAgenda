@@ -101,6 +101,22 @@ export function useCalendarEvents(currentDate: Date) {
     return getEventsForDay(new Date());
   }, [getEventsForDay]);
 
+  // Optimistic update for moving events
+  const updateEventLocally = useCallback((eventId: string, newStartDate: Date, newEndDate?: Date | null) => {
+    setEvents(prevEvents => 
+      prevEvents.map(event => {
+        if (event.id === eventId) {
+          return {
+            ...event,
+            start_date: newStartDate.toISOString(),
+            end_date: newEndDate ? newEndDate.toISOString() : event.end_date,
+          };
+        }
+        return event;
+      })
+    );
+  }, []);
+
   return {
     events,
     isLoading,
@@ -108,5 +124,6 @@ export function useCalendarEvents(currentDate: Date) {
     refetch: fetchEvents,
     getEventsForDay,
     getTodayEvents,
+    updateEventLocally,
   };
 }
