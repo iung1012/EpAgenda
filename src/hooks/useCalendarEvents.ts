@@ -102,10 +102,13 @@ export function useCalendarEvents(currentDate: Date) {
   }, [getEventsForDay]);
 
   // Optimistic update for moving events
+  // Uses ISO format to keep consistency with database timestamps
   const updateEventLocally = useCallback((eventId: string, newStartDate: Date, newEndDate?: Date | null) => {
     setEvents(prevEvents => 
       prevEvents.map(event => {
         if (event.id === eventId) {
+          // For visit events, store the ISO string which will be consistent
+          // with how the database stores and returns the data
           return {
             ...event,
             start_date: newStartDate.toISOString(),
