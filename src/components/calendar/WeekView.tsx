@@ -40,22 +40,20 @@ function DraggableEvent({ event, onClick, onDelete }: DraggableEventProps) {
     <div
       ref={setNodeRef}
       style={style}
+      {...listeners}
+      {...attributes}
       className={`group absolute inset-x-0.5 top-0.5 p-1 rounded text-xs text-white z-10 overflow-hidden transition-all duration-200 ${
         isDragging 
           ? 'opacity-40 scale-95 ring-2 ring-primary ring-offset-2 cursor-grabbing' 
           : 'cursor-grab hover:scale-[1.02] hover:shadow-md hover:z-20'
       }`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick(event);
+      }}
     >
       <div className="flex items-start justify-between gap-1">
-        <div 
-          className="flex-1 min-w-0"
-          {...listeners}
-          {...attributes}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick(event);
-          }}
-        >
+        <div className="flex-1 min-w-0">
           <div className="font-medium truncate">{event.title}</div>
           <div className="flex items-center gap-1 opacity-80">
             <Clock className="h-2.5 w-2.5" />

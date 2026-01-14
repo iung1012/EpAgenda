@@ -41,22 +41,20 @@ function DraggableEventCard({ event, onClick, onDelete }: DraggableEventCardProp
     <div
       ref={setNodeRef}
       style={style}
+      {...listeners}
+      {...attributes}
       className={`group flex-1 min-w-[200px] max-w-[300px] p-2 rounded text-sm text-white z-10 transition-all duration-200 ${
         isDragging 
           ? 'opacity-40 scale-95 ring-2 ring-primary ring-offset-2 cursor-grabbing' 
           : 'cursor-grab hover:scale-[1.02] hover:shadow-lg hover:z-20'
       }`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick(event);
+      }}
     >
       <div className="flex items-start justify-between gap-2">
-        <div 
-          className="flex-1 min-w-0"
-          {...listeners}
-          {...attributes}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick(event);
-          }}
-        >
+        <div className="flex-1 min-w-0">
           <div className="font-medium truncate">{event.title}</div>
           <div className="flex items-center gap-3 mt-1 text-xs opacity-80">
             <span className="flex items-center gap-1">
