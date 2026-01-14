@@ -36,24 +36,39 @@ function DraggableEvent({ event, onClick, onDelete }: DraggableEventProps) {
     backgroundColor: event.color || '#3b82f6',
   };
 
+  // Track if we're actually dragging to prevent click on drag end
+  const [wasDragging, setWasDragging] = useState(false);
+
+  useEffect(() => {
+    if (isDragging) {
+      setWasDragging(true);
+    }
+  }, [isDragging]);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Only trigger click if we weren't just dragging
+    if (!wasDragging) {
+      onClick(event);
+    }
+    // Reset after a short delay
+    setTimeout(() => setWasDragging(false), 100);
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
-      className={`group absolute inset-x-0.5 top-0.5 p-1 rounded text-xs text-white z-10 overflow-hidden transition-all duration-200 ${
+      className={`group absolute inset-x-0.5 top-0.5 p-1 rounded text-xs text-white z-10 overflow-hidden transition-all duration-200 touch-none ${
         isDragging 
           ? 'opacity-40 scale-95 ring-2 ring-primary ring-offset-2 cursor-grabbing' 
           : 'cursor-grab hover:scale-[1.02] hover:shadow-md hover:z-20'
       }`}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick(event);
-      }}
+      {...listeners}
+      {...attributes}
     >
       <div className="flex items-start justify-between gap-1">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0" onClick={handleClick}>
           <div className="font-medium truncate">{event.title}</div>
           <div className="flex items-center gap-1 opacity-80">
             <Clock className="h-2.5 w-2.5" />
