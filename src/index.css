@@ -173,7 +173,10 @@
   }
 }
 
-#lovable-badge-text {
-  display: none;
-  z-index: -999999;
+#lovable-badge-text,
+[id="lovable-badge-text"] {
+  display: none !important;
+  visibility: hidden !important;
+  z-index: -999999 !important;
+  opacity: 0 !important;
 }
