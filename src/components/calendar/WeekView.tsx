@@ -30,7 +30,6 @@ function DraggableEvent({ event, onClick }: DraggableEventProps) {
 
   const style = {
     transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.5 : 1,
     backgroundColor: event.color || '#3b82f6',
   };
 
@@ -40,7 +39,11 @@ function DraggableEvent({ event, onClick }: DraggableEventProps) {
       style={style}
       {...listeners}
       {...attributes}
-      className="absolute inset-x-0.5 top-0.5 p-1 rounded text-xs text-white cursor-grab z-10 overflow-hidden active:cursor-grabbing"
+      className={`absolute inset-x-0.5 top-0.5 p-1 rounded text-xs text-white z-10 overflow-hidden transition-all duration-200 ${
+        isDragging 
+          ? 'opacity-40 scale-95 ring-2 ring-primary ring-offset-2 cursor-grabbing' 
+          : 'cursor-grab hover:scale-[1.02] hover:shadow-md hover:z-20'
+      }`}
       onClick={(e) => {
         e.stopPropagation();
         onClick(event);
@@ -75,11 +78,20 @@ function DroppableSlot({ day, hour, children, onClick, isToday, isCurrentHour, c
   return (
     <div
       ref={setNodeRef}
-      className={`h-16 border-b relative cursor-pointer transition-colors ${
-        isOver ? 'bg-primary/20' : 'hover:bg-secondary/30'
+      className={`h-16 border-b relative cursor-pointer transition-all duration-200 ${
+        isOver 
+          ? 'bg-primary/20 ring-2 ring-inset ring-primary/50 scale-[1.02]' 
+          : 'hover:bg-secondary/30'
       } ${isToday ? 'bg-primary/5' : ''}`}
       onClick={onClick}
     >
+      {isOver && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full animate-pulse">
+            Soltar aqui
+          </div>
+        </div>
+      )}
       {isCurrentHour && currentMinuteOffset !== undefined && (
         <div 
           className="absolute left-0 right-0 h-0.5 bg-destructive z-20"
@@ -232,11 +244,18 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
         </div>
       </div>
 
-      <DragOverlay>
+      <DragOverlay dropAnimation={{
+        duration: 200,
+        easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
+      }}>
         {activeEvent && (
           <div
-            className="p-2 rounded text-xs text-white shadow-lg cursor-grabbing"
-            style={{ backgroundColor: activeEvent.color || '#3b82f6', width: '120px' }}
+            className="p-2 rounded text-xs text-white shadow-2xl cursor-grabbing ring-2 ring-white/30 animate-pulse"
+            style={{ 
+              backgroundColor: activeEvent.color || '#3b82f6', 
+              width: '120px',
+              transform: 'rotate(-2deg) scale(1.05)',
+            }}
           >
             <div className="font-medium truncate">{activeEvent.title}</div>
             <div className="flex items-center gap-1 opacity-80">
