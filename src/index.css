@@ -175,4 +175,5 @@
 
 #lovable-badge-text {
   display: none;
+  z-index: -999999;
 }
