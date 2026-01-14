@@ -1,12 +1,13 @@
 import { format, isSameDay, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarEvent } from '@/hooks/useCalendarEvents';
-import { Clock, MapPin } from 'lucide-react';
+import { Clock, MapPin, Pencil, Trash2 } from 'lucide-react';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { useState, useEffect, useRef } from 'react';
 import { CSS } from '@dnd-kit/utilities';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
 
 interface DayViewProps {
   currentDate: Date;
@@ -14,6 +15,7 @@ interface DayViewProps {
   onEventClick: (event: CalendarEvent) => void;
   onTimeSlotClick: (date: Date, time: string) => void;
   onEventMove?: (eventId: string, newDate: Date) => void;
+  onEventDelete?: (event: CalendarEvent) => void;
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -21,9 +23,10 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i);
 interface DraggableEventCardProps {
   event: CalendarEvent;
   onClick: (event: CalendarEvent) => void;
+  onDelete?: (event: CalendarEvent) => void;
 }
 
-function DraggableEventCard({ event, onClick }: DraggableEventCardProps) {
+function DraggableEventCard({ event, onClick, onDelete }: DraggableEventCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: event.id,
     data: { event },
@@ -38,31 +41,63 @@ function DraggableEventCard({ event, onClick }: DraggableEventCardProps) {
     <div
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
-      className={`flex-1 min-w-[200px] max-w-[300px] p-2 rounded text-sm text-white z-10 transition-all duration-200 ${
+      className={`group flex-1 min-w-[200px] max-w-[300px] p-2 rounded text-sm text-white z-10 transition-all duration-200 ${
         isDragging 
           ? 'opacity-40 scale-95 ring-2 ring-primary ring-offset-2 cursor-grabbing' 
           : 'cursor-grab hover:scale-[1.02] hover:shadow-lg hover:z-20'
       }`}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick(event);
-      }}
     >
-      <div className="font-medium truncate">{event.title}</div>
-      <div className="flex items-center gap-3 mt-1 text-xs opacity-80">
-        <span className="flex items-center gap-1">
-          <Clock className="h-3 w-3" />
-          {format(new Date(event.start_date), 'HH:mm')}
-          {event.end_date && ` - ${format(new Date(event.end_date), 'HH:mm')}`}
-        </span>
-        {event.location && (
-          <span className="flex items-center gap-1">
-            <MapPin className="h-3 w-3" />
-            {event.location}
-          </span>
-        )}
+      <div className="flex items-start justify-between gap-2">
+        <div 
+          className="flex-1 min-w-0"
+          {...listeners}
+          {...attributes}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick(event);
+          }}
+        >
+          <div className="font-medium truncate">{event.title}</div>
+          <div className="flex items-center gap-3 mt-1 text-xs opacity-80">
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {format(new Date(event.start_date), 'HH:mm')}
+              {event.end_date && ` - ${format(new Date(event.end_date), 'HH:mm')}`}
+            </span>
+            {event.location && (
+              <span className="flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                {event.location}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-white/80 hover:text-white hover:bg-white/20"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick(event);
+            }}
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-white/80 hover:text-white hover:bg-red-500/50"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(event);
+              }}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -115,7 +150,7 @@ function DroppableHourSlot({ currentDate, hour, children, onClick, isCurrentHour
   );
 }
 
-export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, onEventMove }: DayViewProps) {
+export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, onEventMove, onEventDelete }: DayViewProps) {
   const isToday = isSameDay(currentDate, new Date());
   const [activeEvent, setActiveEvent] = useState<CalendarEvent | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -236,6 +271,7 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
                       key={event.id}
                       event={event}
                       onClick={onEventClick}
+                      onDelete={onEventDelete}
                     />
                   ))}
                 </DroppableHourSlot>
