@@ -96,9 +96,10 @@ export default function FilmmakerVisits() {
     setIsLoading(true);
 
     try {
-      // Keep the datetime as local time string without timezone conversion
-      // The input gives us "2026-01-14T09:00" format, we append the local timezone offset
-      const visitDateTime = data.visit_date; // e.g., "2026-01-14T09:00"
+      // Parse the local datetime and create a proper ISO string with timezone
+      // The input gives us "2026-01-14T14:00" format
+      const localDate = new Date(data.visit_date);
+      const visitDateTime = localDate.toISOString();
       
       if (editingVisit) {
         const { error } = await supabase
@@ -206,11 +207,14 @@ export default function FilmmakerVisits() {
 
   const getDefaultValues = (): Partial<VisitFormValues> | undefined => {
     if (!editingVisit) return undefined;
+    // Convert the stored UTC date to local time for the input
+    const storedDate = new Date(editingVisit.visit_date + 'Z');
+    const localDateStr = format(storedDate, "yyyy-MM-dd'T'HH:mm");
     return {
       title: editingVisit.title,
       description: editingVisit.description || '',
       location: editingVisit.location || '',
-      visit_date: editingVisit.visit_date.slice(0, 16),
+      visit_date: localDateStr,
       client_id: editingVisit.client_id || '',
       status: editingVisit.status,
       notes: editingVisit.notes || '',
@@ -295,7 +299,7 @@ export default function FilmmakerVisits() {
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {format(new Date(visit.visit_date), "dd MMM 'às' HH:mm", { locale: ptBR })}
+                          {format(new Date(visit.visit_date + 'Z'), "dd MMM 'às' HH:mm", { locale: ptBR })}
                         </span>
                         {visit.client && (
                           <span>{visit.client.name}</span>
