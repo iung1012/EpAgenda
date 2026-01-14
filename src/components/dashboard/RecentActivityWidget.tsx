@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -12,7 +13,8 @@ import {
   ClipboardList,
   Activity,
   Clock,
-  TrendingUp
+  TrendingUp,
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +23,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ActivityItem {
   id: string;
+  entityId: string;
   type: 'task_created' | 'task_completed' | 'event_created' | 'visit_scheduled' | 'demand_created' | 'client_added';
   title: string;
   description: string;
@@ -34,6 +37,7 @@ interface ProfileInfo {
 }
 
 export function RecentActivityWidget() {
+  const navigate = useNavigate();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -81,6 +85,7 @@ export function RecentActivityWidget() {
           const isCompleted = task.status === 'feito';
           allActivities.push({
             id: `task-${task.id}`,
+            entityId: task.id,
             type: isCompleted ? 'task_completed' : 'task_created',
             title: isCompleted ? 'Tarefa concluída' : 'Nova tarefa criada',
             description: task.title,
@@ -93,6 +98,7 @@ export function RecentActivityWidget() {
         eventsRes.data?.forEach(event => {
           allActivities.push({
             id: `event-${event.id}`,
+            entityId: event.id,
             type: 'event_created',
             title: 'Evento agendado',
             description: event.title,
@@ -105,6 +111,7 @@ export function RecentActivityWidget() {
         visitsRes.data?.forEach(visit => {
           allActivities.push({
             id: `visit-${visit.id}`,
+            entityId: visit.id,
             type: 'visit_scheduled',
             title: 'Visita agendada',
             description: visit.title,
@@ -117,6 +124,7 @@ export function RecentActivityWidget() {
         demandsRes.data?.forEach(demand => {
           allActivities.push({
             id: `demand-${demand.id}`,
+            entityId: demand.id,
             type: 'demand_created',
             title: 'Nova demanda',
             description: demand.title,
@@ -129,6 +137,7 @@ export function RecentActivityWidget() {
         clientsRes.data?.forEach(client => {
           allActivities.push({
             id: `client-${client.id}`,
+            entityId: client.id,
             type: 'client_added',
             title: 'Novo cliente adicionado',
             description: client.name,
@@ -221,6 +230,29 @@ export function RecentActivityWidget() {
     });
   };
 
+  const getNavigationPath = (activity: ActivityItem): string => {
+    switch (activity.type) {
+      case 'task_created':
+      case 'task_completed':
+        return '/tasks';
+      case 'event_created':
+        return '/calendar';
+      case 'visit_scheduled':
+        return '/filmmaker/visits';
+      case 'demand_created':
+        return '/filmmaker/demands';
+      case 'client_added':
+        return `/clients/${activity.entityId}`;
+      default:
+        return '/';
+    }
+  };
+
+  const handleActivityClick = (activity: ActivityItem) => {
+    const path = getNavigationPath(activity);
+    navigate(path);
+  };
+
   if (loading) {
     return (
       <Card className="border-border/50">
@@ -294,9 +326,10 @@ export function RecentActivityWidget() {
                 return (
                   <div 
                     key={activity.id} 
+                    onClick={() => handleActivityClick(activity)}
                     className={cn(
                       "group flex items-start gap-4 p-4 transition-all duration-200",
-                      "hover:bg-muted/50 cursor-default"
+                      "hover:bg-muted/50 cursor-pointer"
                     )}
                     style={{ 
                       animationDelay: `${index * 50}ms`,
@@ -315,7 +348,7 @@ export function RecentActivityWidget() {
                     {/* Content */}
                     <div className="flex-1 min-w-0 space-y-1.5">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-foreground leading-none">
+                        <p className="text-sm font-medium text-foreground leading-none group-hover:text-primary transition-colors">
                           {activity.title}
                         </p>
                         <Badge 
@@ -347,6 +380,11 @@ export function RecentActivityWidget() {
                           </>
                         )}
                       </div>
+                    </div>
+                    
+                    {/* Navigation indicator */}
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ExternalLink className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </div>
                 );
