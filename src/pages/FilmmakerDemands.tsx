@@ -325,7 +325,7 @@ export default function FilmmakerDemands() {
         open={confirmDialog.open}
         onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
         title="Excluir demanda"
-        description={`Tem certeza que deseja excluir "${confirmDialog.title}"? Esta ação não pode ser desfeita.`}
+        description={`Tem certeza que deseja excluir "${confirmDialog.title}"? Esta demanda também será removida do quadro de Tarefas. Esta ação não pode ser desfeita.`}
         confirmText="Excluir"
         onConfirm={handleDelete}
         variant="destructive"
