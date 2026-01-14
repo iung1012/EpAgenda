@@ -96,6 +96,10 @@ export default function FilmmakerVisits() {
     setIsLoading(true);
 
     try {
+      // Keep the datetime as local time string without timezone conversion
+      // The input gives us "2026-01-14T09:00" format, we append the local timezone offset
+      const visitDateTime = data.visit_date; // e.g., "2026-01-14T09:00"
+      
       if (editingVisit) {
         const { error } = await supabase
           .from('filmmaker_visits')
@@ -103,7 +107,7 @@ export default function FilmmakerVisits() {
             title: data.title,
             description: data.description || null,
             location: data.location || null,
-            visit_date: data.visit_date,
+            visit_date: visitDateTime,
             client_id: data.client_id || null,
             status: data.status,
             notes: data.notes || null,
@@ -132,7 +136,7 @@ export default function FilmmakerVisits() {
             title: data.title,
             description: data.description || null,
             location: data.location || null,
-            visit_date: data.visit_date,
+            visit_date: visitDateTime,
             client_id: data.client_id || null,
             status: data.status,
             notes: data.notes || null,

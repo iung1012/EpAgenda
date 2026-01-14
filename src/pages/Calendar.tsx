@@ -267,7 +267,8 @@ export default function Calendar() {
 
     setIsVisitSubmitting(true);
 
-    const visitDate = new Date(data.visit_date).toISOString();
+    // Keep the datetime as local time string without timezone conversion
+    const visitDateTime = data.visit_date; // e.g., "2026-01-14T09:00"
 
     const { error } = await supabase
       .from('filmmaker_visits')
@@ -275,7 +276,7 @@ export default function Calendar() {
         title: data.title,
         description: data.description || null,
         location: data.location || null,
-        visit_date: visitDate,
+        visit_date: visitDateTime,
         client_id: data.client_id || null,
         status: data.status,
         notes: data.notes || null,
