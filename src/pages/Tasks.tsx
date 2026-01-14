@@ -49,6 +49,8 @@ interface Task {
   assigned_to: string | null;
   client_id: string | null;
   status: TaskStatus;
+  isDemand?: boolean;
+  demandId?: string;
 }
 
 export default function Tasks() {
@@ -200,6 +202,14 @@ export default function Tasks() {
   };
 
   const handleEdit = (task: Task) => {
+    // Don't allow editing demands from tasks - redirect to demands page
+    if (task.isDemand) {
+      toast({ 
+        title: 'Demanda', 
+        description: 'Edite esta demanda na página de Demandas do Filmmaker' 
+      });
+      return;
+    }
     setEditingTask(task);
     setIsDialogOpen(true);
   };
@@ -213,15 +223,31 @@ export default function Tasks() {
 
   const handleDeleteTask = async () => {
     setIsDeleting(true);
-    const { error } = await supabase.from('tasks').delete().eq('id', deleteDialog.taskId);
-    setIsDeleting(false);
+    
+    // Check if it's a demand
+    if (deleteDialog.taskId.startsWith('demand-')) {
+      const demandId = deleteDialog.taskId.replace('demand-', '');
+      const { error } = await supabase.from('filmmaker_demands').delete().eq('id', demandId);
+      setIsDeleting(false);
 
-    if (error) {
-      toast({ variant: 'destructive', title: 'Erro ao excluir tarefa', description: error.message });
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao excluir demanda', description: error.message });
+      } else {
+        toast({ title: 'Demanda excluída com sucesso!' });
+        setDeleteDialog({ open: false, taskId: '', taskTitle: '' });
+        refetch();
+      }
     } else {
-      toast({ title: 'Tarefa excluída com sucesso!' });
-      setDeleteDialog({ open: false, taskId: '', taskTitle: '' });
-      refetch();
+      const { error } = await supabase.from('tasks').delete().eq('id', deleteDialog.taskId);
+      setIsDeleting(false);
+
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao excluir tarefa', description: error.message });
+      } else {
+        toast({ title: 'Tarefa excluída com sucesso!' });
+        setDeleteDialog({ open: false, taskId: '', taskTitle: '' });
+        refetch();
+      }
     }
   };
 
