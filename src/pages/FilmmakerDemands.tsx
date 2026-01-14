@@ -45,6 +45,7 @@ export default function FilmmakerDemands() {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [editingDemand, setEditingDemand] = useState<Demand | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; id: string; title: string }>({
     open: false,
@@ -133,15 +134,17 @@ export default function FilmmakerDemands() {
   };
 
   const handleDelete = async () => {
+    setIsDeleting(true);
     const { error } = await supabase.from('filmmaker_demands').delete().eq('id', confirmDialog.id);
+    setIsDeleting(false);
 
     if (error) {
       toast({ variant: 'destructive', title: 'Erro ao excluir demanda', description: error.message });
     } else {
       toast({ title: 'Demanda excluída com sucesso!' });
+      setConfirmDialog({ open: false, id: '', title: '' });
       fetchData();
     }
-    setConfirmDialog({ open: false, id: '', title: '' });
   };
 
   const handleStatusChange = async (demandId: string, newStatus: 'em_processo' | 'terminado' | 'alteracoes') => {
@@ -329,6 +332,7 @@ export default function FilmmakerDemands() {
         confirmText="Excluir"
         onConfirm={handleDelete}
         variant="destructive"
+        isLoading={isDeleting}
       />
     </div>
   );
