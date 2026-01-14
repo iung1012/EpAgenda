@@ -52,6 +52,7 @@ Deno.serve(async (req) => {
 
     let processedCount = 0;
     let demandsCreated = 0;
+    let tasksCreated = 0;
 
     for (const visit of pendingVisits) {
       console.log(`Processing visit: ${visit.id} - ${visit.title}`);
@@ -77,39 +78,74 @@ Deno.serve(async (req) => {
         .eq('visit_id', visit.id)
         .maybeSingle();
 
-      if (existingDemand) {
+      if (!existingDemand) {
+        // Create a demand for this visit
+        const demandData = {
+          title: `Demanda: ${visit.title}`,
+          description: visit.description || `Demanda gerada automaticamente da visita "${visit.title}"`,
+          filmmaker_id: visit.filmmaker_id,
+          client_id: visit.client_id,
+          visit_id: visit.id,
+          status: 'em_processo',
+          due_date: null,
+        };
+
+        const { error: demandError } = await supabase
+          .from('filmmaker_demands')
+          .insert(demandData);
+
+        if (demandError) {
+          console.error(`Error creating demand for visit ${visit.id}:`, demandError);
+        } else {
+          demandsCreated++;
+          console.log(`Demand created for visit ${visit.id}`);
+        }
+      } else {
         console.log(`Demand already exists for visit ${visit.id}, skipping creation`);
-        continue;
       }
 
-      // Create a demand for this visit
-      const demandData = {
-        title: `Demanda: ${visit.title}`,
-        description: visit.description || `Demanda gerada automaticamente da visita "${visit.title}"`,
-        filmmaker_id: visit.filmmaker_id,
-        client_id: visit.client_id,
-        visit_id: visit.id,
-        status: 'em_processo',
-        due_date: null, // Can be set later by the user
-      };
+      // Check if a task already exists for this visit (by checking title pattern)
+      const taskTitle = `Tarefa: ${visit.title}`;
+      const { data: existingTask } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('title', taskTitle)
+        .eq('client_id', visit.client_id)
+        .maybeSingle();
 
-      const { error: demandError } = await supabase
-        .from('filmmaker_demands')
-        .insert(demandData);
+      if (!existingTask) {
+        // Create a task for this visit
+        const taskData = {
+          title: taskTitle,
+          description: visit.description || `Tarefa gerada automaticamente da visita "${visit.title}"`,
+          assigned_to: visit.filmmaker_id,
+          created_by: visit.filmmaker_id,
+          client_id: visit.client_id,
+          status: 'a_fazer',
+          priority: 'media',
+          due_date: null,
+        };
 
-      if (demandError) {
-        console.error(`Error creating demand for visit ${visit.id}:`, demandError);
-        continue;
+        const { error: taskError } = await supabase
+          .from('tasks')
+          .insert(taskData);
+
+        if (taskError) {
+          console.error(`Error creating task for visit ${visit.id}:`, taskError);
+        } else {
+          tasksCreated++;
+          console.log(`Task created for visit ${visit.id}`);
+        }
+      } else {
+        console.log(`Task already exists for visit ${visit.id}, skipping creation`);
       }
-
-      demandsCreated++;
-      console.log(`Demand created for visit ${visit.id}`);
     }
 
     const result = {
       message: 'Visits processed successfully',
       processed: processedCount,
       demandsCreated: demandsCreated,
+      tasksCreated: tasksCreated,
       totalVisitsChecked: pendingVisits.length,
     };
 
