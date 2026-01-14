@@ -342,28 +342,46 @@ export default function Calendar() {
     const event = events.find(e => e.id === eventId);
     if (!event) return;
 
-    // Calculate the duration if end_date exists
-    let newEndDate: string | null = null;
-    if (event.end_date) {
-      const originalStart = new Date(event.start_date);
-      const originalEnd = new Date(event.end_date);
-      const duration = originalEnd.getTime() - originalStart.getTime();
-      newEndDate = new Date(newDate.getTime() + duration).toISOString();
-    }
+    // Check if it's a visit event
+    if (event.isVisit && event.visitId) {
+      const { error } = await supabase
+        .from('filmmaker_visits')
+        .update({
+          visit_date: newDate.toISOString(),
+        })
+        .eq('id', event.visitId);
 
-    const { error } = await supabase
-      .from('calendar_events')
-      .update({
-        start_date: newDate.toISOString(),
-        end_date: newEndDate,
-      })
-      .eq('id', eventId);
-
-    if (error) {
-      toast({ variant: 'destructive', title: 'Erro ao mover evento', description: error.message });
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao mover visita', description: error.message });
+      } else {
+        toast({ title: 'Visita movida com sucesso!' });
+        refetch();
+      }
     } else {
-      toast({ title: 'Evento movido com sucesso!' });
-      refetch();
+      // Regular calendar event
+      // Calculate the duration if end_date exists
+      let newEndDate: string | null = null;
+      if (event.end_date) {
+        const originalStart = new Date(event.start_date);
+        const originalEnd = new Date(event.end_date);
+        const duration = originalEnd.getTime() - originalStart.getTime();
+        newEndDate = new Date(newDate.getTime() + duration).toISOString();
+      }
+
+      const { error } = await supabase
+        .from('calendar_events')
+        .update({
+          start_date: newDate.toISOString(),
+          end_date: newEndDate,
+        })
+        .eq('id', eventId);
+
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao mover evento', description: error.message });
+      } else {
+        toast({ title: 'Evento movido com sucesso!' });
+        refetch();
+      }
     }
   };
 
