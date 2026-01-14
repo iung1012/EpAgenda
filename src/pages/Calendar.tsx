@@ -357,6 +357,12 @@ export default function Calendar() {
       newEndDate = new Date(newDate.getTime() + duration);
     }
 
+    // Format date as local datetime string (YYYY-MM-DDTHH:mm) for visits
+    // This prevents timezone conversion issues
+    const formatLocalDateTime = (date: Date) => {
+      return format(date, "yyyy-MM-dd'T'HH:mm");
+    };
+
     // Optimistic update - update UI immediately
     updateEventLocally(eventId, newDate, newEndDate);
 
@@ -365,7 +371,7 @@ export default function Calendar() {
       const { error } = await supabase
         .from('filmmaker_visits')
         .update({
-          visit_date: newDate.toISOString(),
+          visit_date: formatLocalDateTime(newDate),
         })
         .eq('id', event.visitId);
 
@@ -377,7 +383,7 @@ export default function Calendar() {
         toast({ title: 'Visita movida com sucesso!' });
       }
     } else {
-      // Regular calendar event
+      // Regular calendar event - use ISO string for timestamp with timezone
       const { error } = await supabase
         .from('calendar_events')
         .update({
