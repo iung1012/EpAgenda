@@ -302,17 +302,15 @@ export default function FilmmakerDemands() {
                         <Pencil className="h-3 w-3" />
                         Editar
                       </Button>
-                      {isAdminOrManager && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="text-xs h-7 gap-1 text-destructive hover:text-destructive" 
-                          onClick={() => setConfirmDialog({ open: true, id: demand.id, title: demand.title })}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          Excluir
-                        </Button>
-                      )}
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-xs h-7 gap-1 text-destructive hover:text-destructive" 
+                        onClick={() => setConfirmDialog({ open: true, id: demand.id, title: demand.title })}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Excluir
+                      </Button>
                     </div>
                   </div>
                 </div>
