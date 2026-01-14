@@ -622,6 +622,7 @@ export default function Calendar() {
                 onEventClick={handleEventClick}
                 onTimeSlotClick={handleTimeSlotClick}
                 onEventMove={handleEventMove}
+                onEventDelete={handleDeleteEvent}
               />
             </div>
           ) : (
@@ -631,6 +632,7 @@ export default function Calendar() {
               onEventClick={handleEventClick}
               onTimeSlotClick={handleTimeSlotClick}
               onEventMove={handleEventMove}
+              onEventDelete={handleDeleteEvent}
             />
           )}
         </CardContent>

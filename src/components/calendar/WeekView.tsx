@@ -1,11 +1,12 @@
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarEvent } from '@/hooks/useCalendarEvents';
-import { Clock } from 'lucide-react';
+import { Clock, Pencil, Trash2 } from 'lucide-react';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { useState, useEffect } from 'react';
 import { CSS } from '@dnd-kit/utilities';
+import { Button } from '@/components/ui/button';
 
 interface WeekViewProps {
   currentDate: Date;
@@ -13,6 +14,7 @@ interface WeekViewProps {
   onEventClick: (event: CalendarEvent) => void;
   onTimeSlotClick: (date: Date, time: string) => void;
   onEventMove?: (eventId: string, newDate: Date) => void;
+  onEventDelete?: (event: CalendarEvent) => void;
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -20,9 +22,10 @@ const HOURS = Array.from({ length: 24 }, (_, i) => i);
 interface DraggableEventProps {
   event: CalendarEvent;
   onClick: (event: CalendarEvent) => void;
+  onDelete?: (event: CalendarEvent) => void;
 }
 
-function DraggableEvent({ event, onClick }: DraggableEventProps) {
+function DraggableEvent({ event, onClick, onDelete }: DraggableEventProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: event.id,
     data: { event },
@@ -37,22 +40,54 @@ function DraggableEvent({ event, onClick }: DraggableEventProps) {
     <div
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
-      className={`absolute inset-x-0.5 top-0.5 p-1 rounded text-xs text-white z-10 overflow-hidden transition-all duration-200 ${
+      className={`group absolute inset-x-0.5 top-0.5 p-1 rounded text-xs text-white z-10 overflow-hidden transition-all duration-200 ${
         isDragging 
           ? 'opacity-40 scale-95 ring-2 ring-primary ring-offset-2 cursor-grabbing' 
           : 'cursor-grab hover:scale-[1.02] hover:shadow-md hover:z-20'
       }`}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick(event);
-      }}
     >
-      <div className="font-medium truncate">{event.title}</div>
-      <div className="flex items-center gap-1 opacity-80">
-        <Clock className="h-2.5 w-2.5" />
-        {format(new Date(event.start_date), 'HH:mm')}
+      <div className="flex items-start justify-between gap-1">
+        <div 
+          className="flex-1 min-w-0"
+          {...listeners}
+          {...attributes}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick(event);
+          }}
+        >
+          <div className="font-medium truncate">{event.title}</div>
+          <div className="flex items-center gap-1 opacity-80">
+            <Clock className="h-2.5 w-2.5" />
+            {format(new Date(event.start_date), 'HH:mm')}
+          </div>
+        </div>
+        <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 text-white/80 hover:text-white hover:bg-white/20"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick(event);
+            }}
+          >
+            <Pencil className="h-2.5 w-2.5" />
+          </Button>
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 text-white/80 hover:text-white hover:bg-red-500/50"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(event);
+              }}
+            >
+              <Trash2 className="h-2.5 w-2.5" />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -103,7 +138,7 @@ function DroppableSlot({ day, hour, children, onClick, isToday, isCurrentHour, c
   );
 }
 
-export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, onEventMove }: WeekViewProps) {
+export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, onEventMove, onEventDelete }: WeekViewProps) {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 });
   const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
@@ -233,6 +268,7 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
                           key={event.id}
                           event={event}
                           onClick={onEventClick}
+                          onDelete={onEventDelete}
                         />
                       ))}
                     </DroppableSlot>
