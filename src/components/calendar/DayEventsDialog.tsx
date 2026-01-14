@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -43,6 +44,9 @@ export function DayEventsDialog({
               Novo Evento
             </Button>
           </DialogTitle>
+          <DialogDescription>
+            Eventos agendados para este dia
+          </DialogDescription>
         </DialogHeader>
         
         {events.length === 0 ? (

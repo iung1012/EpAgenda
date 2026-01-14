@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -121,6 +122,9 @@ export function EventFormDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar Evento' : 'Novo Evento'}</DialogTitle>
+          <DialogDescription>
+            {isEditing ? 'Atualize as informações do evento' : 'Preencha os dados para criar um novo evento'}
+          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
