@@ -228,13 +228,16 @@ export default function Calendar() {
   };
 
   const handleEditEvent = async (event: CalendarEvent) => {
+    // Get the most up-to-date event from local state (for optimistic updates)
+    const currentEvent = events.find(e => e.id === event.id) || event;
+    
     // Check if it's a visit event
-    if (event.isVisit && event.visitId) {
+    if (currentEvent.isVisit && currentEvent.visitId) {
       // Fetch the full visit data including equipment
       const { data: visitData, error: visitError } = await supabase
         .from('filmmaker_visits')
         .select('*')
-        .eq('id', event.visitId)
+        .eq('id', currentEvent.visitId)
         .single();
 
       if (visitError || !visitData) {
@@ -246,17 +249,19 @@ export default function Calendar() {
       const { data: visitEquipment } = await supabase
         .from('visit_equipment')
         .select('equipment_id')
-        .eq('visit_id', event.visitId);
+        .eq('visit_id', currentEvent.visitId);
 
+      // Use the local event's start_date (may have been updated optimistically)
       setEditingVisit({
         ...visitData,
+        visit_date: currentEvent.start_date, // Use local state which has optimistic update
         equipment_ids: visitEquipment?.map(ve => ve.equipment_id) || [],
       } as VisitData & { equipment_ids: string[] });
       setIsVisitDialogOpen(true);
     } else {
-      // Regular calendar event
-      const startDate = new Date(event.start_date);
-      setEditingEvent(event);
+      // Regular calendar event - use the current event from local state
+      const startDate = new Date(currentEvent.start_date);
+      setEditingEvent(currentEvent);
       setSelectedDate(format(startDate, 'yyyy-MM-dd'));
       setSelectedTime(format(startDate, 'HH:mm'));
       setIsDialogOpen(true);
