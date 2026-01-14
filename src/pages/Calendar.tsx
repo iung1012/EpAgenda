@@ -357,21 +357,17 @@ export default function Calendar() {
       newEndDate = new Date(newDate.getTime() + duration);
     }
 
-    // Format date as local datetime string (YYYY-MM-DDTHH:mm) for visits
-    // This prevents timezone conversion issues
-    const formatLocalDateTime = (date: Date) => {
-      return format(date, "yyyy-MM-dd'T'HH:mm");
-    };
-
     // Optimistic update - update UI immediately
     updateEventLocally(eventId, newDate, newEndDate);
 
     // Check if it's a visit event
     if (event.isVisit && event.visitId) {
+      // Use ISO string which includes timezone offset - this ensures the
+      // database stores the correct UTC time that corresponds to the user's local time
       const { error } = await supabase
         .from('filmmaker_visits')
         .update({
-          visit_date: formatLocalDateTime(newDate),
+          visit_date: newDate.toISOString(),
         })
         .eq('id', event.visitId);
 
