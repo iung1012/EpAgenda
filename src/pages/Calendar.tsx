@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { CalendarDaySkeleton, StatsSkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { EventFormDialog, EventFormValues } from '@/components/forms/EventFormDialog';
+import { VisitFormDialog, VisitFormValues } from '@/components/forms/VisitFormDialog';
 import { useCalendarEvents, CalendarEvent } from '@/hooks/useCalendarEvents';
 import { useProfiles } from '@/hooks/useProfiles';
 import { DayEventsDialog } from '@/components/calendar/DayEventsDialog';
@@ -21,6 +22,28 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MonthView } from '@/components/calendar/MonthView';
 import { WeekView } from '@/components/calendar/WeekView';
 import { DayView } from '@/components/calendar/DayView';
+
+interface Client {
+  id: string;
+  name: string;
+}
+
+interface Equipment {
+  id: string;
+  name: string;
+}
+
+interface VisitData {
+  id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  visit_date: string;
+  client_id: string | null;
+  status: string;
+  notes: string | null;
+  filmmaker_id: string;
+}
 
 type ViewType = 'month' | 'week' | 'day';
 
@@ -45,8 +68,30 @@ export default function Calendar() {
   const [eventToDelete, setEventToDelete] = useState<CalendarEvent | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Visit form dialog
+  const [isVisitDialogOpen, setIsVisitDialogOpen] = useState(false);
+  const [editingVisit, setEditingVisit] = useState<VisitData | null>(null);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [isVisitSubmitting, setIsVisitSubmitting] = useState(false);
+
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Fetch clients and equipment for visit form
+  useEffect(() => {
+    const fetchClientsAndEquipment = async () => {
+      const [clientsResult, equipmentResult] = await Promise.all([
+        supabase.from('clients').select('id, name').order('name'),
+        supabase.from('equipment').select('id, name').order('name'),
+      ]);
+      
+      if (clientsResult.data) setClients(clientsResult.data);
+      if (equipmentResult.data) setEquipment(equipmentResult.data);
+    };
+    
+    fetchClientsAndEquipment();
+  }, []);
 
   const getEventColor = (type: string) => {
     switch (type) {
@@ -181,12 +226,101 @@ export default function Calendar() {
     setIsDialogOpen(true);
   };
 
-  const handleEditEvent = (event: CalendarEvent) => {
-    const startDate = new Date(event.start_date);
-    setEditingEvent(event);
-    setSelectedDate(format(startDate, 'yyyy-MM-dd'));
-    setSelectedTime(format(startDate, 'HH:mm'));
-    setIsDialogOpen(true);
+  const handleEditEvent = async (event: CalendarEvent) => {
+    // Check if it's a visit event
+    if (event.isVisit && event.visitId) {
+      // Fetch the full visit data including equipment
+      const { data: visitData, error: visitError } = await supabase
+        .from('filmmaker_visits')
+        .select('*')
+        .eq('id', event.visitId)
+        .single();
+
+      if (visitError || !visitData) {
+        toast({ variant: 'destructive', title: 'Erro ao carregar visita', description: visitError?.message });
+        return;
+      }
+
+      // Fetch equipment for this visit
+      const { data: visitEquipment } = await supabase
+        .from('visit_equipment')
+        .select('equipment_id')
+        .eq('visit_id', event.visitId);
+
+      setEditingVisit({
+        ...visitData,
+        equipment_ids: visitEquipment?.map(ve => ve.equipment_id) || [],
+      } as VisitData & { equipment_ids: string[] });
+      setIsVisitDialogOpen(true);
+    } else {
+      // Regular calendar event
+      const startDate = new Date(event.start_date);
+      setEditingEvent(event);
+      setSelectedDate(format(startDate, 'yyyy-MM-dd'));
+      setSelectedTime(format(startDate, 'HH:mm'));
+      setIsDialogOpen(true);
+    }
+  };
+
+  const handleVisitSubmit = async (data: VisitFormValues) => {
+    if (!editingVisit || !user) return;
+
+    setIsVisitSubmitting(true);
+
+    const visitDate = new Date(data.visit_date).toISOString();
+
+    const { error } = await supabase
+      .from('filmmaker_visits')
+      .update({
+        title: data.title,
+        description: data.description || null,
+        location: data.location || null,
+        visit_date: visitDate,
+        client_id: data.client_id || null,
+        status: data.status,
+        notes: data.notes || null,
+      })
+      .eq('id', editingVisit.id);
+
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erro ao atualizar visita', description: error.message });
+      setIsVisitSubmitting(false);
+      return;
+    }
+
+    // Update equipment - delete existing and insert new
+    await supabase.from('visit_equipment').delete().eq('visit_id', editingVisit.id);
+
+    if (data.equipment_ids.length > 0) {
+      const equipmentInserts = data.equipment_ids.map((equipmentId) => ({
+        visit_id: editingVisit.id,
+        equipment_id: equipmentId,
+      }));
+      await supabase.from('visit_equipment').insert(equipmentInserts);
+    }
+
+    setIsVisitSubmitting(false);
+    setIsVisitDialogOpen(false);
+    setEditingVisit(null);
+    setDayDialogOpen(false);
+    toast({ title: 'Visita atualizada com sucesso!' });
+    refetch();
+  };
+
+  const getVisitDefaultValues = (): Partial<VisitFormValues> | undefined => {
+    if (!editingVisit) return undefined;
+    
+    const visitDate = new Date(editingVisit.visit_date);
+    return {
+      title: editingVisit.title.replace('📹 ', ''),
+      description: editingVisit.description || '',
+      location: editingVisit.location || '',
+      visit_date: format(visitDate, "yyyy-MM-dd'T'HH:mm"),
+      client_id: editingVisit.client_id || '',
+      status: editingVisit.status as 'agendada' | 'realizada' | 'cancelada',
+      notes: editingVisit.notes || '',
+      equipment_ids: (editingVisit as VisitData & { equipment_ids?: string[] }).equipment_ids || [],
+    };
   };
 
   const handleDeleteEvent = (event: CalendarEvent) => {
@@ -345,6 +479,23 @@ export default function Calendar() {
         onEdit={handleEditEvent}
         onDelete={handleDeleteEvent}
         onAddNew={handleAddNewFromDay}
+      />
+
+      {/* Visit Form Dialog */}
+      <VisitFormDialog
+        open={isVisitDialogOpen}
+        onOpenChange={(open) => {
+          setIsVisitDialogOpen(open);
+          if (!open) {
+            setEditingVisit(null);
+          }
+        }}
+        onSubmit={handleVisitSubmit}
+        defaultValues={getVisitDefaultValues()}
+        clients={clients}
+        equipment={equipment}
+        isEditing={true}
+        isLoading={isVisitSubmitting}
       />
 
       {/* Delete Confirmation */}
