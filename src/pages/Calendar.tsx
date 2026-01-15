@@ -632,7 +632,7 @@ export default function Calendar() {
               onDayClick={handleDateClick}
             />
           ) : viewType === 'week' ? (
-            <div className="max-h-[500px] sm:max-h-[600px] overflow-hidden rounded-lg border">
+            <div className="h-[60vh] sm:h-[600px] sm:max-h-[600px] overflow-hidden rounded-lg border flex flex-col">
               <WeekView
                 currentDate={currentDate}
                 events={events}
