@@ -366,10 +366,10 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
         </div>
 
         {/* Mobile View - Vertical day cards */}
-        <div className="sm:hidden">
-          {/* Days tabs */}
-          <ScrollArea className="w-full border-b">
-            <div className="flex">
+        <div className="sm:hidden flex flex-col h-full">
+          {/* Days tabs - horizontal scrollable */}
+          <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
+            <div className="flex overflow-x-auto scrollbar-hide">
               {days.map((day) => {
                 const isToday = isSameDay(day, new Date());
                 const isSelected = isSameDay(day, currentDate);
@@ -379,38 +379,51 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
                     key={day.toISOString()}
                     onClick={() => onDateChange?.(day)}
                     className={cn(
-                      "flex-1 min-w-[50px] py-2 px-1 text-center transition-colors relative",
+                      "flex-1 min-w-[48px] py-3 px-2 text-center transition-colors relative",
                       isSelected && 'bg-primary/10 border-b-2 border-primary',
-                      isToday && !isSelected && 'bg-secondary/50'
+                      isToday && !isSelected && 'bg-secondary/30'
                     )}
                   >
-                    <div className="text-[10px] font-medium text-muted-foreground uppercase">
+                    <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
                       {format(day, 'EEE', { locale: ptBR })}
                     </div>
                     <div className={cn(
-                      "text-base font-semibold",
-                      isToday ? 'text-primary' : 'text-foreground'
+                      "text-lg font-bold mt-0.5",
+                      isToday ? 'text-primary' : 'text-foreground',
+                      isSelected && 'text-primary'
                     )}>
                       {format(day, 'd')}
                     </div>
                     {dayEvents.length > 0 && (
-                      <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">
-                        {dayEvents.slice(0, 3).map((_, i) => (
-                          <div key={i} className="w-1 h-1 rounded-full bg-primary" />
+                      <div className="flex justify-center gap-0.5 mt-1">
+                        {dayEvents.slice(0, 3).map((e, i) => (
+                          <div 
+                            key={i} 
+                            className="w-1.5 h-1.5 rounded-full" 
+                            style={{ backgroundColor: e.color || '#3b82f6' }}
+                          />
                         ))}
-                        {dayEvents.length > 3 && <span className="text-[8px] text-muted-foreground">+</span>}
+                        {dayEvents.length > 3 && (
+                          <span className="text-[9px] text-muted-foreground ml-0.5">+{dayEvents.length - 3}</span>
+                        )}
                       </div>
                     )}
                   </button>
                 );
               })}
             </div>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+          </div>
 
-          {/* Selected day schedule */}
-          <ScrollArea className="h-[calc(100vh-320px)]">
-            <div className="p-2 space-y-1">
+          {/* Selected day header */}
+          <div className="flex-shrink-0 px-3 py-2 bg-secondary/20 border-b">
+            <span className="text-sm font-medium text-foreground">
+              {format(currentDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
+            </span>
+          </div>
+
+          {/* Selected day schedule - scrollable */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="divide-y divide-border/50">
               {WORKING_HOURS.map((hour) => {
                 const hourEvents = getEventsForDayAndHour(currentDate, hour);
                 const isCurrentHour = isSameDay(currentTime, currentDate) && currentTime.getHours() === hour;
@@ -419,24 +432,24 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
                   <div
                     key={hour}
                     className={cn(
-                      "flex gap-2 py-2 border-b border-border/50",
-                      isCurrentHour && 'bg-primary/5 rounded-lg'
+                      "flex gap-3 px-3 py-2 min-h-[52px]",
+                      isCurrentHour && 'bg-primary/5'
                     )}
                     onClick={() => onTimeSlotClick(currentDate, `${String(hour).padStart(2, '0')}:00`)}
                   >
                     <div className={cn(
-                      "w-12 text-xs text-muted-foreground shrink-0 pt-0.5",
-                      isCurrentHour && 'text-primary font-semibold'
+                      "w-10 text-xs text-muted-foreground shrink-0 pt-1 text-right",
+                      isCurrentHour && 'text-primary font-bold'
                     )}>
                       {String(hour).padStart(2, '0')}:00
                     </div>
-                    <div className="flex-1 min-h-[40px]">
+                    <div className="flex-1">
                       {hourEvents.length === 0 ? (
                         <div className="h-full flex items-center">
-                          <div className="w-full h-px bg-border/30" />
+                          <div className="w-full h-px bg-border/20" />
                         </div>
                       ) : (
-                        <div className="space-y-1">
+                        <div className="space-y-1.5">
                           {hourEvents.map((event) => (
                             <div
                               key={event.id}
@@ -444,11 +457,11 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
                                 e.stopPropagation();
                                 onEventClick(event);
                               }}
-                              className="p-2 rounded-lg text-white text-sm shadow-sm active:scale-[0.98] transition-transform"
+                              className="p-2.5 rounded-lg text-white shadow-sm active:scale-[0.98] transition-transform"
                               style={{ backgroundColor: event.color || '#3b82f6' }}
                             >
-                              <div className="font-medium truncate">{event.title}</div>
-                              <div className="flex items-center gap-2 mt-1 text-xs opacity-90">
+                              <div className="font-medium text-sm truncate">{event.title}</div>
+                              <div className="flex items-center gap-3 mt-1.5 text-xs opacity-90">
                                 <span className="flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
                                   {format(new Date(event.start_date), 'HH:mm')}
@@ -469,7 +482,7 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
                 );
               })}
             </div>
-          </ScrollArea>
+          </div>
         </div>
 
         <DragOverlay dropAnimation={{
