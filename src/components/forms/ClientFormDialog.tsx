@@ -18,6 +18,32 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+export const CLIENT_SEGMENTS = [
+  'Alimentação',
+  'Automotivo',
+  'Beleza e Estética',
+  'Construção',
+  'Educação',
+  'Entretenimento',
+  'Eventos',
+  'Imobiliário',
+  'Indústria',
+  'Moda',
+  'Saúde',
+  'Serviços',
+  'Tecnologia',
+  'Turismo',
+  'Varejo',
+  'Outro',
+] as const;
 
 const clientSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(100, 'Máximo 100 caracteres'),
@@ -107,9 +133,20 @@ export function ClientFormDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Segmento</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ex: Varejo, Tech..." {...field} />
-                    </FormControl>
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o segmento" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {CLIENT_SEGMENTS.map((segment) => (
+                          <SelectItem key={segment} value={segment}>
+                            {segment}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
