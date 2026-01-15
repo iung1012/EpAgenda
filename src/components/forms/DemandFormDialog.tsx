@@ -32,7 +32,7 @@ const demandSchema = z.object({
   description: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
   client_id: z.string().optional(),
   visit_id: z.string().optional(),
-  status: z.enum(['em_processo', 'terminado', 'alteracoes']),
+  status: z.enum(['a_fazer', 'em_processo', 'terminado', 'alteracoes']),
   due_date: z.string().optional(),
 });
 
@@ -77,7 +77,7 @@ export function DemandFormDialog({
       description: '',
       client_id: '',
       visit_id: '',
-      status: 'em_processo',
+      status: 'a_fazer',
       due_date: '',
       ...defaultValues,
     },
@@ -131,6 +131,7 @@ export function DemandFormDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
+                        <SelectItem value="a_fazer">A Fazer</SelectItem>
                         <SelectItem value="em_processo">Em Processo</SelectItem>
                         <SelectItem value="terminado">Terminado</SelectItem>
                         <SelectItem value="alteracoes">Alterações</SelectItem>
