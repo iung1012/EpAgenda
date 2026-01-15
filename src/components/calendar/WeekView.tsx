@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 interface WeekViewProps {
   currentDate: Date;
@@ -22,14 +23,16 @@ interface WeekViewProps {
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const WORKING_HOURS = Array.from({ length: 14 }, (_, i) => i + 6); // 6h to 19h
 
 interface DraggableEventProps {
   event: CalendarEvent;
   onClick: (event: CalendarEvent) => void;
   onDelete?: (event: CalendarEvent) => void;
+  compact?: boolean;
 }
 
-function DraggableEvent({ event, onClick, onDelete }: DraggableEventProps) {
+function DraggableEvent({ event, onClick, onDelete, compact = false }: DraggableEventProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: event.id,
     data: { event },
@@ -40,7 +43,6 @@ function DraggableEvent({ event, onClick, onDelete }: DraggableEventProps) {
     backgroundColor: event.color || '#3b82f6',
   };
 
-  // Track if we're actually dragging to prevent click on drag end
   const [wasDragging, setWasDragging] = useState(false);
 
   useEffect(() => {
@@ -51,43 +53,59 @@ function DraggableEvent({ event, onClick, onDelete }: DraggableEventProps) {
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Only trigger click if we weren't just dragging
     if (!wasDragging) {
       onClick(event);
     }
-    // Reset after a short delay
     setTimeout(() => setWasDragging(false), 100);
   };
+
+  if (compact) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`group absolute inset-x-0.5 top-0.5 p-0.5 rounded text-[10px] text-white z-10 overflow-hidden touch-none ${
+          isDragging ? 'opacity-40' : 'active:scale-95'
+        }`}
+        onClick={handleClick}
+        {...listeners}
+        {...attributes}
+      >
+        <div className="font-medium truncate leading-tight">{event.title}</div>
+        <div className="opacity-80 text-[9px]">{format(new Date(event.start_date), 'HH:mm')}</div>
+      </div>
+    );
+  }
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`group absolute inset-x-0.5 top-0.5 p-1 rounded text-xs text-white z-10 overflow-hidden transition-all duration-200 touch-none ${
+      className={`group absolute inset-x-0.5 top-0.5 p-1.5 rounded text-xs text-white z-10 overflow-hidden transition-all duration-200 touch-none ${
         isDragging 
           ? 'opacity-40 scale-95 ring-2 ring-primary ring-offset-2 cursor-grabbing' 
-          : 'cursor-grab hover:scale-[1.02] hover:shadow-md hover:z-20'
+          : 'cursor-grab hover:scale-[1.02] hover:shadow-lg hover:z-20'
       }`}
       {...listeners}
       {...attributes}
     >
       <div className="flex items-start justify-between gap-1">
         <div className="flex-1 min-w-0" onClick={handleClick}>
-          <div className="font-medium truncate" title={event.client_name ? `${event.title} - ${event.client_name}` : event.title}>
+          <div className="font-semibold truncate leading-tight" title={event.client_name ? `${event.title} - ${event.client_name}` : event.title}>
             {event.title}
           </div>
           {event.client_name && (
-            <div className="flex items-center gap-1 opacity-90 truncate">
+            <div className="flex items-center gap-1 opacity-90 truncate mt-0.5">
               <User className="h-2.5 w-2.5 flex-shrink-0" />
-              <span className="truncate">{event.client_name}</span>
+              <span className="truncate text-[10px]">{event.client_name}</span>
             </div>
           )}
-          <div className="flex items-center gap-1 opacity-80">
+          <div className="flex items-center gap-1 opacity-80 mt-0.5">
             <Clock className="h-2.5 w-2.5" />
-            {format(new Date(event.start_date), 'HH:mm')}
+            <span className="text-[10px]">{format(new Date(event.start_date), 'HH:mm')}</span>
           </div>
         </div>
-        <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="hidden sm:flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
           <Button
             variant="ghost"
             size="icon"
@@ -126,9 +144,10 @@ interface DroppableSlotProps {
   isToday: boolean;
   isCurrentHour?: boolean;
   currentMinuteOffset?: number;
+  compact?: boolean;
 }
 
-function DroppableSlot({ day, hour, children, onClick, isToday, isCurrentHour, currentMinuteOffset }: DroppableSlotProps) {
+function DroppableSlot({ day, hour, children, onClick, isToday, isCurrentHour, currentMinuteOffset, compact = false }: DroppableSlotProps) {
   const slotId = `${format(day, 'yyyy-MM-dd')}-${hour}`;
   const { setNodeRef, isOver } = useDroppable({
     id: slotId,
@@ -138,17 +157,19 @@ function DroppableSlot({ day, hour, children, onClick, isToday, isCurrentHour, c
   return (
     <div
       ref={setNodeRef}
-      className={`h-16 border-b relative cursor-pointer transition-all duration-200 ${
-        isOver 
-          ? 'bg-primary/20 ring-2 ring-inset ring-primary/50 scale-[1.02]' 
-          : 'hover:bg-secondary/30'
-      } ${isToday ? 'bg-primary/5' : ''}`}
+      className={cn(
+        "border-b relative cursor-pointer transition-all duration-200",
+        compact ? "h-12" : "h-14 sm:h-16",
+        isOver && 'bg-primary/20 ring-2 ring-inset ring-primary/50',
+        !isOver && 'hover:bg-secondary/30',
+        isToday && 'bg-primary/5'
+      )}
       onClick={onClick}
     >
-      {isOver && (
+      {isOver && !compact && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full animate-pulse">
-            Soltar aqui
+            Soltar
           </div>
         </div>
       )}
@@ -171,7 +192,6 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
   const [currentTime, setCurrentTime] = useState(new Date());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
-  // Update current time every minute
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
@@ -215,23 +235,23 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
     let newDate = setHours(day, hour);
     newDate = setMinutes(newDate, originalMinutes);
 
-    // Only update if the date/time actually changed
     if (newDate.getTime() !== originalDate.getTime()) {
       onEventMove(draggedEvent.id, newDate);
     }
   };
 
   return (
-    <div>
-      {/* Week header with datepicker - outside DndContext */}
-      <div className="p-3 border-b flex items-center justify-center gap-2">
-        <span className="text-sm font-medium text-muted-foreground">
-          {format(weekStart, "d 'de' MMM", { locale: ptBR })} - {format(weekEnd, "d 'de' MMM 'de' yyyy", { locale: ptBR })}
+    <div className="flex flex-col">
+      {/* Week header with datepicker */}
+      <div className="p-2 sm:p-3 border-b flex items-center justify-center gap-2 bg-secondary/20">
+        <span className="text-xs sm:text-sm font-medium text-muted-foreground">
+          <span className="hidden sm:inline">{format(weekStart, "d 'de' MMM", { locale: ptBR })} - {format(weekEnd, "d 'de' MMM 'de' yyyy", { locale: ptBR })}</span>
+          <span className="sm:hidden">{format(weekStart, "d MMM", { locale: ptBR })} - {format(weekEnd, "d MMM", { locale: ptBR })}</span>
         </span>
         <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <CalendarIcon className="h-4 w-4" />
+            <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8">
+              <CalendarIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0 z-50" align="center">
@@ -253,109 +273,207 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
       </div>
 
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="overflow-auto">
-          {/* Header with days */}
-          <div className="grid grid-cols-8 border-b sticky top-0 bg-background z-10">
-            <div className="p-2 text-center text-sm font-medium text-muted-foreground border-r">
-              Hora
-            </div>
-          {days.map((day) => {
-            const isToday = isSameDay(day, new Date());
-            return (
-              <div
-                key={day.toISOString()}
-                className={`p-2 text-center border-r last:border-r-0 ${isToday ? 'bg-primary/10' : ''}`}
-              >
-                <div className="text-sm font-medium">
-                  {format(day, 'EEE', { locale: ptBR })}
-                </div>
-                <div className={`text-lg ${isToday ? 'text-primary font-bold' : ''}`}>
-                  {format(day, 'd')}
-                </div>
+        {/* Desktop View */}
+        <div className="hidden sm:block overflow-auto">
+          <div className="min-w-[700px]">
+            {/* Header with days */}
+            <div className="grid grid-cols-8 border-b sticky top-0 bg-background z-10">
+              <div className="p-2 text-center text-xs font-medium text-muted-foreground border-r">
+                Hora
               </div>
-            );
-          })}
-        </div>
+              {days.map((day) => {
+                const isToday = isSameDay(day, new Date());
+                return (
+                  <div
+                    key={day.toISOString()}
+                    className={cn(
+                      "p-2 text-center border-r last:border-r-0 transition-colors",
+                      isToday && 'bg-primary/10'
+                    )}
+                  >
+                    <div className="text-xs font-medium text-muted-foreground uppercase">
+                      {format(day, 'EEE', { locale: ptBR })}
+                    </div>
+                    <div className={cn(
+                      "text-lg font-semibold mt-0.5",
+                      isToday ? 'text-primary' : 'text-foreground'
+                    )}>
+                      {format(day, 'd')}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-        {/* Time grid */}
-        <div className="grid grid-cols-8">
-        {/* Hours column */}
-          <div className="border-r">
-            {HOURS.map((hour) => {
-              const isCurrentHour = isSameDay(currentTime, new Date()) && currentTime.getHours() === hour;
-              return (
-                <div
-                  key={hour}
-                  className={`h-16 border-b text-xs text-muted-foreground p-1 text-right pr-2 ${isCurrentHour ? 'bg-primary/10 font-medium text-destructive' : ''}`}
-                >
-                  {String(hour).padStart(2, '0')}:00
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Day columns */}
-          {days.map((day) => {
-            const isToday = isSameDay(day, new Date());
-            return (
-              <div key={day.toISOString()} className="border-r last:border-r-0 relative">
-                {/* Current time indicator for today column */}
-                {isToday && (
-                  <div 
-                    className="absolute left-0 w-2 h-2 rounded-full bg-destructive z-30 -translate-x-1/2"
-                    style={{ top: `${((currentTime.getHours() * 60 + currentTime.getMinutes()) / (24 * 60)) * (16 * 24)}px` }}
-                  />
-                )}
+            {/* Time grid */}
+            <div className="grid grid-cols-8">
+              <div className="border-r">
                 {HOURS.map((hour) => {
-                  const hourEvents = getEventsForDayAndHour(day, hour);
-                  const isCurrentHour = isToday && currentTime.getHours() === hour;
+                  const isCurrentHour = isSameDay(currentTime, new Date()) && currentTime.getHours() === hour;
                   return (
-                    <DroppableSlot
+                    <div
                       key={hour}
-                      day={day}
-                      hour={hour}
-                      isToday={isToday}
-                      isCurrentHour={isCurrentHour}
-                      currentMinuteOffset={isCurrentHour ? currentTime.getMinutes() : undefined}
-                      onClick={() => onTimeSlotClick(day, `${String(hour).padStart(2, '0')}:00`)}
+                      className={cn(
+                        "h-16 border-b text-xs text-muted-foreground p-1 text-right pr-2",
+                        isCurrentHour && 'bg-primary/10 font-semibold text-primary'
+                      )}
                     >
-                      {hourEvents.map((event) => (
-                        <DraggableEvent
-                          key={event.id}
-                          event={event}
-                          onClick={onEventClick}
-                          onDelete={onEventDelete}
-                        />
-                      ))}
-                    </DroppableSlot>
+                      {String(hour).padStart(2, '0')}:00
+                    </div>
                   );
                 })}
               </div>
-            );
-          })}
-        </div>
-      </div>
 
-      <DragOverlay dropAnimation={{
-        duration: 200,
-        easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
-      }}>
-        {activeEvent && (
-          <div
-            className="p-2 rounded text-xs text-white shadow-2xl cursor-grabbing ring-2 ring-white/30 animate-pulse"
-            style={{ 
-              backgroundColor: activeEvent.color || '#3b82f6', 
-              width: '120px',
-              transform: 'rotate(-2deg) scale(1.05)',
-            }}
-          >
-            <div className="font-medium truncate">{activeEvent.title}</div>
-            <div className="flex items-center gap-1 opacity-80">
-              <Clock className="h-2.5 w-2.5" />
-              {format(new Date(activeEvent.start_date), 'HH:mm')}
+              {days.map((day) => {
+                const isToday = isSameDay(day, new Date());
+                return (
+                  <div key={day.toISOString()} className="border-r last:border-r-0 relative">
+                    {isToday && (
+                      <div 
+                        className="absolute left-0 w-2 h-2 rounded-full bg-destructive z-30 -translate-x-1/2"
+                        style={{ top: `${((currentTime.getHours() * 60 + currentTime.getMinutes()) / (24 * 60)) * (16 * 24)}px` }}
+                      />
+                    )}
+                    {HOURS.map((hour) => {
+                      const hourEvents = getEventsForDayAndHour(day, hour);
+                      const isCurrentHour = isToday && currentTime.getHours() === hour;
+                      return (
+                        <DroppableSlot
+                          key={hour}
+                          day={day}
+                          hour={hour}
+                          isToday={isToday}
+                          isCurrentHour={isCurrentHour}
+                          currentMinuteOffset={isCurrentHour ? currentTime.getMinutes() : undefined}
+                          onClick={() => onTimeSlotClick(day, `${String(hour).padStart(2, '0')}:00`)}
+                        >
+                          {hourEvents.map((event) => (
+                            <DraggableEvent
+                              key={event.id}
+                              event={event}
+                              onClick={onEventClick}
+                              onDelete={onEventDelete}
+                            />
+                          ))}
+                        </DroppableSlot>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Mobile View - Horizontal scroll with compact layout */}
+        <ScrollArea className="sm:hidden w-full">
+          <div className="min-w-[600px]">
+            {/* Header with days */}
+            <div className="grid grid-cols-8 border-b sticky top-0 bg-background z-10">
+              <div className="p-1.5 text-center text-[10px] font-medium text-muted-foreground border-r">
+                
+              </div>
+              {days.map((day) => {
+                const isToday = isSameDay(day, new Date());
+                return (
+                  <div
+                    key={day.toISOString()}
+                    className={cn(
+                      "p-1.5 text-center border-r last:border-r-0",
+                      isToday && 'bg-primary/10'
+                    )}
+                  >
+                    <div className="text-[10px] font-medium text-muted-foreground uppercase">
+                      {format(day, 'EEEEE', { locale: ptBR })}
+                    </div>
+                    <div className={cn(
+                      "text-sm font-semibold",
+                      isToday ? 'text-primary' : 'text-foreground'
+                    )}>
+                      {format(day, 'd')}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Time grid - Working hours only for mobile */}
+            <div className="grid grid-cols-8">
+              <div className="border-r">
+                {WORKING_HOURS.map((hour) => {
+                  const isCurrentHour = isSameDay(currentTime, new Date()) && currentTime.getHours() === hour;
+                  return (
+                    <div
+                      key={hour}
+                      className={cn(
+                        "h-12 border-b text-[10px] text-muted-foreground p-0.5 text-right pr-1",
+                        isCurrentHour && 'bg-primary/10 font-semibold text-primary'
+                      )}
+                    >
+                      {String(hour).padStart(2, '0')}h
+                    </div>
+                  );
+                })}
+              </div>
+
+              {days.map((day) => {
+                const isToday = isSameDay(day, new Date());
+                return (
+                  <div key={day.toISOString()} className="border-r last:border-r-0 relative">
+                    {WORKING_HOURS.map((hour) => {
+                      const hourEvents = getEventsForDayAndHour(day, hour);
+                      const isCurrentHour = isToday && currentTime.getHours() === hour;
+                      return (
+                        <DroppableSlot
+                          key={hour}
+                          day={day}
+                          hour={hour}
+                          isToday={isToday}
+                          isCurrentHour={isCurrentHour}
+                          currentMinuteOffset={isCurrentHour ? currentTime.getMinutes() : undefined}
+                          onClick={() => onTimeSlotClick(day, `${String(hour).padStart(2, '0')}:00`)}
+                          compact
+                        >
+                          {hourEvents.map((event) => (
+                            <DraggableEvent
+                              key={event.id}
+                              event={event}
+                              onClick={onEventClick}
+                              onDelete={onEventDelete}
+                              compact
+                            />
+                          ))}
+                        </DroppableSlot>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
+
+        <DragOverlay dropAnimation={{
+          duration: 200,
+          easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
+        }}>
+          {activeEvent && (
+            <div
+              className="p-2 rounded text-xs text-white shadow-2xl cursor-grabbing ring-2 ring-white/30"
+              style={{ 
+                backgroundColor: activeEvent.color || '#3b82f6', 
+                width: '100px',
+                transform: 'rotate(-2deg) scale(1.05)',
+              }}
+            >
+              <div className="font-semibold truncate">{activeEvent.title}</div>
+              <div className="flex items-center gap-1 opacity-80 mt-0.5">
+                <Clock className="h-2.5 w-2.5" />
+                {format(new Date(activeEvent.start_date), 'HH:mm')}
+              </div>
+            </div>
+          )}
         </DragOverlay>
       </DndContext>
     </div>

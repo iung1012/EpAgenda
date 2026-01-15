@@ -591,35 +591,35 @@ export default function Calendar() {
       </div>
 
       {/* Calendar */}
-      <Card>
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={navigatePrevious}>
-              <ChevronLeft className="h-5 w-5" />
+      <Card className="overflow-hidden">
+        <CardHeader className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between pb-4">
+          <div className="flex items-center justify-center sm:justify-start gap-2 sm:gap-4">
+            <Button variant="ghost" size="icon" onClick={navigatePrevious} className="h-8 w-8 sm:h-9 sm:w-9">
+              <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
-            <CardTitle className="text-xl capitalize">
+            <CardTitle className="text-base sm:text-xl capitalize text-center min-w-[140px] sm:min-w-[200px]">
               {getHeaderTitle()}
             </CardTitle>
-            <Button variant="ghost" size="icon" onClick={navigateNext}>
-              <ChevronRight className="h-5 w-5" />
+            <Button variant="ghost" size="icon" onClick={navigateNext} className="h-8 w-8 sm:h-9 sm:w-9">
+              <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center sm:justify-end gap-2">
             <Tabs value={viewType} onValueChange={(v) => setViewType(v as ViewType)}>
-              <TabsList>
-                <TabsTrigger value="month">Mês</TabsTrigger>
-                <TabsTrigger value="week">Semana</TabsTrigger>
-                <TabsTrigger value="day">Dia</TabsTrigger>
+              <TabsList className="h-8 sm:h-9">
+                <TabsTrigger value="month" className="text-xs sm:text-sm px-2 sm:px-3">Mês</TabsTrigger>
+                <TabsTrigger value="week" className="text-xs sm:text-sm px-2 sm:px-3">Semana</TabsTrigger>
+                <TabsTrigger value="day" className="text-xs sm:text-sm px-2 sm:px-3">Dia</TabsTrigger>
               </TabsList>
             </Tabs>
-            <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
+            <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())} className="h-8 sm:h-9 text-xs sm:text-sm">
               Hoje
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-2 sm:p-6">
           {isLoading ? (
-            <div className="grid grid-cols-7 gap-1">
+            <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
               {[...Array(35)].map((_, i) => (
                 <CalendarDaySkeleton key={i} />
               ))}
@@ -632,7 +632,7 @@ export default function Calendar() {
               onDayClick={handleDateClick}
             />
           ) : viewType === 'week' ? (
-            <div className="max-h-[600px] overflow-auto">
+            <div className="max-h-[500px] sm:max-h-[600px] overflow-hidden rounded-lg border">
               <WeekView
                 currentDate={currentDate}
                 events={events}
@@ -644,15 +644,17 @@ export default function Calendar() {
               />
             </div>
           ) : (
-            <DayView
-              currentDate={currentDate}
-              events={events}
-              onEventClick={handleEventClick}
-              onTimeSlotClick={handleTimeSlotClick}
-              onEventMove={handleEventMove}
-              onEventDelete={handleDeleteEvent}
-              onDateChange={setCurrentDate}
-            />
+            <div className="rounded-lg border overflow-hidden">
+              <DayView
+                currentDate={currentDate}
+                events={events}
+                onEventClick={handleEventClick}
+                onTimeSlotClick={handleTimeSlotClick}
+                onEventMove={handleEventMove}
+                onEventDelete={handleDeleteEvent}
+                onDateChange={setCurrentDate}
+              />
+            </div>
           )}
         </CardContent>
       </Card>

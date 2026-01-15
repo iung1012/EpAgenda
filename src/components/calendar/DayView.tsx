@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+
 interface DayViewProps {
   currentDate: Date;
   events: CalendarEvent[];
@@ -27,9 +28,10 @@ interface DraggableEventCardProps {
   event: CalendarEvent;
   onClick: (event: CalendarEvent) => void;
   onDelete?: (event: CalendarEvent) => void;
+  compact?: boolean;
 }
 
-function DraggableEventCard({ event, onClick, onDelete }: DraggableEventCardProps) {
+function DraggableEventCard({ event, onClick, onDelete, compact = false }: DraggableEventCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: event.id,
     data: { event },
@@ -40,7 +42,6 @@ function DraggableEventCard({ event, onClick, onDelete }: DraggableEventCardProp
     backgroundColor: event.color || '#3b82f6',
   };
 
-  // Track if we're actually dragging to prevent click on drag end
   const [wasDragging, setWasDragging] = useState(false);
 
   useEffect(() => {
@@ -51,50 +52,71 @@ function DraggableEventCard({ event, onClick, onDelete }: DraggableEventCardProp
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Only trigger click if we weren't just dragging
     if (!wasDragging) {
       onClick(event);
     }
-    // Reset after a short delay
     setTimeout(() => setWasDragging(false), 100);
   };
+
+  if (compact) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={cn(
+          "flex-1 min-w-0 p-1.5 rounded text-xs text-white z-10 transition-all duration-200 touch-none",
+          isDragging ? 'opacity-40 scale-95' : 'active:scale-95'
+        )}
+        onClick={handleClick}
+        {...listeners}
+        {...attributes}
+      >
+        <div className="font-semibold truncate leading-tight">{event.title}</div>
+        <div className="flex items-center gap-1 opacity-80 mt-0.5">
+          <Clock className="h-2.5 w-2.5" />
+          <span className="text-[10px]">{format(new Date(event.start_date), 'HH:mm')}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex-1 min-w-[200px] max-w-[300px] p-2 rounded text-sm text-white z-10 transition-all duration-200 touch-none ${
+      className={cn(
+        "group flex-1 min-w-[180px] sm:min-w-[200px] max-w-[300px] p-2 sm:p-3 rounded-lg text-sm text-white z-10 transition-all duration-200 touch-none shadow-sm",
         isDragging 
           ? 'opacity-40 scale-95 ring-2 ring-primary ring-offset-2 cursor-grabbing' 
           : 'cursor-grab hover:scale-[1.02] hover:shadow-lg hover:z-20'
-      }`}
+      )}
       {...listeners}
       {...attributes}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0" onClick={handleClick}>
-          <div className="font-medium truncate">{event.title}</div>
+          <div className="font-semibold truncate leading-tight">{event.title}</div>
           {event.client_name && (
-            <div className="flex items-center gap-1 text-xs opacity-90">
-              <User className="h-3 w-3" />
+            <div className="flex items-center gap-1 text-xs opacity-90 mt-1">
+              <User className="h-3 w-3 flex-shrink-0" />
               <span className="truncate">{event.client_name}</span>
             </div>
           )}
-          <div className="flex items-center gap-3 mt-1 text-xs opacity-80">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1.5 text-xs opacity-80">
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
               {format(new Date(event.start_date), 'HH:mm')}
               {event.end_date && ` - ${format(new Date(event.end_date), 'HH:mm')}`}
             </span>
             {event.location && (
-              <span className="flex items-center gap-1">
+              <span className="hidden sm:flex items-center gap-1">
                 <MapPin className="h-3 w-3" />
-                {event.location}
+                <span className="truncate max-w-[100px]">{event.location}</span>
               </span>
             )}
           </div>
         </div>
-        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="hidden sm:flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
           <Button
             variant="ghost"
             size="icon"
@@ -131,9 +153,11 @@ interface DroppableHourSlotProps {
   children: React.ReactNode;
   onClick: () => void;
   isCurrentHour: boolean;
+  currentMinuteOffset?: number;
+  compact?: boolean;
 }
 
-function DroppableHourSlot({ currentDate, hour, children, onClick, isCurrentHour, currentMinuteOffset }: DroppableHourSlotProps & { currentMinuteOffset?: number }) {
+function DroppableHourSlot({ currentDate, hour, children, onClick, isCurrentHour, currentMinuteOffset, compact = false }: DroppableHourSlotProps) {
   const slotId = `day-${format(currentDate, 'yyyy-MM-dd')}-${hour}`;
   const { setNodeRef, isOver } = useDroppable({
     id: slotId,
@@ -143,16 +167,18 @@ function DroppableHourSlot({ currentDate, hour, children, onClick, isCurrentHour
   return (
     <div
       ref={setNodeRef}
-      className={`h-20 border-b relative cursor-pointer transition-all duration-200 ${
-        isOver 
-          ? 'bg-primary/20 ring-2 ring-inset ring-primary/50 scale-[1.01]' 
-          : 'hover:bg-secondary/30'
-      } ${isCurrentHour ? 'bg-primary/5' : ''}`}
+      className={cn(
+        "border-b relative cursor-pointer transition-all duration-200",
+        compact ? "min-h-[60px]" : "min-h-[72px] sm:min-h-[80px]",
+        isOver && 'bg-primary/20 ring-2 ring-inset ring-primary/50',
+        !isOver && 'hover:bg-secondary/30',
+        isCurrentHour && 'bg-primary/5'
+      )}
       onClick={onClick}
     >
-      {isOver && (
+      {isOver && !compact && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
-          <div className="text-sm font-medium text-primary bg-primary/10 px-3 py-1 rounded-full animate-pulse shadow-sm">
+          <div className="text-xs sm:text-sm font-medium text-primary bg-primary/10 px-2 sm:px-3 py-1 rounded-full animate-pulse shadow-sm">
             Soltar aqui
           </div>
         </div>
@@ -162,10 +188,10 @@ function DroppableHourSlot({ currentDate, hour, children, onClick, isCurrentHour
           className="absolute left-0 right-0 h-0.5 bg-destructive z-20 flex items-center"
           style={{ top: `${(currentMinuteOffset / 60) * 100}%` }}
         >
-          <div className="absolute -left-1.5 w-3 h-3 rounded-full bg-destructive" />
+          <div className="absolute -left-1 sm:-left-1.5 w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-destructive" />
         </div>
       )}
-      <div className="flex flex-wrap gap-1 p-1">
+      <div className="flex flex-wrap gap-1 p-1 sm:p-1.5">
         {children}
       </div>
     </div>
@@ -180,7 +206,6 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const hasScrolled = useRef(false);
 
-  // Update current time every minute
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
@@ -188,14 +213,11 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
     return () => clearInterval(interval);
   }, []);
 
-  // Scroll to current hour on mount (only for today)
   useEffect(() => {
     if (isToday && !hasScrolled.current && scrollAreaRef.current) {
       const currentHour = new Date().getHours();
-      // Each hour slot is 80px high, scroll to 2 hours before current for context
       const scrollPosition = Math.max(0, (currentHour - 2) * 80);
       
-      // Small delay to ensure content is rendered
       setTimeout(() => {
         if (scrollAreaRef.current) {
           const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
@@ -208,7 +230,6 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
     }
   }, [isToday, currentDate]);
 
-  // Reset scroll flag when date changes
   useEffect(() => {
     hasScrolled.current = false;
   }, [currentDate]);
@@ -249,24 +270,27 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
     let newDate = setHours(day, hour);
     newDate = setMinutes(newDate, originalMinutes);
 
-    // Only update if the time actually changed
     if (newDate.getTime() !== originalDate.getTime()) {
       onEventMove(draggedEvent.id, newDate);
     }
   };
 
   return (
-    <div>
-      {/* Header - outside DndContext to avoid conflicts */}
-      <div className={`p-4 text-center border-b ${isToday ? 'bg-primary/10' : ''}`}>
+    <div className="flex flex-col">
+      {/* Header */}
+      <div className={cn(
+        "p-3 sm:p-4 text-center border-b",
+        isToday && 'bg-primary/10'
+      )}>
         <div className="flex items-center justify-center gap-2">
-          <div className="text-lg font-medium">
-            {format(currentDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
+          <div className="text-base sm:text-lg font-semibold capitalize">
+            <span className="hidden sm:inline">{format(currentDate, "EEEE, d 'de' MMMM", { locale: ptBR })}</span>
+            <span className="sm:hidden">{format(currentDate, "EEE, d 'de' MMM", { locale: ptBR })}</span>
           </div>
           <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <CalendarIcon className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8">
+                <CalendarIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0 z-50" align="center">
@@ -287,14 +311,14 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
           </Popover>
         </div>
         {isToday && (
-          <div className="text-sm text-primary font-medium">Hoje</div>
+          <div className="text-xs sm:text-sm text-primary font-semibold mt-0.5">Hoje</div>
         )}
       </div>
 
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <ScrollArea className="h-[540px]" ref={scrollAreaRef}>
+        <ScrollArea className="h-[480px] sm:h-[540px]" ref={scrollAreaRef}>
           {/* Time grid */}
-          <div className="grid grid-cols-[80px_1fr]">
+          <div className="grid grid-cols-[60px_1fr] sm:grid-cols-[80px_1fr]">
             {HOURS.map((hour) => {
               const hourEvents = getEventsForHour(hour);
               const isCurrentHour = isToday && currentTime.getHours() === hour;
@@ -302,7 +326,10 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
               return (
                 <div key={hour} className="contents">
                   {/* Hour label */}
-                  <div className={`h-20 border-b border-r text-sm text-muted-foreground p-2 text-right ${isCurrentHour ? 'bg-primary/10 font-medium text-destructive' : ''}`}>
+                  <div className={cn(
+                    "min-h-[60px] sm:min-h-[80px] border-b border-r text-xs sm:text-sm text-muted-foreground p-1.5 sm:p-2 text-right",
+                    isCurrentHour && 'bg-primary/10 font-semibold text-primary'
+                  )}>
                     {String(hour).padStart(2, '0')}:00
                   </div>
 
@@ -314,14 +341,29 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
                     currentMinuteOffset={isCurrentHour ? currentTime.getMinutes() : undefined}
                     onClick={() => onTimeSlotClick(currentDate, `${String(hour).padStart(2, '0')}:00`)}
                   >
-                    {hourEvents.map((event) => (
-                      <DraggableEventCard
-                        key={event.id}
-                        event={event}
-                        onClick={onEventClick}
-                        onDelete={onEventDelete}
-                      />
-                    ))}
+                    {/* Mobile: compact view */}
+                    <div className="sm:hidden flex flex-wrap gap-1 w-full">
+                      {hourEvents.map((event) => (
+                        <DraggableEventCard
+                          key={event.id}
+                          event={event}
+                          onClick={onEventClick}
+                          onDelete={onEventDelete}
+                          compact
+                        />
+                      ))}
+                    </div>
+                    {/* Desktop: full view */}
+                    <div className="hidden sm:flex flex-wrap gap-1">
+                      {hourEvents.map((event) => (
+                        <DraggableEventCard
+                          key={event.id}
+                          event={event}
+                          onClick={onEventClick}
+                          onDelete={onEventDelete}
+                        />
+                      ))}
+                    </div>
                   </DroppableHourSlot>
                 </div>
               );
@@ -329,28 +371,28 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
           </div>
         </ScrollArea>
 
-      <DragOverlay dropAnimation={{
-        duration: 200,
-        easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
-      }}>
-        {activeEvent && (
-          <div
-            className="p-2 rounded text-sm text-white shadow-2xl cursor-grabbing ring-2 ring-white/30 animate-pulse"
-            style={{ 
-              backgroundColor: activeEvent.color || '#3b82f6', 
-              width: '200px',
-              transform: 'rotate(-2deg) scale(1.05)',
-            }}
-          >
-            <div className="font-medium truncate">{activeEvent.title}</div>
-            <div className="flex items-center gap-1 mt-1 text-xs opacity-80">
-              <Clock className="h-3 w-3" />
-              {format(new Date(activeEvent.start_date), 'HH:mm')}
+        <DragOverlay dropAnimation={{
+          duration: 200,
+          easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
+        }}>
+          {activeEvent && (
+            <div
+              className="p-2 rounded-lg text-sm text-white shadow-2xl cursor-grabbing ring-2 ring-white/30"
+              style={{ 
+                backgroundColor: activeEvent.color || '#3b82f6', 
+                width: '160px',
+                transform: 'rotate(-2deg) scale(1.05)',
+              }}
+            >
+              <div className="font-semibold truncate">{activeEvent.title}</div>
+              <div className="flex items-center gap-1 mt-1 text-xs opacity-80">
+                <Clock className="h-3 w-3" />
+                {format(new Date(activeEvent.start_date), 'HH:mm')}
+              </div>
             </div>
-          </div>
-        )}
-      </DragOverlay>
-    </DndContext>
+          )}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 }
