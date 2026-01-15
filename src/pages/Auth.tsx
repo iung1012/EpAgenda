@@ -121,53 +121,81 @@ export default function Auth() {
     <div className="min-h-screen flex">
       {/* Left side - Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-primary relative overflow-hidden">
+        {/* Animated gradient background */}
         <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-primary/80" />
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-20 left-20 w-72 h-72 bg-white rounded-full blur-3xl" />
-          <div className="absolute bottom-20 right-20 w-96 h-96 bg-white rounded-full blur-3xl" />
-        </div>
+        
+        {/* Decorative circles */}
+        <motion.div 
+          className="absolute -top-32 -left-32 w-96 h-96 bg-white/5 rounded-full"
+          animate={{ 
+            scale: [1, 1.1, 1],
+            rotate: [0, 90, 0]
+          }}
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+        />
+        <motion.div 
+          className="absolute -bottom-48 -right-48 w-[500px] h-[500px] bg-white/5 rounded-full"
+          animate={{ 
+            scale: [1.1, 1, 1.1],
+            rotate: [90, 0, 90]
+          }}
+          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+        />
+        <motion.div 
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-white/5 rounded-full"
+          animate={{ 
+            scale: [1, 1.2, 1]
+          }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+        />
+        
+        {/* Glow effects */}
+        <div className="absolute top-20 left-20 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 right-20 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
+        
+        {/* Content */}
         <div className="relative z-10 flex flex-col items-center justify-center w-full p-12">
-          <motion.img 
-            src={logo} 
-            alt="EP Mídias" 
-            className="h-32 w-auto mb-8 drop-shadow-2xl"
+          <motion.div
+            className="relative"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-          />
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          >
+            {/* Logo glow */}
+            <div className="absolute inset-0 blur-2xl opacity-50">
+              <img src={logo} alt="" className="h-40 w-auto" />
+            </div>
+            <img 
+              src={logo} 
+              alt="EP Mídias" 
+              className="h-40 w-auto relative drop-shadow-2xl"
+            />
+          </motion.div>
+          
           <motion.div
-            className="text-center"
+            className="text-center mt-8"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <h1 className="text-3xl font-bold text-primary-foreground mb-4">
+            <h1 className="text-4xl font-bold text-primary-foreground mb-3 tracking-tight">
               Sistema de Gestão
             </h1>
-            <p className="text-primary-foreground/80 text-lg max-w-md">
-              Gerencie seus clientes, tarefas e equipe em um único lugar
+            <p className="text-primary-foreground/70 text-lg max-w-sm leading-relaxed">
+              Organize sua equipe, clientes e projetos em um só lugar
             </p>
           </motion.div>
+
+          {/* Decorative line */}
           <motion.div 
-            className="mt-12 flex items-center gap-8 text-primary-foreground/60"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
+            className="mt-12 flex items-center gap-4"
+            initial={{ opacity: 0, scaleX: 0 }}
+            animate={{ opacity: 1, scaleX: 1 }}
+            transition={{ duration: 0.6, delay: 0.5 }}
           >
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary-foreground">100+</div>
-              <div className="text-sm">Clientes</div>
-            </div>
-            <div className="h-8 w-px bg-primary-foreground/20" />
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary-foreground">500+</div>
-              <div className="text-sm">Tarefas</div>
-            </div>
-            <div className="h-8 w-px bg-primary-foreground/20" />
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary-foreground">20+</div>
-              <div className="text-sm">Equipe</div>
-            </div>
+            <div className="h-px w-16 bg-gradient-to-r from-transparent to-primary-foreground/30" />
+            <div className="w-2 h-2 rounded-full bg-primary-foreground/40" />
+            <div className="h-px w-16 bg-gradient-to-l from-transparent to-primary-foreground/30" />
           </motion.div>
         </div>
       </div>
