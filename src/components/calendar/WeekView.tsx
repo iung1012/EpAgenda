@@ -23,7 +23,7 @@ interface WeekViewProps {
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
-const WORKING_HOURS = Array.from({ length: 14 }, (_, i) => i + 6); // 6h to 19h
+const WORKING_HOURS = Array.from({ length: 15 }, (_, i) => i + 7); // 7h às 21h (horário comercial)
 
 interface DraggableEventProps {
   event: CalendarEvent;
