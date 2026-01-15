@@ -81,7 +81,7 @@ export function AppSidebar() {
           <img 
             src={logo} 
             alt="EP Mídias" 
-            className={collapsed ? "h-10 w-auto" : "h-12 w-auto"}
+            className={collapsed ? "h-12 w-auto" : "h-20 w-auto"}
           />
         </div>
       </SidebarHeader>
