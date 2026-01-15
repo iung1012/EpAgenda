@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Clock, MapPin, Pencil, Trash2 } from 'lucide-react';
+import { Clock, MapPin, Pencil, Trash2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -73,6 +73,12 @@ export function DayEventsDialog({
                       <Clock className="h-3 w-3" />
                       {format(new Date(event.start_date), 'HH:mm')}
                     </span>
+                    {event.client_name && (
+                      <span className="flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        <span className="truncate max-w-[120px]">{event.client_name}</span>
+                      </span>
+                    )}
                     {event.location && (
                       <span className="flex items-center gap-1">
                         <MapPin className="h-3 w-3" />

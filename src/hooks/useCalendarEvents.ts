@@ -12,6 +12,7 @@ export interface CalendarEvent {
   all_day: boolean | null;
   location: string | null;
   client_id: string | null;
+  client_name?: string | null;
   assigned_to: string | null;
   color: string | null;
   created_by: string | null;
@@ -34,17 +35,17 @@ export function useCalendarEvents(currentDate: Date) {
     const start = startOfMonth(currentDate);
     const end = endOfMonth(currentDate);
 
-    // Fetch calendar events and visits in parallel
+    // Fetch calendar events and visits in parallel with client names
     const [eventsResult, visitsResult] = await Promise.all([
       supabase
         .from('calendar_events')
-        .select('*')
+        .select('*, clients(name)')
         .gte('start_date', start.toISOString())
         .lte('start_date', end.toISOString())
         .order('start_date'),
       supabase
         .from('filmmaker_visits')
-        .select('*')
+        .select('*, clients(name)')
         .gte('visit_date', start.toISOString())
         .lte('visit_date', end.toISOString())
         .order('visit_date')
@@ -62,10 +63,13 @@ export function useCalendarEvents(currentDate: Date) {
       // Don't fail completely, just log and continue with calendar events only
     }
 
-    // Convert visits to calendar event format
-    const calendarEvents = (eventsResult.data || []) as CalendarEvent[];
+    // Convert events with client names
+    const calendarEvents: CalendarEvent[] = (eventsResult.data || []).map((event: any) => ({
+      ...event,
+      client_name: event.clients?.name || null,
+    }));
     
-    const visitEvents: CalendarEvent[] = (visitsResult.data || []).map(visit => ({
+    const visitEvents: CalendarEvent[] = (visitsResult.data || []).map((visit: any) => ({
       id: `visit-${visit.id}`,
       title: `📹 ${visit.title}`,
       description: visit.description,
@@ -75,6 +79,7 @@ export function useCalendarEvents(currentDate: Date) {
       all_day: false,
       location: visit.location,
       client_id: visit.client_id,
+      client_name: visit.clients?.name || null,
       assigned_to: visit.filmmaker_id,
       color: '#22c55e', // Green for visits
       created_by: visit.filmmaker_id,

@@ -57,8 +57,9 @@ export function MonthView({ currentDate, events, getEventsForDay, onDayClick }: 
                     key={event.id}
                     className="text-xs px-1.5 py-0.5 rounded truncate"
                     style={{ backgroundColor: event.color || '#3b82f6', color: 'white' }}
+                    title={event.client_name ? `${event.title} - ${event.client_name}` : event.title}
                   >
-                    {event.title}
+                    {event.client_name ? `${event.title} • ${event.client_name}` : event.title}
                   </div>
                 ))}
                 {dayEvents.length > 3 && (
