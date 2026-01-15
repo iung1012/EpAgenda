@@ -207,9 +207,12 @@ export default function FilmmakerVisits() {
 
   const getDefaultValues = (): Partial<VisitFormValues> | undefined => {
     if (!editingVisit) return undefined;
-    // Convert the stored UTC date to local time for the input
-    const storedDate = new Date(editingVisit.visit_date + 'Z');
-    const localDateStr = format(storedDate, "yyyy-MM-dd'T'HH:mm");
+    // The stored date is already in ISO format with timezone from timestamptz
+    const storedDate = new Date(editingVisit.visit_date);
+    // Check if date is valid before formatting
+    const localDateStr = isNaN(storedDate.getTime()) 
+      ? '' 
+      : format(storedDate, "yyyy-MM-dd'T'HH:mm");
     return {
       title: editingVisit.title,
       description: editingVisit.description || '',
@@ -299,7 +302,12 @@ export default function FilmmakerVisits() {
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {format(new Date(visit.visit_date + 'Z'), "dd MMM 'às' HH:mm", { locale: ptBR })}
+                          {(() => {
+                            const visitDate = new Date(visit.visit_date);
+                            return isNaN(visitDate.getTime()) 
+                              ? 'Data inválida' 
+                              : format(visitDate, "dd MMM 'às' HH:mm", { locale: ptBR });
+                          })()}
                         </span>
                         {visit.client && (
                           <span>{visit.client.name}</span>
