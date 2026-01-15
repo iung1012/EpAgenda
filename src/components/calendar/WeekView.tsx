@@ -1,7 +1,7 @@
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarEvent } from '@/hooks/useCalendarEvents';
-import { Clock, Pencil, Trash2 } from 'lucide-react';
+import { Clock, Pencil, Trash2, User } from 'lucide-react';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { useState, useEffect } from 'react';
@@ -69,7 +69,15 @@ function DraggableEvent({ event, onClick, onDelete }: DraggableEventProps) {
     >
       <div className="flex items-start justify-between gap-1">
         <div className="flex-1 min-w-0" onClick={handleClick}>
-          <div className="font-medium truncate">{event.title}</div>
+          <div className="font-medium truncate" title={event.client_name ? `${event.title} - ${event.client_name}` : event.title}>
+            {event.title}
+          </div>
+          {event.client_name && (
+            <div className="flex items-center gap-1 opacity-90 truncate">
+              <User className="h-2.5 w-2.5 flex-shrink-0" />
+              <span className="truncate">{event.client_name}</span>
+            </div>
+          )}
           <div className="flex items-center gap-1 opacity-80">
             <Clock className="h-2.5 w-2.5" />
             {format(new Date(event.start_date), 'HH:mm')}

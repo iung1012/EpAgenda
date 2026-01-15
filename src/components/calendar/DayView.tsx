@@ -1,7 +1,7 @@
 import { format, isSameDay, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarEvent } from '@/hooks/useCalendarEvents';
-import { Clock, MapPin, Pencil, Trash2 } from 'lucide-react';
+import { Clock, MapPin, Pencil, Trash2, User } from 'lucide-react';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { useState, useEffect, useRef } from 'react';
@@ -71,6 +71,12 @@ function DraggableEventCard({ event, onClick, onDelete }: DraggableEventCardProp
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0" onClick={handleClick}>
           <div className="font-medium truncate">{event.title}</div>
+          {event.client_name && (
+            <div className="flex items-center gap-1 text-xs opacity-90">
+              <User className="h-3 w-3" />
+              <span className="truncate">{event.client_name}</span>
+            </div>
+          )}
           <div className="flex items-center gap-3 mt-1 text-xs opacity-80">
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
