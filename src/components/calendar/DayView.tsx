@@ -256,77 +256,78 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
   };
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <ScrollArea className="h-[600px]" ref={scrollAreaRef}>
-        {/* Header */}
-        <div className={`p-4 text-center border-b sticky top-0 bg-background z-10 ${isToday ? 'bg-primary/10' : ''}`}>
-          <div className="flex items-center justify-center gap-2">
-            <div className="text-lg font-medium">
-              {format(currentDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
-            </div>
-            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <CalendarIcon className="h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 z-50" align="center">
-                <Calendar
-                  mode="single"
-                  selected={currentDate}
-                  onSelect={(date) => {
-                    if (date && onDateChange) {
-                      onDateChange(date);
-                      setDatePickerOpen(false);
-                    }
-                  }}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                  locale={ptBR}
-                />
-              </PopoverContent>
-            </Popover>
+    <div>
+      {/* Header - outside DndContext to avoid conflicts */}
+      <div className={`p-4 text-center border-b ${isToday ? 'bg-primary/10' : ''}`}>
+        <div className="flex items-center justify-center gap-2">
+          <div className="text-lg font-medium">
+            {format(currentDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
           </div>
-          {isToday && (
-            <div className="text-sm text-primary font-medium">Hoje</div>
-          )}
+          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <CalendarIcon className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 z-50" align="center">
+              <Calendar
+                mode="single"
+                selected={currentDate}
+                onSelect={(date) => {
+                  if (date && onDateChange) {
+                    onDateChange(date);
+                    setDatePickerOpen(false);
+                  }
+                }}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+                locale={ptBR}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
+        {isToday && (
+          <div className="text-sm text-primary font-medium">Hoje</div>
+        )}
+      </div>
 
-        {/* Time grid */}
-        <div className="grid grid-cols-[80px_1fr]">
-          {HOURS.map((hour) => {
-            const hourEvents = getEventsForHour(hour);
-            const isCurrentHour = isToday && currentTime.getHours() === hour;
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <ScrollArea className="h-[540px]" ref={scrollAreaRef}>
+          {/* Time grid */}
+          <div className="grid grid-cols-[80px_1fr]">
+            {HOURS.map((hour) => {
+              const hourEvents = getEventsForHour(hour);
+              const isCurrentHour = isToday && currentTime.getHours() === hour;
 
-            return (
-              <div key={hour} className="contents">
-                {/* Hour label */}
-                <div className={`h-20 border-b border-r text-sm text-muted-foreground p-2 text-right ${isCurrentHour ? 'bg-primary/10 font-medium text-destructive' : ''}`}>
-                  {String(hour).padStart(2, '0')}:00
+              return (
+                <div key={hour} className="contents">
+                  {/* Hour label */}
+                  <div className={`h-20 border-b border-r text-sm text-muted-foreground p-2 text-right ${isCurrentHour ? 'bg-primary/10 font-medium text-destructive' : ''}`}>
+                    {String(hour).padStart(2, '0')}:00
+                  </div>
+
+                  {/* Events area */}
+                  <DroppableHourSlot
+                    currentDate={currentDate}
+                    hour={hour}
+                    isCurrentHour={isCurrentHour}
+                    currentMinuteOffset={isCurrentHour ? currentTime.getMinutes() : undefined}
+                    onClick={() => onTimeSlotClick(currentDate, `${String(hour).padStart(2, '0')}:00`)}
+                  >
+                    {hourEvents.map((event) => (
+                      <DraggableEventCard
+                        key={event.id}
+                        event={event}
+                        onClick={onEventClick}
+                        onDelete={onEventDelete}
+                      />
+                    ))}
+                  </DroppableHourSlot>
                 </div>
-
-                {/* Events area */}
-                <DroppableHourSlot
-                  currentDate={currentDate}
-                  hour={hour}
-                  isCurrentHour={isCurrentHour}
-                  currentMinuteOffset={isCurrentHour ? currentTime.getMinutes() : undefined}
-                  onClick={() => onTimeSlotClick(currentDate, `${String(hour).padStart(2, '0')}:00`)}
-                >
-                  {hourEvents.map((event) => (
-                    <DraggableEventCard
-                      key={event.id}
-                      event={event}
-                      onClick={onEventClick}
-                      onDelete={onEventDelete}
-                    />
-                  ))}
-                </DroppableHourSlot>
-              </div>
-            );
-          })}
-        </div>
-      </ScrollArea>
+              );
+            })}
+          </div>
+        </ScrollArea>
 
       <DragOverlay dropAnimation={{
         duration: 200,
@@ -350,5 +351,6 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
         )}
       </DragOverlay>
     </DndContext>
+    </div>
   );
 }
