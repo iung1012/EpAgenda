@@ -22,28 +22,30 @@ export interface Task {
 }
 
 // Map demand status to task status
+// DB constraint allows: 'em_processo', 'terminado', 'alteracoes'
 const mapDemandStatusToTaskStatus = (demandStatus: string): TaskStatus => {
   switch (demandStatus) {
-    case 'concluido':
+    case 'terminado':
       return 'feito';
     case 'em_processo':
       return 'fazendo';
-    case 'em_espera':
+    case 'alteracoes':
     default:
       return 'a_fazer';
   }
 };
 
 // Map task status back to demand status
+// DB constraint allows: 'em_processo', 'terminado', 'alteracoes'
 const mapTaskStatusToDemandStatus = (taskStatus: TaskStatus): string => {
   switch (taskStatus) {
     case 'feito':
-      return 'concluido';
+      return 'terminado';
     case 'fazendo':
       return 'em_processo';
     case 'a_fazer':
     default:
-      return 'em_espera';
+      return 'alteracoes';
   }
 };
 
