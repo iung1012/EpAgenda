@@ -1,12 +1,15 @@
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarEvent } from '@/hooks/useCalendarEvents';
-import { Clock, Pencil, Trash2, User } from 'lucide-react';
+import { CalendarIcon, Clock, Pencil, Trash2, User } from 'lucide-react';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { useState, useEffect } from 'react';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 interface WeekViewProps {
   currentDate: Date;
@@ -15,6 +18,7 @@ interface WeekViewProps {
   onTimeSlotClick: (date: Date, time: string) => void;
   onEventMove?: (eventId: string, newDate: Date) => void;
   onEventDelete?: (event: CalendarEvent) => void;
+  onDateChange?: (date: Date) => void;
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -159,12 +163,13 @@ function DroppableSlot({ day, hour, children, onClick, isToday, isCurrentHour, c
   );
 }
 
-export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, onEventMove, onEventDelete }: WeekViewProps) {
+export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, onEventMove, onEventDelete, onDateChange }: WeekViewProps) {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 });
   const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
   const [activeEvent, setActiveEvent] = useState<CalendarEvent | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   // Update current time every minute
   useEffect(() => {
@@ -217,13 +222,43 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
   };
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="overflow-auto">
-        {/* Header with days */}
-        <div className="grid grid-cols-8 border-b sticky top-0 bg-background z-10">
-          <div className="p-2 text-center text-sm font-medium text-muted-foreground border-r">
-            Hora
-          </div>
+    <div>
+      {/* Week header with datepicker - outside DndContext */}
+      <div className="p-3 border-b flex items-center justify-center gap-2">
+        <span className="text-sm font-medium text-muted-foreground">
+          {format(weekStart, "d 'de' MMM", { locale: ptBR })} - {format(weekEnd, "d 'de' MMM 'de' yyyy", { locale: ptBR })}
+        </span>
+        <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <CalendarIcon className="h-4 w-4" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0 z-50" align="center">
+            <Calendar
+              mode="single"
+              selected={currentDate}
+              onSelect={(date) => {
+                if (date && onDateChange) {
+                  onDateChange(date);
+                  setDatePickerOpen(false);
+                }
+              }}
+              initialFocus
+              className={cn("p-3 pointer-events-auto")}
+              locale={ptBR}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="overflow-auto">
+          {/* Header with days */}
+          <div className="grid grid-cols-8 border-b sticky top-0 bg-background z-10">
+            <div className="p-2 text-center text-sm font-medium text-muted-foreground border-r">
+              Hora
+            </div>
           {days.map((day) => {
             const isToday = isSameDay(day, new Date());
             return (
@@ -321,7 +356,8 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
             </div>
           </div>
         )}
-      </DragOverlay>
-    </DndContext>
+        </DragOverlay>
+      </DndContext>
+    </div>
   );
 }

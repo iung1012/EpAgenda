@@ -640,6 +640,7 @@ export default function Calendar() {
                 onTimeSlotClick={handleTimeSlotClick}
                 onEventMove={handleEventMove}
                 onEventDelete={handleDeleteEvent}
+                onDateChange={setCurrentDate}
               />
             </div>
           ) : (
