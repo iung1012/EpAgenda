@@ -77,7 +77,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="offcanvas" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4">
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-start">
           <img 
             src={logo} 
             alt="EP Mídias" 
