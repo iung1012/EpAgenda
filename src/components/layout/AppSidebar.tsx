@@ -6,11 +6,11 @@ import {
   LayoutDashboard,
   Settings,
   LogOut,
-  ChevronLeft,
   Video,
   Film,
   Package
 } from 'lucide-react';
+import logo from '@/assets/logo.png';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -77,16 +77,12 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="offcanvas" className="border-r border-sidebar-border">
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center flex-shrink-0">
-            <Building2 className="h-5 w-5 text-primary-foreground" />
-          </div>
-          {!collapsed && (
-            <div className="flex flex-col">
-              <span className="font-semibold text-sm">Agency Hub</span>
-              <span className="text-xs text-muted-foreground">Gestão de Agência</span>
-            </div>
-          )}
+        <div className="flex items-center justify-center">
+          <img 
+            src={logo} 
+            alt="EP Mídias" 
+            className={collapsed ? "h-10 w-auto" : "h-12 w-auto"}
+          />
         </div>
       </SidebarHeader>
 
