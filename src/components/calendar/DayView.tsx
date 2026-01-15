@@ -270,7 +270,7 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
                   <CalendarIcon className="h-4 w-4" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="center">
+              <PopoverContent className="w-auto p-0 z-50" align="center">
                 <Calendar
                   mode="single"
                   selected={currentDate}
