@@ -122,6 +122,7 @@ export default function Calendar() {
           end_date: endDateTime.toISOString(),
           location: data.location || null,
           assigned_to: data.assigned_to || null,
+          client_id: data.client_id || null,
           color: getEventColor(data.event_type),
         })
         .eq('id', editingEvent.id);
@@ -147,6 +148,7 @@ export default function Calendar() {
         all_day: false,
         location: data.location || null,
         assigned_to: data.assigned_to || null,
+        client_id: data.client_id || null,
         created_by: user?.id,
         color: getEventColor(data.event_type),
       });
@@ -410,6 +412,7 @@ export default function Calendar() {
         end_time: editingEvent.end_date ? format(new Date(editingEvent.end_date), 'HH:mm') : '',
         location: editingEvent.location || '',
         assigned_to: editingEvent.assigned_to || '',
+        client_id: editingEvent.client_id || '',
       };
     }
     if (selectedDate) {
@@ -498,6 +501,7 @@ export default function Calendar() {
         onSubmit={handleSubmit}
         defaultValues={getDefaultValues()}
         profiles={profiles}
+        clients={clients}
         isEditing={!!editingEvent}
         isLoading={isSubmitting}
       />

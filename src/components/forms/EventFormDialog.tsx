@@ -37,6 +37,7 @@ const eventSchema = z.object({
   end_time: z.string().optional(),
   location: z.string().max(200, 'Máximo 200 caracteres').optional(),
   assigned_to: z.string().optional(),
+  client_id: z.string().optional(),
 }).refine((data) => {
   if (data.start_time && data.end_time) {
     return data.end_time >= data.start_time;
@@ -54,12 +55,18 @@ interface Profile {
   full_name: string;
 }
 
+interface Client {
+  id: string;
+  name: string;
+}
+
 interface EventFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: EventFormValues) => Promise<void>;
   defaultValues?: Partial<EventFormValues>;
   profiles: Profile[];
+  clients: Client[];
   isEditing?: boolean;
   isLoading?: boolean;
 }
@@ -70,6 +77,7 @@ export function EventFormDialog({
   onSubmit,
   defaultValues,
   profiles,
+  clients,
   isEditing = false,
   isLoading = false,
 }: EventFormDialogProps) {
@@ -84,6 +92,7 @@ export function EventFormDialog({
       end_time: '10:00',
       location: '',
       assigned_to: '',
+      client_id: '',
       ...defaultValues,
     },
   });
@@ -92,15 +101,15 @@ export function EventFormDialog({
   useEffect(() => {
     if (open) {
       form.reset({
-        title: '',
-        description: '',
-        event_type: 'demanda',
-        start_date: '',
-        start_time: '09:00',
-        end_time: '10:00',
-        location: '',
-        assigned_to: '',
-        ...defaultValues,
+        title: defaultValues?.title || '',
+        description: defaultValues?.description || '',
+        event_type: defaultValues?.event_type || 'demanda',
+        start_date: defaultValues?.start_date || '',
+        start_time: defaultValues?.start_time || '09:00',
+        end_time: defaultValues?.end_time || '10:00',
+        location: defaultValues?.location || '',
+        assigned_to: defaultValues?.assigned_to || '',
+        client_id: defaultValues?.client_id || '',
       });
     }
   }, [open, defaultValues, form]);
@@ -192,6 +201,31 @@ export function EventFormDialog({
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="client_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Cliente</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um cliente" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {clients.map((client) => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
