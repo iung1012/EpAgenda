@@ -10,7 +10,7 @@ import { StatsCard } from '@/components/layout/StatsCard';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 import { DemandFormDialog, DemandFormValues } from '@/components/forms/DemandFormDialog';
-import { Plus, Film, Clock, CheckCircle, RefreshCw, Calendar, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Film, Clock, CheckCircle, RefreshCw, Calendar, Pencil, Trash2, Circle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -32,7 +32,7 @@ interface Demand {
   visit_id: string | null;
   title: string;
   description: string | null;
-  status: 'em_processo' | 'terminado' | 'alteracoes';
+  status: 'a_fazer' | 'em_processo' | 'terminado' | 'alteracoes';
   due_date: string | null;
   created_at: string;
   client?: Client | null;
@@ -147,7 +147,7 @@ export default function FilmmakerDemands() {
     }
   };
 
-  const handleStatusChange = async (demandId: string, newStatus: 'em_processo' | 'terminado' | 'alteracoes') => {
+  const handleStatusChange = async (demandId: string, newStatus: 'a_fazer' | 'em_processo' | 'terminado' | 'alteracoes') => {
     const { error } = await supabase
       .from('filmmaker_demands')
       .update({ status: newStatus })
@@ -163,6 +163,8 @@ export default function FilmmakerDemands() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
+      case 'a_fazer':
+        return <Badge variant="outline" className="gap-1 text-xs border-muted-foreground/50 text-muted-foreground"><Circle className="h-3 w-3" /> A Fazer</Badge>;
       case 'em_processo':
         return <Badge variant="outline" className="gap-1 text-xs border-blue-500/50 text-blue-600"><Clock className="h-3 w-3" /> Em Processo</Badge>;
       case 'terminado':
@@ -175,6 +177,7 @@ export default function FilmmakerDemands() {
   };
 
   const groupedDemands = {
+    a_fazer: demands.filter(d => d.status === 'a_fazer'),
     em_processo: demands.filter(d => d.status === 'em_processo'),
     alteracoes: demands.filter(d => d.status === 'alteracoes'),
     terminado: demands.filter(d => d.status === 'terminado'),
@@ -223,7 +226,13 @@ export default function FilmmakerDemands() {
       />
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
+        <StatsCard
+          title="A Fazer"
+          value={groupedDemands.a_fazer.length}
+          icon={Circle}
+          variant="default"
+        />
         <StatsCard
           title="Em Processo"
           value={groupedDemands.em_processo.length}
@@ -290,12 +299,13 @@ export default function FilmmakerDemands() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <Select
                         value={demand.status}
-                        onValueChange={(value: 'em_processo' | 'terminado' | 'alteracoes') => handleStatusChange(demand.id, value)}
+                        onValueChange={(value: 'a_fazer' | 'em_processo' | 'terminado' | 'alteracoes') => handleStatusChange(demand.id, value)}
                       >
                         <SelectTrigger className="w-28 h-7 text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="a_fazer">A Fazer</SelectItem>
                           <SelectItem value="em_processo">Em Processo</SelectItem>
                           <SelectItem value="terminado">Terminado</SelectItem>
                           <SelectItem value="alteracoes">Alterações</SelectItem>
