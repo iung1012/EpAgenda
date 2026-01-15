@@ -1,14 +1,16 @@
 import { format, isSameDay, setHours, setMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarEvent } from '@/hooks/useCalendarEvents';
-import { Clock, MapPin, Pencil, Trash2, User } from 'lucide-react';
+import { CalendarIcon, Clock, MapPin, Pencil, Trash2, User } from 'lucide-react';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { useState, useEffect, useRef } from 'react';
 import { CSS } from '@dnd-kit/utilities';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 interface DayViewProps {
   currentDate: Date;
   events: CalendarEvent[];
@@ -16,6 +18,7 @@ interface DayViewProps {
   onTimeSlotClick: (date: Date, time: string) => void;
   onEventMove?: (eventId: string, newDate: Date) => void;
   onEventDelete?: (event: CalendarEvent) => void;
+  onDateChange?: (date: Date) => void;
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -169,11 +172,12 @@ function DroppableHourSlot({ currentDate, hour, children, onClick, isCurrentHour
   );
 }
 
-export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, onEventMove, onEventDelete }: DayViewProps) {
+export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, onEventMove, onEventDelete, onDateChange }: DayViewProps) {
   const isToday = isSameDay(currentDate, new Date());
   const [activeEvent, setActiveEvent] = useState<CalendarEvent | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const hasScrolled = useRef(false);
 
   // Update current time every minute
@@ -256,8 +260,32 @@ export function DayView({ currentDate, events, onEventClick, onTimeSlotClick, on
       <ScrollArea className="h-[600px]" ref={scrollAreaRef}>
         {/* Header */}
         <div className={`p-4 text-center border-b sticky top-0 bg-background z-10 ${isToday ? 'bg-primary/10' : ''}`}>
-          <div className="text-lg font-medium">
-            {format(currentDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
+          <div className="flex items-center justify-center gap-2">
+            <div className="text-lg font-medium">
+              {format(currentDate, "EEEE, d 'de' MMMM", { locale: ptBR })}
+            </div>
+            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <CalendarIcon className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="center">
+                <Calendar
+                  mode="single"
+                  selected={currentDate}
+                  onSelect={(date) => {
+                    if (date && onDateChange) {
+                      onDateChange(date);
+                      setDatePickerOpen(false);
+                    }
+                  }}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                  locale={ptBR}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           {isToday && (
             <div className="text-sm text-primary font-medium">Hoje</div>
