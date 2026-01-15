@@ -4,7 +4,7 @@ import { CalendarEvent } from '@/hooks/useCalendarEvents';
 import { CalendarIcon, Clock, Pencil, Trash2, User } from 'lucide-react';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -191,40 +191,12 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
   const [activeEvent, setActiveEvent] = useState<CalendarEvent | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const desktopScrollRef = useRef<HTMLDivElement>(null);
-  const mobileScrollRef = useRef<HTMLDivElement>(null);
-  const hasScrolledRef = useRef(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
     }, 60000);
     return () => clearInterval(interval);
-  }, []);
-
-  // Auto-scroll to current hour on mount
-  useEffect(() => {
-    if (hasScrolledRef.current) return;
-    
-    const now = new Date();
-    const currentHour = now.getHours();
-    const hourHeight = 64; // h-16 = 64px for desktop
-    const mobileHourHeight = 48; // h-12 = 48px for mobile
-    const scrollOffset = Math.max(0, (currentHour - 1) * hourHeight);
-    const mobileScrollOffset = Math.max(0, (currentHour - 7 - 1) * mobileHourHeight); // Adjust for working hours starting at 7
-    
-    setTimeout(() => {
-      if (desktopScrollRef.current) {
-        desktopScrollRef.current.scrollTop = scrollOffset;
-      }
-      if (mobileScrollRef.current) {
-        const scrollArea = mobileScrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
-        if (scrollArea) {
-          scrollArea.scrollTop = mobileScrollOffset > 0 ? mobileScrollOffset : 0;
-        }
-      }
-      hasScrolledRef.current = true;
-    }, 100);
   }, []);
 
   const sensors = useSensors(
@@ -302,22 +274,10 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
 
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         {/* Desktop View */}
-        <div className="hidden sm:block overflow-auto max-h-[600px]" ref={desktopScrollRef}>
-          <div className="min-w-[700px] relative">
-            {/* Current time line across all columns */}
-            {days.some(day => isSameDay(day, new Date())) && (
-              <div 
-                className="absolute left-[12.5%] right-0 h-0.5 bg-destructive z-30 pointer-events-none"
-                style={{ 
-                  top: `${48 + (currentTime.getHours() * 64) + (currentTime.getMinutes() / 60 * 64)}px` 
-                }}
-              >
-                <div className="absolute left-0 -top-1.5 w-3 h-3 rounded-full bg-destructive -translate-x-1/2" />
-              </div>
-            )}
-            
+        <div className="hidden sm:block overflow-auto">
+          <div className="min-w-[700px]">
             {/* Header with days */}
-            <div className="grid grid-cols-8 border-b sticky top-0 bg-background z-20">
+            <div className="grid grid-cols-8 border-b sticky top-0 bg-background z-10">
               <div className="p-2 text-center text-xs font-medium text-muted-foreground border-r">
                 Hora
               </div>
@@ -368,6 +328,12 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
                 const isToday = isSameDay(day, new Date());
                 return (
                   <div key={day.toISOString()} className="border-r last:border-r-0 relative">
+                    {isToday && (
+                      <div 
+                        className="absolute left-0 w-2 h-2 rounded-full bg-destructive z-30 -translate-x-1/2"
+                        style={{ top: `${((currentTime.getHours() * 60 + currentTime.getMinutes()) / (24 * 60)) * (16 * 24)}px` }}
+                      />
+                    )}
                     {HOURS.map((hour) => {
                       const hourEvents = getEventsForDayAndHour(day, hour);
                       const isCurrentHour = isToday && currentTime.getHours() === hour;
@@ -400,22 +366,10 @@ export function WeekView({ currentDate, events, onEventClick, onTimeSlotClick, o
         </div>
 
         {/* Mobile View - Horizontal scroll with compact layout */}
-        <ScrollArea className="sm:hidden w-full max-h-[500px]" ref={mobileScrollRef}>
-          <div className="min-w-[600px] relative">
-            {/* Current time line for mobile */}
-            {days.some(day => isSameDay(day, new Date())) && currentTime.getHours() >= 7 && currentTime.getHours() <= 21 && (
-              <div 
-                className="absolute left-[12.5%] right-0 h-0.5 bg-destructive z-30 pointer-events-none"
-                style={{ 
-                  top: `${36 + ((currentTime.getHours() - 7) * 48) + (currentTime.getMinutes() / 60 * 48)}px` 
-                }}
-              >
-                <div className="absolute left-0 -top-1 w-2 h-2 rounded-full bg-destructive -translate-x-1/2" />
-              </div>
-            )}
-            
+        <ScrollArea className="sm:hidden w-full">
+          <div className="min-w-[600px]">
             {/* Header with days */}
-            <div className="grid grid-cols-8 border-b sticky top-0 bg-background z-20">
+            <div className="grid grid-cols-8 border-b sticky top-0 bg-background z-10">
               <div className="p-1.5 text-center text-[10px] font-medium text-muted-foreground border-r">
                 
               </div>
