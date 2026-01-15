@@ -4,11 +4,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Building2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { z } from 'zod';
+import logo from '@/assets/logo.png';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -119,11 +120,12 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4">
       <div className="w-full max-w-md animate-in">
         <div className="flex flex-col items-center mb-8">
-          <div className="h-16 w-16 rounded-2xl bg-primary flex items-center justify-center mb-4">
-            <Building2 className="h-8 w-8 text-primary-foreground" />
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Agency Hub</h1>
-          <p className="text-muted-foreground text-sm mt-1">Sistema de Gestão para Agências</p>
+          <img 
+            src={logo} 
+            alt="EP Mídias" 
+            className="h-24 w-auto mb-4"
+          />
+          <p className="text-muted-foreground text-sm">Sistema de Gestão</p>
         </div>
 
         <Card className="border-0 shadow-xl">
