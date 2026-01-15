@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -82,6 +83,20 @@ export function DemandFormDialog({
       ...defaultValues,
     },
   });
+
+  // Reset form when defaultValues change (e.g., when editing a different demand)
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        title: defaultValues?.title || '',
+        description: defaultValues?.description || '',
+        client_id: defaultValues?.client_id || '',
+        visit_id: defaultValues?.visit_id || '',
+        status: defaultValues?.status || 'a_fazer',
+        due_date: defaultValues?.due_date || '',
+      });
+    }
+  }, [open, defaultValues, form]);
 
   const handleSubmit = async (data: DemandFormValues) => {
     await onSubmit(data);
