@@ -52,39 +52,39 @@ export default function Team() {
     setIsSubmitting(true);
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: newMemberForm.email,
-        password: newMemberForm.password,
-        options: {
-          data: { full_name: newMemberForm.full_name }
+      const { data: session } = await supabase.auth.getSession();
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.session?.access_token}`,
+          },
+          body: JSON.stringify({
+            email: newMemberForm.email,
+            password: newMemberForm.password,
+            full_name: newMemberForm.full_name,
+            role: newMemberForm.role,
+          }),
         }
-      });
+      );
 
-      if (authError) {
-        toast({ variant: 'destructive', title: 'Erro ao criar usuário', description: authError.message });
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast({ variant: 'destructive', title: 'Erro ao criar usuário', description: result.error });
         return;
       }
 
-      if (authData.user) {
-        if (newMemberForm.role !== 'colaborador') {
-          const { error: roleError } = await supabase
-            .from('user_roles')
-            .update({ role: newMemberForm.role })
-            .eq('user_id', authData.user.id);
-
-          if (roleError) {
-            console.error('Error updating role:', roleError);
-          }
-        }
-
-        toast({ title: 'Colaborador adicionado com sucesso!' });
-        setIsAddDialogOpen(false);
-        setNewMemberForm({ email: '', password: '', full_name: '', role: 'colaborador' });
-        
-        setTimeout(() => {
-          refetch();
-        }, 1000);
-      }
+      toast({ title: 'Colaborador adicionado com sucesso!' });
+      setIsAddDialogOpen(false);
+      setNewMemberForm({ email: '', password: '', full_name: '', role: 'colaborador' });
+      
+      setTimeout(() => {
+        refetch();
+      }, 1000);
     } catch (error) {
       toast({ variant: 'destructive', title: 'Erro ao adicionar colaborador' });
     } finally {
