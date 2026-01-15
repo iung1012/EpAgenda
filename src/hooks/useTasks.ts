@@ -28,8 +28,22 @@ const mapDemandStatusToTaskStatus = (demandStatus: string): TaskStatus => {
       return 'feito';
     case 'em_processo':
       return 'fazendo';
+    case 'em_espera':
     default:
       return 'a_fazer';
+  }
+};
+
+// Map task status back to demand status
+const mapTaskStatusToDemandStatus = (taskStatus: TaskStatus): string => {
+  switch (taskStatus) {
+    case 'feito':
+      return 'concluido';
+    case 'fazendo':
+      return 'em_processo';
+    case 'a_fazer':
+    default:
+      return 'em_espera';
   }
 };
 
@@ -96,19 +110,7 @@ export function useTasks() {
     // Check if it's a demand task
     if (taskId.startsWith('demand-')) {
       const demandId = taskId.replace('demand-', '');
-      
-      // Map task status back to demand status
-      let demandStatus: string;
-      switch (newStatus) {
-        case 'feito':
-          demandStatus = 'concluido';
-          break;
-        case 'fazendo':
-          demandStatus = 'em_processo';
-          break;
-        default:
-          demandStatus = 'pendente';
-      }
+      const demandStatus = mapTaskStatusToDemandStatus(newStatus);
       
       const { error } = await supabase
         .from('filmmaker_demands')
