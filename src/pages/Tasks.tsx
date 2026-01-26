@@ -283,6 +283,15 @@ export default function Tasks() {
     }
   };
 
+  const handleQuickComplete = async (taskId: string) => {
+    const { error } = await updateTaskStatus(taskId, 'feito');
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erro ao concluir tarefa' });
+    } else {
+      toast({ title: 'Tarefa concluída!' });
+    }
+  };
+
   const getClientName = (clientId: string | null) => {
     if (!clientId) return null;
     const client = clients.find(c => c.id === clientId);
@@ -472,6 +481,7 @@ export default function Tasks() {
               onEdit={handleEdit}
               onDelete={(taskId, taskTitle) => setDeleteDialog({ open: true, taskId, taskTitle })}
               onAddTask={() => { setEditingTask(null); setIsDialogOpen(true); }}
+              onQuickComplete={handleQuickComplete}
             />
           ))}
         </div>
