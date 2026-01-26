@@ -340,7 +340,10 @@ export default function ClientDetail() {
       .update({ logo_url: url || null })
       .eq('id', id);
 
-    if (!error) {
+    if (error) {
+      console.error('Error updating logo:', error);
+      toast({ variant: 'destructive', title: 'Erro ao salvar logo', description: error.message });
+    } else {
       setClient({ ...client, logo_url: url || null });
       toast({ title: url ? 'Logo atualizado!' : 'Logo removido!' });
     }
