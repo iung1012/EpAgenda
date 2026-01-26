@@ -42,6 +42,7 @@ interface TaskCardProps {
   getClientName: (clientId: string | null) => string | null;
   onEdit: (task: Task) => void;
   onDelete: (taskId: string, taskTitle: string) => void;
+  onQuickComplete?: (taskId: string) => void;
 }
 
 export function TaskCard({
@@ -52,6 +53,7 @@ export function TaskCard({
   getClientName,
   onEdit,
   onDelete,
+  onQuickComplete,
 }: TaskCardProps) {
   const {
     attributes,
@@ -215,23 +217,45 @@ export function TaskCard({
           </TooltipProvider>
 
           {/* Actions */}
-          <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0"
-              onClick={() => onEdit(task)}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => onDelete(task.id, task.title)}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+          <div className="flex gap-0.5">
+            {/* Quick Complete Button - Always visible if not completed */}
+            {task.status !== 'feito' && onQuickComplete && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-success hover:text-success hover:bg-success/10"
+                      onClick={() => onQuickComplete(task.id)}
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Concluir tarefa</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => onEdit(task)}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => onDelete(task.id, task.title)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
       </CardContent>
