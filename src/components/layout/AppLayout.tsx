@@ -3,12 +3,15 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/s
 import { AppSidebar } from './AppSidebar';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import { ThemeToggle } from './ThemeToggle';
+import { useTaskAssignmentNotifications } from '@/hooks/useTaskAssignmentNotifications';
 
 interface AppLayoutProps {
   children: ReactNode;
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
+  // Enable real-time task assignment notifications
+  useTaskAssignmentNotifications();
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
