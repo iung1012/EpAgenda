@@ -92,7 +92,7 @@ export default function Clients() {
       contact_email: data.contact_email || null,
       contact_phone: data.contact_phone || null,
       google_drive_link: data.google_drive_link || null,
-      trello_link: data.trello_link || null,
+      canva_link: data.canva_link || null,
       notes: data.notes || null,
       created_by: user?.id,
     });

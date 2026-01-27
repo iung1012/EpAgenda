@@ -5,12 +5,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useProfiles } from '@/hooks/useProfiles';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { StatsCard } from '@/components/layout/StatsCard';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 import { DemandFormDialog, DemandFormValues } from '@/components/forms/DemandFormDialog';
-import { Plus, Film, Clock, CheckCircle, RefreshCw, Calendar, Pencil, Trash2, Circle } from 'lucide-react';
+import { Plus, Film, Clock, CheckCircle, RefreshCw, Calendar, Pencil, Trash2, Circle, ExternalLink, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -34,6 +35,8 @@ interface Demand {
   description: string | null;
   status: 'a_fazer' | 'em_processo' | 'terminado' | 'alteracoes';
   due_date: string | null;
+  delivery_link: string | null;
+  assigned_to: string | null;
   created_at: string;
   client?: Client | null;
   visit?: Visit | null;
@@ -54,6 +57,7 @@ export default function FilmmakerDemands() {
   });
   const { user, role, isAdminOrManager } = useAuth();
   const { toast } = useToast();
+  const { profiles } = useProfiles();
 
   const isFilmmaker = role === 'filmmaker';
   const canCreate = isFilmmaker || isAdminOrManager;
@@ -96,6 +100,8 @@ export default function FilmmakerDemands() {
             visit_id: data.visit_id || null,
             status: data.status,
             due_date: data.due_date || null,
+            delivery_link: data.delivery_link || null,
+            assigned_to: data.assigned_to || null,
           })
           .eq('id', editingDemand.id);
 
@@ -112,6 +118,8 @@ export default function FilmmakerDemands() {
             visit_id: data.visit_id || null,
             status: data.status,
             due_date: data.due_date || null,
+            delivery_link: data.delivery_link || null,
+            assigned_to: data.assigned_to || null,
           });
 
         if (error) throw error;
@@ -192,7 +200,15 @@ export default function FilmmakerDemands() {
       visit_id: editingDemand.visit_id || '',
       status: editingDemand.status,
       due_date: editingDemand.due_date || '',
+      delivery_link: editingDemand.delivery_link || '',
+      assigned_to: editingDemand.assigned_to || '',
     };
+  };
+
+  const getAssignedName = (userId: string | null) => {
+    if (!userId) return null;
+    const profile = profiles.find(p => p.user_id === userId);
+    return profile?.full_name || null;
   };
 
   return (
@@ -221,6 +237,7 @@ export default function FilmmakerDemands() {
         defaultValues={getDefaultValues()}
         clients={clients}
         visits={visits}
+        profiles={profiles}
         isEditing={!!editingDemand}
         isLoading={isLoading}
       />
@@ -288,6 +305,24 @@ export default function FilmmakerDemands() {
                             <Calendar className="h-3 w-3" />
                             {format(new Date(demand.due_date), "dd MMM", { locale: ptBR })}
                           </span>
+                        )}
+                        {demand.assigned_to && (
+                          <span className="flex items-center gap-1">
+                            <User className="h-3 w-3" />
+                            {getAssignedName(demand.assigned_to)}
+                          </span>
+                        )}
+                        {demand.delivery_link && (
+                          <a 
+                            href={demand.delivery_link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Ver Entrega
+                          </a>
                         )}
                       </div>
 
