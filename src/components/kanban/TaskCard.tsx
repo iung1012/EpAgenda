@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion } from 'framer-motion';
@@ -56,7 +56,7 @@ interface TaskCardProps {
   onAddDeliveryLink?: (taskId: string, link: string) => void;
 }
 
-export function TaskCard({
+export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskCard({
   task,
   getPriorityColor,
   getPriorityLabel,
@@ -67,7 +67,7 @@ export function TaskCard({
   onQuickComplete,
   onReopen,
   onAddDeliveryLink,
-}: TaskCardProps) {
+}, forwardedRef) {
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [linkValue, setLinkValue] = useState(task.delivery_link || '');
   const [isHovered, setIsHovered] = useState(false);
@@ -147,9 +147,19 @@ export function TaskCard({
     }
   };
 
+  // Merge refs for sortable and forwarded ref
+  const mergedRef = (node: HTMLDivElement | null) => {
+    setNodeRef(node);
+    if (typeof forwardedRef === 'function') {
+      forwardedRef(node);
+    } else if (forwardedRef) {
+      forwardedRef.current = node;
+    }
+  };
+
   return (
     <motion.div
-      ref={setNodeRef}
+      ref={mergedRef}
       style={style}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -423,4 +433,4 @@ export function TaskCard({
       </div>
     </motion.div>
   );
-}
+});

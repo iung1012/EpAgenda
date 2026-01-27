@@ -51,6 +51,20 @@ const mapTaskStatusToDemandStatus = (taskStatus: TaskStatus): string => {
   }
 };
 
+// Helper function to notify admins when a delivery is completed
+async function notifyAdminsOnDelivery(taskTitle: string, deliveryLink: string, userId: string) {
+  try {
+    // Create a notification for all users (admins/managers will see it)
+    await supabase.from('notifications').insert({
+      title: '🎉 Entrega Concluída',
+      message: `A tarefa "${taskTitle}" foi concluída. Link: ${deliveryLink}`,
+      created_by: userId,
+    });
+  } catch (error) {
+    console.error('Error creating delivery notification:', error);
+  }
+}
+
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -140,7 +154,11 @@ export function useTasks() {
     }
   }, [fetchTasks]);
 
-  const updateTaskDeliveryLink = useCallback(async (taskId: string, deliveryLink: string) => {
+  const updateTaskDeliveryLink = useCallback(async (taskId: string, deliveryLink: string, taskTitle?: string) => {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
+
     // Check if it's a demand task
     if (taskId.startsWith('demand-')) {
       const demandId = taskId.replace('demand-', '');
@@ -151,6 +169,10 @@ export function useTasks() {
         .eq('id', demandId);
 
       if (!error) {
+        // Notify admins about the delivery
+        if (userId && taskTitle) {
+          await notifyAdminsOnDelivery(taskTitle.replace('📋 ', ''), deliveryLink, userId);
+        }
         fetchTasks();
       }
       return { error };
@@ -162,6 +184,10 @@ export function useTasks() {
         .eq('id', taskId);
 
       if (!error) {
+        // Notify admins about the delivery
+        if (userId && taskTitle) {
+          await notifyAdminsOnDelivery(taskTitle, deliveryLink, userId);
+        }
         fetchTasks();
       }
       return { error };

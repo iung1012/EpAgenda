@@ -308,11 +308,13 @@ export default function Tasks() {
   };
 
   const handleAddDeliveryLink = async (taskId: string, link: string) => {
-    const { error } = await updateTaskDeliveryLink(taskId, link);
+    // Find the task to get its title for the notification
+    const task = tasks.find(t => t.id === taskId);
+    const { error } = await updateTaskDeliveryLink(taskId, link, task?.title);
     if (error) {
       toast({ variant: 'destructive', title: 'Erro ao salvar link' });
     } else {
-      toast({ title: 'Link salvo com sucesso!' });
+      toast({ title: 'Link salvo e admins notificados!' });
     }
   };
 
