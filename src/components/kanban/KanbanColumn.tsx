@@ -33,6 +33,7 @@ interface KanbanColumnProps {
   onDelete: (taskId: string, taskTitle: string) => void;
   onAddTask?: () => void;
   onQuickComplete?: (taskId: string) => void;
+  onReopen?: (taskId: string) => void;
 }
 
 export function KanbanColumn({
@@ -51,6 +52,7 @@ export function KanbanColumn({
   onDelete,
   onAddTask,
   onQuickComplete,
+  onReopen,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -107,6 +109,7 @@ export function KanbanColumn({
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onQuickComplete={onQuickComplete}
+                onReopen={onReopen}
               />
             ))}
 

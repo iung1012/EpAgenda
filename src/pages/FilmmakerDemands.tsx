@@ -11,7 +11,7 @@ import { StatsCard } from '@/components/layout/StatsCard';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 import { DemandFormDialog, DemandFormValues } from '@/components/forms/DemandFormDialog';
-import { Plus, Film, Clock, CheckCircle, RefreshCw, Calendar, Pencil, Trash2, Circle, ExternalLink, User } from 'lucide-react';
+import { Plus, Film, Clock, CheckCircle, RefreshCw, Calendar, Pencil, Trash2, Circle, ExternalLink, User, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -359,6 +359,18 @@ export default function FilmmakerDemands() {
                     </div>
                     
                     <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Reopen button for completed demands */}
+                      {demand.status === 'terminado' && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="text-xs h-7 gap-1 text-warning border-warning/50 hover:bg-warning/10 hover:text-warning"
+                          onClick={() => handleStatusChange(demand.id, 'a_fazer')}
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          Reabrir
+                        </Button>
+                      )}
                       <Select
                         value={demand.status}
                         onValueChange={(value: 'a_fazer' | 'em_processo' | 'terminado' | 'alteracoes') => handleStatusChange(demand.id, value)}
