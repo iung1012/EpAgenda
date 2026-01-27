@@ -50,6 +50,7 @@ export default function FilmmakerDemands() {
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingDemand, setEditingDemand] = useState<Demand | null>(null);
+  const [filterAssignedTo, setFilterAssignedTo] = useState<string>('all');
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; id: string; title: string }>({
     open: false,
     id: '',
@@ -184,11 +185,18 @@ export default function FilmmakerDemands() {
     }
   };
 
+  // Filter demands based on assigned_to filter
+  const filteredDemands = demands.filter(d => {
+    if (filterAssignedTo === 'all') return true;
+    if (filterAssignedTo === 'unassigned') return !d.assigned_to;
+    return d.assigned_to === filterAssignedTo;
+  });
+
   const groupedDemands = {
-    a_fazer: demands.filter(d => d.status === 'a_fazer'),
-    em_processo: demands.filter(d => d.status === 'em_processo'),
-    alteracoes: demands.filter(d => d.status === 'alteracoes'),
-    terminado: demands.filter(d => d.status === 'terminado'),
+    a_fazer: filteredDemands.filter(d => d.status === 'a_fazer'),
+    em_processo: filteredDemands.filter(d => d.status === 'em_processo'),
+    alteracoes: filteredDemands.filter(d => d.status === 'alteracoes'),
+    terminado: filteredDemands.filter(d => d.status === 'terminado'),
   };
 
   const getDefaultValues = (): Partial<DemandFormValues> | undefined => {
@@ -272,11 +280,30 @@ export default function FilmmakerDemands() {
 
       {/* Demands List */}
       <div className="space-y-4">
-        <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-          Todas as Demandas
-        </h2>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+            Todas as Demandas
+          </h2>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Filtrar por:</span>
+            <Select value={filterAssignedTo} onValueChange={setFilterAssignedTo}>
+              <SelectTrigger className="w-40 h-8 text-xs">
+                <SelectValue placeholder="Colaborador" />
+              </SelectTrigger>
+              <SelectContent className="bg-popover">
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="unassigned">Sem atribuição</SelectItem>
+                {profiles.map((profile) => (
+                  <SelectItem key={profile.user_id} value={profile.user_id}>
+                    {profile.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
-          {demands.length === 0 ? (
+          {filteredDemands.length === 0 ? (
             <EmptyState
               icon={Film}
               title="Nenhuma demanda encontrada"
@@ -284,7 +311,7 @@ export default function FilmmakerDemands() {
             />
           ) : (
             <div className="divide-y divide-border/50">
-              {demands.map((demand) => (
+              {filteredDemands.map((demand) => (
                 <div key={demand.id} className="p-4 hover:bg-muted/30 transition-colors">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0 space-y-2">
