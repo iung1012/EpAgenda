@@ -11,7 +11,8 @@ import {
   Trash2, 
   GripVertical,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  RotateCcw
 } from 'lucide-react';
 import { format, isPast, isToday, isTomorrow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -43,6 +44,7 @@ interface TaskCardProps {
   onEdit: (task: Task) => void;
   onDelete: (taskId: string, taskTitle: string) => void;
   onQuickComplete?: (taskId: string) => void;
+  onReopen?: (taskId: string) => void;
 }
 
 export function TaskCard({
@@ -54,6 +56,7 @@ export function TaskCard({
   onEdit,
   onDelete,
   onQuickComplete,
+  onReopen,
 }: TaskCardProps) {
   const {
     attributes,
@@ -234,6 +237,26 @@ export function TaskCard({
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>Concluir tarefa</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+            {/* Reopen Button - Always visible if completed */}
+            {task.status === 'feito' && onReopen && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-warning hover:text-warning hover:bg-warning/10"
+                      onClick={() => onReopen(task.id)}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Reabrir tarefa</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

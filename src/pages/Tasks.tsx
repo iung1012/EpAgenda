@@ -292,6 +292,15 @@ export default function Tasks() {
     }
   };
 
+  const handleReopen = async (taskId: string) => {
+    const { error } = await updateTaskStatus(taskId, 'a_fazer');
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erro ao reabrir tarefa' });
+    } else {
+      toast({ title: 'Tarefa reaberta!' });
+    }
+  };
+
   const getClientName = (clientId: string | null) => {
     if (!clientId) return null;
     const client = clients.find(c => c.id === clientId);
@@ -482,6 +491,7 @@ export default function Tasks() {
               onDelete={(taskId, taskTitle) => setDeleteDialog({ open: true, taskId, taskTitle })}
               onAddTask={() => { setEditingTask(null); setIsDialogOpen(true); }}
               onQuickComplete={handleQuickComplete}
+              onReopen={handleReopen}
             />
           ))}
         </div>
