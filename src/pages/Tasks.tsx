@@ -49,12 +49,13 @@ interface Task {
   assigned_to: string | null;
   client_id: string | null;
   status: TaskStatus;
+  delivery_link: string | null;
   isDemand?: boolean;
   demandId?: string;
 }
 
 export default function Tasks() {
-  const { tasks, isLoading, error, refetch, getTasksByStatus, updateTaskStatus } = useTasks();
+  const { tasks, isLoading, error, refetch, getTasksByStatus, updateTaskStatus, updateTaskDeliveryLink } = useTasks();
   const { profiles, getProfileName } = useProfiles();
   const { clients } = useClients({ minimal: true });
   
@@ -301,6 +302,15 @@ export default function Tasks() {
     }
   };
 
+  const handleAddDeliveryLink = async (taskId: string, link: string) => {
+    const { error } = await updateTaskDeliveryLink(taskId, link);
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erro ao salvar link' });
+    } else {
+      toast({ title: 'Link salvo com sucesso!' });
+    }
+  };
+
   const getClientName = (clientId: string | null) => {
     if (!clientId) return null;
     const client = clients.find(c => c.id === clientId);
@@ -492,6 +502,7 @@ export default function Tasks() {
               onAddTask={() => { setEditingTask(null); setIsDialogOpen(true); }}
               onQuickComplete={handleQuickComplete}
               onReopen={handleReopen}
+              onAddDeliveryLink={handleAddDeliveryLink}
             />
           ))}
         </div>

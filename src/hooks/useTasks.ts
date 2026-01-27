@@ -15,6 +15,7 @@ export interface Task {
   assigned_to: string | null;
   created_by: string | null;
   created_at: string;
+  delivery_link: string | null;
   updated_at: string;
   // For demand tasks
   isDemand?: boolean;
@@ -92,6 +93,7 @@ export function useTasks() {
       created_by: demand.filmmaker_id,
       created_at: demand.created_at,
       updated_at: demand.updated_at,
+      delivery_link: demand.delivery_link,
       isDemand: true,
       demandId: demand.id,
     }));
@@ -138,6 +140,34 @@ export function useTasks() {
     }
   }, [fetchTasks]);
 
+  const updateTaskDeliveryLink = useCallback(async (taskId: string, deliveryLink: string) => {
+    // Check if it's a demand task
+    if (taskId.startsWith('demand-')) {
+      const demandId = taskId.replace('demand-', '');
+      
+      const { error } = await supabase
+        .from('filmmaker_demands')
+        .update({ delivery_link: deliveryLink })
+        .eq('id', demandId);
+
+      if (!error) {
+        fetchTasks();
+      }
+      return { error };
+    } else {
+      // Regular task
+      const { error } = await supabase
+        .from('tasks')
+        .update({ delivery_link: deliveryLink })
+        .eq('id', taskId);
+
+      if (!error) {
+        fetchTasks();
+      }
+      return { error };
+    }
+  }, [fetchTasks]);
+
   return {
     tasks,
     isLoading,
@@ -145,5 +175,6 @@ export function useTasks() {
     refetch: fetchTasks,
     getTasksByStatus,
     updateTaskStatus,
+    updateTaskDeliveryLink,
   };
 }

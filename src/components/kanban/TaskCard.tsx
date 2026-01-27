@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { 
   Clock, 
@@ -12,7 +14,11 @@ import {
   GripVertical,
   AlertCircle,
   CheckCircle2,
-  RotateCcw
+  RotateCcw,
+  Link,
+  ExternalLink,
+  Check,
+  X
 } from 'lucide-react';
 import { format, isPast, isToday, isTomorrow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -33,6 +39,7 @@ interface Task {
   assigned_to: string | null;
   client_id: string | null;
   status: 'a_fazer' | 'fazendo' | 'feito';
+  delivery_link: string | null;
 }
 
 interface TaskCardProps {
@@ -45,6 +52,7 @@ interface TaskCardProps {
   onDelete: (taskId: string, taskTitle: string) => void;
   onQuickComplete?: (taskId: string) => void;
   onReopen?: (taskId: string) => void;
+  onAddDeliveryLink?: (taskId: string, link: string) => void;
 }
 
 export function TaskCard({
@@ -57,7 +65,10 @@ export function TaskCard({
   onDelete,
   onQuickComplete,
   onReopen,
+  onAddDeliveryLink,
 }: TaskCardProps) {
+  const [isAddingLink, setIsAddingLink] = useState(false);
+  const [linkValue, setLinkValue] = useState(task.delivery_link || '');
   const {
     attributes,
     listeners,
@@ -185,6 +196,78 @@ export function TaskCard({
             </span>
           )}
         </div>
+
+        {/* Delivery Link Section - For completed tasks */}
+        {task.status === 'feito' && onAddDeliveryLink && (
+          <div className="pt-2 border-t border-dashed">
+            {isAddingLink ? (
+              <div className="flex gap-1">
+                <Input
+                  type="url"
+                  placeholder="Cole o link aqui..."
+                  value={linkValue}
+                  onChange={(e) => setLinkValue(e.target.value)}
+                  className="h-7 text-xs"
+                  autoFocus
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-success hover:text-success hover:bg-success/10 shrink-0"
+                  onClick={() => {
+                    if (linkValue.trim()) {
+                      onAddDeliveryLink(task.id, linkValue.trim());
+                    }
+                    setIsAddingLink(false);
+                  }}
+                >
+                  <Check className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                  onClick={() => {
+                    setLinkValue(task.delivery_link || '');
+                    setIsAddingLink(false);
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : task.delivery_link ? (
+              <div className="flex items-center gap-2">
+                <a
+                  href={task.delivery_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-primary hover:underline truncate flex-1"
+                >
+                  <ExternalLink className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{task.delivery_link}</span>
+                </a>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                  onClick={() => setIsAddingLink(true)}
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-full text-xs text-muted-foreground hover:text-foreground gap-1"
+                onClick={() => setIsAddingLink(true)}
+              >
+                <Link className="h-3 w-3" />
+                Adicionar link de entrega
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Footer with assignee and actions */}
         <div className="flex items-center justify-between pt-2 border-t">

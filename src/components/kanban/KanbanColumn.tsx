@@ -15,6 +15,7 @@ interface Task {
   assigned_to: string | null;
   client_id: string | null;
   status: 'a_fazer' | 'fazendo' | 'feito';
+  delivery_link: string | null;
 }
 
 interface KanbanColumnProps {
@@ -34,6 +35,7 @@ interface KanbanColumnProps {
   onAddTask?: () => void;
   onQuickComplete?: (taskId: string) => void;
   onReopen?: (taskId: string) => void;
+  onAddDeliveryLink?: (taskId: string, link: string) => void;
 }
 
 export function KanbanColumn({
@@ -53,6 +55,7 @@ export function KanbanColumn({
   onAddTask,
   onQuickComplete,
   onReopen,
+  onAddDeliveryLink,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -110,6 +113,7 @@ export function KanbanColumn({
                 onDelete={onDelete}
                 onQuickComplete={onQuickComplete}
                 onReopen={onReopen}
+                onAddDeliveryLink={onAddDeliveryLink}
               />
             ))}
 
