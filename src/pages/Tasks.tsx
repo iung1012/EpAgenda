@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,7 +10,10 @@ import {
   Circle, 
   Loader2,
   ListTodo,
-  AlertTriangle
+  AlertTriangle,
+  Sparkles,
+  ClipboardList,
+  TrendingUp
 } from 'lucide-react';
 import { 
   DndContext, 
@@ -23,8 +26,8 @@ import {
   useSensors,
   TouchSensor
 } from '@dnd-kit/core';
-import { isPast, isToday } from 'date-fns';
-import { PageHeader } from '@/components/layout/PageHeader';
+import { isPast, isToday, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { StatsCard } from '@/components/layout/StatsCard';
 import { StatsSkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
@@ -357,10 +360,18 @@ export default function Tasks() {
     },
   ];
 
+  const currentDate = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR });
+  const productivity = tasks.length > 0 
+    ? Math.round((getTasksByStatus('feito').length / tasks.length) * 100) 
+    : 0;
+
   if (error) {
     return (
       <div className="space-y-6 animate-in">
-        <PageHeader title="Tarefas" description="Gerencie as tarefas da equipe" />
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/5 via-primary/10 to-transparent p-8 border border-border/50">
+          <h1 className="text-3xl font-semibold tracking-tight">Tarefas</h1>
+          <p className="text-muted-foreground">Gerencie as tarefas da equipe</p>
+        </div>
         <Card>
           <CardContent className="pt-6">
             <ErrorState onRetry={refetch} />
@@ -371,17 +382,37 @@ export default function Tasks() {
   }
 
   return (
-    <div className="space-y-6 animate-in">
-      <PageHeader 
-        title="Tarefas" 
-        description="Gerencie as tarefas da equipe"
-        action={
-          <Button onClick={() => { setEditingTask(null); setIsDialogOpen(true); }} className="gap-2">
-            <Plus className="h-4 w-4" />
+    <div className="space-y-8 animate-in">
+      {/* Hero Header - Dashboard Style */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/5 via-primary/10 to-transparent p-8 border border-border/50">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground capitalize mb-2">
+              {currentDate}
+            </p>
+            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight mb-2 flex items-center gap-3">
+              <ClipboardList className="h-8 w-8 text-primary" />
+              Tarefas
+            </h1>
+            <p className="text-muted-foreground max-w-lg">
+              Você tem{' '}
+              <span className="font-medium text-foreground">{getTasksByStatus('a_fazer').length + getTasksByStatus('fazendo').length} tarefas</span> pendentes
+              {overdueCount > 0 && (
+                <> e <span className="font-medium text-destructive">{overdueCount} atrasadas</span></>
+              )}
+            </p>
+          </div>
+          <Button 
+            onClick={() => { setEditingTask(null); setIsDialogOpen(true); }} 
+            size="lg"
+            className="gap-2 shadow-lg"
+          >
+            <Plus className="h-5 w-5" />
             Nova Tarefa
           </Button>
-        }
-      />
+        </div>
+      </div>
 
       {/* Form Dialog */}
       <TaskFormDialog
@@ -402,21 +433,58 @@ export default function Tasks() {
         } : undefined}
       />
 
-      {/* Task Alerts */}
-      {!isLoading && tasks.length > 0 && (
-        <Card>
-          <CardContent className="py-4">
+      {/* Stats Grid - Dashboard Style */}
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <StatsSkeleton key={i} />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatsCard
+            title="Total de Tarefas"
+            value={tasks.length}
+            icon={ClipboardList}
+          />
+          <StatsCard
+            title="A Fazer"
+            value={getTasksByStatus('a_fazer').length}
+            subtitle={overdueCount > 0 ? `${overdueCount} atrasadas` : undefined}
+            icon={overdueCount > 0 ? AlertTriangle : ListTodo}
+            variant={overdueCount > 0 ? 'warning' : 'default'}
+          />
+          <StatsCard
+            title="Em Progresso"
+            value={getTasksByStatus('fazendo').length}
+            icon={Loader2}
+            variant="info"
+          />
+          <StatsCard
+            title="Produtividade"
+            value={`${productivity}%`}
+            subtitle="tarefas concluídas"
+            icon={TrendingUp}
+            variant="success"
+          />
+        </div>
+      )}
+
+      {/* Task Alerts - Refined */}
+      {!isLoading && tasks.length > 0 && overdueCount > 0 && (
+        <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
+          <div className="p-4">
             <TaskAlerts 
               tasks={tasks as Task[]} 
               onTaskClick={handleTaskAlertClick}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="py-4">
+      {/* Filters - Refined */}
+      <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
+        <div className="p-4">
           <TaskFilters
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
@@ -431,49 +499,8 @@ export default function Tasks() {
             activeFiltersCount={activeFiltersCount}
             onClearFilters={clearFilters}
           />
-        </CardContent>
-      </Card>
-
-      {/* Stats */}
-      {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <StatsSkeleton key={i} />
-          ))}
         </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-4">
-          {overdueCount > 0 && (
-            <StatsCard
-              title="Atrasadas"
-              value={overdueCount}
-              icon={AlertTriangle}
-              variant="destructive"
-            />
-          )}
-          <StatsCard
-            title="A Fazer"
-            value={getTasksByStatus('a_fazer').length}
-            icon={ListTodo}
-            variant="default"
-            subtitle={filteredTasks.length !== tasks.length ? `${getFilteredTasksByStatus('a_fazer').length} filtradas` : undefined}
-          />
-          <StatsCard
-            title="Em Progresso"
-            value={getTasksByStatus('fazendo').length}
-            icon={Loader2}
-            variant="info"
-            subtitle={filteredTasks.length !== tasks.length ? `${getFilteredTasksByStatus('fazendo').length} filtradas` : undefined}
-          />
-          <StatsCard
-            title="Concluído"
-            value={getTasksByStatus('feito').length}
-            icon={CheckCircle2}
-            variant="success"
-            subtitle={filteredTasks.length !== tasks.length ? `${getFilteredTasksByStatus('feito').length} filtradas` : undefined}
-          />
-        </div>
-      )}
+      </div>
 
       {/* Kanban Board with Drag and Drop */}
       <DndContext

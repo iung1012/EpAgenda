@@ -60,18 +60,18 @@ export function KanbanColumn({
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full rounded-2xl border border-border/50 bg-card overflow-hidden shadow-sm">
       {/* Column Header */}
       <div className={cn(
-        "flex items-center justify-between p-3 rounded-t-xl border-b",
+        "flex items-center justify-between p-4 border-b",
         headerColor
       )}>
-        <div className="flex items-center gap-2">
-          <div className={cn("p-1.5 rounded-lg", color)}>
+        <div className="flex items-center gap-3">
+          <div className={cn("p-2 rounded-xl", color)}>
             {icon}
           </div>
           <div>
-            <h3 className="font-semibold text-sm">{title}</h3>
+            <h3 className="font-semibold">{title}</h3>
             <span className="text-xs text-muted-foreground">
               {tasks.length} {tasks.length === 1 ? 'tarefa' : 'tarefas'}
             </span>
@@ -81,7 +81,7 @@ export function KanbanColumn({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0"
+            className="h-8 w-8 p-0 hover:bg-background"
             onClick={onAddTask}
           >
             <Plus className="h-4 w-4" />
@@ -93,7 +93,7 @@ export function KanbanColumn({
       <div
         ref={setNodeRef}
         className={cn(
-          "flex-1 p-2 space-y-2 overflow-y-auto rounded-b-xl border border-t-0 bg-muted/30 min-h-[400px] transition-all",
+          "flex-1 p-3 space-y-3 overflow-y-auto bg-muted/20 min-h-[450px] transition-all",
           isOver && "bg-primary/5 ring-2 ring-primary/20 ring-inset"
         )}
       >
@@ -118,9 +118,12 @@ export function KanbanColumn({
             ))}
 
             {tasks.length === 0 && !isLoading && (
-              <div className="flex flex-col items-center justify-center h-32 border-2 border-dashed rounded-xl bg-background/50">
-                <p className="text-sm text-muted-foreground">Nenhuma tarefa</p>
-                <p className="text-xs text-muted-foreground/70">Arraste tarefas aqui</p>
+              <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-2xl bg-background/50">
+                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mb-3">
+                  {icon}
+                </div>
+                <p className="text-sm font-medium text-foreground mb-1">Nenhuma tarefa</p>
+                <p className="text-xs text-muted-foreground">Arraste tarefas aqui</p>
               </div>
             )}
           </SortableContext>
