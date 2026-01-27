@@ -32,7 +32,7 @@ const taskSchema = z.object({
   description: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
   priority: z.enum(['baixa', 'media', 'alta']),
   due_date: z.string().optional(),
-  assigned_to: z.string().optional(),
+  assigned_to: z.string().min(1, 'Responsável é obrigatório'),
   client_id: z.string().optional(),
 });
 
@@ -189,8 +189,8 @@ export function TaskFormDialog({
                 control={form.control}
                 name="assigned_to"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Responsável</FormLabel>
+                <FormItem>
+                  <FormLabel>Responsável *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value || ''}>
                       <FormControl>
                         <SelectTrigger>
