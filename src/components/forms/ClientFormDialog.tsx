@@ -52,7 +52,6 @@ const clientSchema = z.object({
   contact_email: z.string().email('Email inválido').or(z.literal('')).optional(),
   contact_phone: z.string().max(20, 'Máximo 20 caracteres').optional(),
   google_drive_link: z.string().url('URL inválida').or(z.literal('')).optional(),
-  trello_link: z.string().url('URL inválida').or(z.literal('')).optional(),
   canva_link: z.string().url('URL inválida').or(z.literal('')).optional(),
   notes: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
 });
@@ -85,7 +84,6 @@ export function ClientFormDialog({
       contact_email: '',
       contact_phone: '',
       google_drive_link: '',
-      trello_link: '',
       canva_link: '',
       notes: '',
       ...defaultValues,
@@ -210,12 +208,12 @@ export function ClientFormDialog({
 
               <FormField
                 control={form.control}
-                name="trello_link"
+                name="canva_link"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Link Trello</FormLabel>
+                    <FormLabel>Link Canva</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://trello.com/..." {...field} />
+                      <Input placeholder="https://canva.com/..." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

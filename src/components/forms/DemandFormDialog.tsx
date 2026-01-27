@@ -35,6 +35,8 @@ const demandSchema = z.object({
   visit_id: z.string().optional(),
   status: z.enum(['a_fazer', 'em_processo', 'terminado', 'alteracoes']),
   due_date: z.string().optional(),
+  delivery_link: z.string().url('URL inválida').or(z.literal('')).optional(),
+  assigned_to: z.string().optional(),
 });
 
 export type DemandFormValues = z.infer<typeof demandSchema>;
@@ -50,6 +52,11 @@ interface Visit {
   visit_date: string;
 }
 
+interface Profile {
+  user_id: string;
+  full_name: string;
+}
+
 interface DemandFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -57,6 +64,7 @@ interface DemandFormDialogProps {
   defaultValues?: Partial<DemandFormValues>;
   clients: Client[];
   visits: Visit[];
+  profiles?: Profile[];
   isEditing?: boolean;
   isLoading?: boolean;
 }
@@ -68,6 +76,7 @@ export function DemandFormDialog({
   defaultValues,
   clients,
   visits,
+  profiles = [],
   isEditing = false,
   isLoading = false,
 }: DemandFormDialogProps) {
@@ -80,6 +89,8 @@ export function DemandFormDialog({
       visit_id: '',
       status: 'a_fazer',
       due_date: '',
+      delivery_link: '',
+      assigned_to: '',
       ...defaultValues,
     },
   });
@@ -94,6 +105,8 @@ export function DemandFormDialog({
         visit_id: defaultValues?.visit_id || '',
         status: defaultValues?.status || 'a_fazer',
         due_date: defaultValues?.due_date || '',
+        delivery_link: defaultValues?.delivery_link || '',
+        assigned_to: defaultValues?.assigned_to || '',
       });
     }
   }, [open, defaultValues, form]);
@@ -112,7 +125,7 @@ export function DemandFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar Demanda' : 'Nova Demanda'}</DialogTitle>
         </DialogHeader>
@@ -216,6 +229,45 @@ export function DemandFormDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="assigned_to"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Atribuir a</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um colaborador" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {profiles.map((profile) => (
+                        <SelectItem key={profile.user_id} value={profile.user_id}>
+                          {profile.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="delivery_link"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Link da Entrega</FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://..." {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

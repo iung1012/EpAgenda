@@ -52,6 +52,7 @@ interface Client {
   social_links: Record<string, string>;
   google_drive_link: string | null;
   trello_link: string | null;
+  canva_link: string | null;
   notes: string | null;
 }
 
@@ -92,6 +93,7 @@ export default function ClientDetail() {
   const [driveLinkInput, setDriveLinkInput] = useState('');
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [editingPassword, setEditingPassword] = useState<ClientPassword | null>(null);
   const [isColorDialogOpen, setIsColorDialogOpen] = useState(false);
   const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false);
   const [currentFolderType, setCurrentFolderType] = useState('');
@@ -127,7 +129,7 @@ export default function ClientDetail() {
     contact_email: '',
     contact_phone: '',
     google_drive_link: '',
-    trello_link: '',
+    canva_link: '',
     notes: '',
   });
 
@@ -275,23 +277,73 @@ export default function ClientDetail() {
       return;
     }
 
-    const { error } = await supabase.from('client_passwords').insert({
-      client_id: id,
-      service_name: passwordForm.service_name,
-      username: passwordForm.username || null,
-      encrypted_password: btoa(passwordForm.password), // Simple encoding for demo
-      notes: passwordForm.notes || null,
-      created_by: user?.id,
-    });
+    if (editingPassword) {
+      // Update existing password
+      const { error } = await supabase
+        .from('client_passwords')
+        .update({
+          service_name: passwordForm.service_name,
+          username: passwordForm.username || null,
+          encrypted_password: btoa(passwordForm.password),
+          notes: passwordForm.notes || null,
+        })
+        .eq('id', editingPassword.id);
 
-    if (error) {
-      toast({ variant: 'destructive', title: 'Erro ao salvar senha', description: error.message });
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao atualizar senha', description: error.message });
+      } else {
+        toast({ title: 'Senha atualizada com sucesso!' });
+        setIsPasswordDialogOpen(false);
+        setEditingPassword(null);
+        setPasswordForm({ service_name: '', username: '', password: '', notes: '' });
+        fetchPasswords();
+      }
     } else {
-      toast({ title: 'Senha salva com sucesso!' });
-      setIsPasswordDialogOpen(false);
-      setPasswordForm({ service_name: '', username: '', password: '', notes: '' });
-      fetchPasswords();
+      // Insert new password
+      const { error } = await supabase.from('client_passwords').insert({
+        client_id: id,
+        service_name: passwordForm.service_name,
+        username: passwordForm.username || null,
+        encrypted_password: btoa(passwordForm.password),
+        notes: passwordForm.notes || null,
+        created_by: user?.id,
+      });
+
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao salvar senha', description: error.message });
+      } else {
+        toast({ title: 'Senha salva com sucesso!' });
+        setIsPasswordDialogOpen(false);
+        setPasswordForm({ service_name: '', username: '', password: '', notes: '' });
+        fetchPasswords();
+      }
     }
+  };
+
+  const handleEditPassword = (pwd: ClientPassword) => {
+    setEditingPassword(pwd);
+    setPasswordForm({
+      service_name: pwd.service_name,
+      username: pwd.username || '',
+      password: atob(pwd.encrypted_password),
+      notes: pwd.notes || '',
+    });
+    setIsPasswordDialogOpen(true);
+  };
+
+  const handleDeletePassword = async (passwordId: string) => {
+    const { error } = await supabase.from('client_passwords').delete().eq('id', passwordId);
+    if (!error) {
+      toast({ title: 'Senha removida!' });
+      fetchPasswords();
+    } else {
+      toast({ variant: 'destructive', title: 'Erro ao remover senha', description: error.message });
+    }
+    setConfirmDialog({ open: false, type: 'folder', id: '', name: '' });
+  };
+
+  const openDeletePasswordDialog = (passwordId: string, serviceName: string) => {
+    setConfirmDialog({ open: true, type: 'password', id: passwordId, name: serviceName });
   };
 
   const handleAddColor = async () => {
@@ -453,6 +505,9 @@ export default function ClientDetail() {
       case 'social':
         handleRemoveSocialLink(id);
         break;
+      case 'password':
+        handleDeletePassword(id);
+        break;
     }
   };
 
@@ -489,7 +544,7 @@ export default function ClientDetail() {
       contact_email: client.contact_email || '',
       contact_phone: client.contact_phone || '',
       google_drive_link: client.google_drive_link || '',
-      trello_link: client.trello_link || '',
+      canva_link: client.canva_link || '',
       notes: client.notes || '',
     });
     setIsEditDialogOpen(true);
@@ -511,7 +566,7 @@ export default function ClientDetail() {
         contact_email: editForm.contact_email || null,
         contact_phone: editForm.contact_phone || null,
         google_drive_link: editForm.google_drive_link || null,
-        trello_link: editForm.trello_link || null,
+        canva_link: editForm.canva_link || null,
         notes: editForm.notes || null,
       })
       .eq('id', id);
@@ -527,7 +582,7 @@ export default function ClientDetail() {
         contact_email: editForm.contact_email || null,
         contact_phone: editForm.contact_phone || null,
         google_drive_link: editForm.google_drive_link || null,
-        trello_link: editForm.trello_link || null,
+        canva_link: editForm.canva_link || null,
         notes: editForm.notes || null,
       });
       setIsEditDialogOpen(false);
@@ -605,10 +660,10 @@ export default function ClientDetail() {
             Google Drive
           </Button>
         )}
-        {client.trello_link && (
-          <Button variant="outline" onClick={() => window.open(client.trello_link!, '_blank')}>
+        {client.canva_link && (
+          <Button variant="outline" onClick={() => window.open(client.canva_link!, '_blank')}>
             <ExternalLink className="h-4 w-4 mr-2" />
-            Trello
+            Canva
           </Button>
         )}
         {Object.entries(client.social_links).map(([platform, url]) => {
@@ -702,11 +757,11 @@ export default function ClientDetail() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Link Trello</Label>
+                      <Label>Link Canva</Label>
                       <Input
-                        value={editForm.trello_link}
-                        onChange={(e) => setEditForm({ ...editForm, trello_link: e.target.value })}
-                        placeholder="https://trello.com/..."
+                        value={editForm.canva_link}
+                        onChange={(e) => setEditForm({ ...editForm, canva_link: e.target.value })}
+                        placeholder="https://canva.com/..."
                       />
                     </div>
                     <div className="space-y-2">
@@ -1066,16 +1121,25 @@ export default function ClientDetail() {
                   <Lock className="h-5 w-5" />
                   Cofre de Senhas
                 </CardTitle>
-                <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+                <Dialog open={isPasswordDialogOpen} onOpenChange={(open) => {
+                  setIsPasswordDialogOpen(open);
+                  if (!open) {
+                    setEditingPassword(null);
+                    setPasswordForm({ service_name: '', username: '', password: '', notes: '' });
+                  }
+                }}>
                   <DialogTrigger asChild>
-                    <Button size="sm">
+                    <Button size="sm" onClick={() => {
+                      setEditingPassword(null);
+                      setPasswordForm({ service_name: '', username: '', password: '', notes: '' });
+                    }}>
                       <Plus className="h-4 w-4 mr-2" />
                       Nova Senha
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Adicionar Senha</DialogTitle>
+                      <DialogTitle>{editingPassword ? 'Editar Senha' : 'Adicionar Senha'}</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleAddPassword} className="space-y-4">
                       <div className="space-y-2">
@@ -1114,10 +1178,14 @@ export default function ClientDetail() {
                         />
                       </div>
                       <div className="flex justify-end gap-3">
-                        <Button type="button" variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>
+                        <Button type="button" variant="outline" onClick={() => {
+                          setIsPasswordDialogOpen(false);
+                          setEditingPassword(null);
+                          setPasswordForm({ service_name: '', username: '', password: '', notes: '' });
+                        }}>
                           Cancelar
                         </Button>
-                        <Button type="submit">Salvar</Button>
+                        <Button type="submit">{editingPassword ? 'Atualizar' : 'Salvar'}</Button>
                       </div>
                     </form>
                   </DialogContent>
@@ -1136,6 +1204,9 @@ export default function ClientDetail() {
                           <p className="font-medium">{pwd.service_name}</p>
                           {pwd.username && (
                             <p className="text-sm text-muted-foreground">{pwd.username}</p>
+                          )}
+                          {pwd.notes && (
+                            <p className="text-xs text-muted-foreground">{pwd.notes}</p>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
@@ -1163,6 +1234,21 @@ export default function ClientDetail() {
                             onClick={() => copyToClipboard(atob(pwd.encrypted_password))}
                           >
                             <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditPassword(pwd)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => openDeletePasswordDialog(pwd.id, pwd.service_name)}
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
@@ -1253,6 +1339,7 @@ export default function ClientDetail() {
         title={
           confirmDialog.type === 'folder' ? 'Excluir arquivo' :
           confirmDialog.type === 'color' ? 'Remover cor' :
+          confirmDialog.type === 'password' ? 'Excluir senha' :
           'Remover link'
         }
         description={
@@ -1260,6 +1347,8 @@ export default function ClientDetail() {
             ? `Tem certeza que deseja excluir "${confirmDialog.name}"? Esta ação não pode ser desfeita.`
             : confirmDialog.type === 'color'
             ? `Tem certeza que deseja remover a cor ${confirmDialog.name} da paleta?`
+            : confirmDialog.type === 'password'
+            ? `Tem certeza que deseja excluir a senha do serviço "${confirmDialog.name}"? Esta ação não pode ser desfeita.`
             : `Tem certeza que deseja remover o link do ${confirmDialog.name}?`
         }
         confirmText="Remover"

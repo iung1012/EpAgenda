@@ -276,8 +276,10 @@ export type Database = {
       }
       filmmaker_demands: {
         Row: {
+          assigned_to: string | null
           client_id: string | null
           created_at: string
+          delivery_link: string | null
           description: string | null
           due_date: string | null
           filmmaker_id: string
@@ -288,8 +290,10 @@ export type Database = {
           visit_id: string | null
         }
         Insert: {
+          assigned_to?: string | null
           client_id?: string | null
           created_at?: string
+          delivery_link?: string | null
           description?: string | null
           due_date?: string | null
           filmmaker_id: string
@@ -300,8 +304,10 @@ export type Database = {
           visit_id?: string | null
         }
         Update: {
+          assigned_to?: string | null
           client_id?: string | null
           created_at?: string
+          delivery_link?: string | null
           description?: string | null
           due_date?: string | null
           filmmaker_id?: string
