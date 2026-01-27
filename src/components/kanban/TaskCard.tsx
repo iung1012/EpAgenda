@@ -1,4 +1,3 @@
-import { forwardRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent } from '@/components/ui/card';
@@ -46,7 +45,7 @@ interface TaskCardProps {
   onQuickComplete?: (taskId: string) => void;
 }
 
-export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskCard({
+export function TaskCard({
   task,
   getPriorityColor,
   getPriorityLabel,
@@ -55,7 +54,7 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
   onEdit,
   onDelete,
   onQuickComplete,
-}, ref) {
+}: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -262,6 +261,4 @@ export const TaskCard = forwardRef<HTMLDivElement, TaskCardProps>(function TaskC
       </CardContent>
     </Card>
   );
-});
-
-TaskCard.displayName = 'TaskCard';
+}
