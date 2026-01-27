@@ -15,7 +15,8 @@ import {
   Sparkles,
   ClipboardList,
   TrendingUp,
-  Target
+  Target,
+  User
 } from 'lucide-react';
 import { 
   DndContext, 
@@ -541,7 +542,31 @@ export default function Tasks() {
         transition={{ duration: 0.3, delay: 0.2 }}
         className="rounded-2xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm"
       >
-        <div className="p-4">
+        <div className="p-4 space-y-3">
+          {/* Quick Filter - Minhas Tarefas */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant={assignedFilter === user?.id ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                if (assignedFilter === user?.id) {
+                  setAssignedFilter('all');
+                } else {
+                  setAssignedFilter(user?.id || 'all');
+                }
+              }}
+              className="gap-2 rounded-full"
+            >
+              <User className="h-4 w-4" />
+              Minhas Tarefas
+              {assignedFilter === user?.id && (
+                <span className="ml-1 bg-primary-foreground/20 px-1.5 py-0.5 rounded-full text-xs">
+                  {filteredTasks.length}
+                </span>
+              )}
+            </Button>
+          </div>
+          
           <TaskFilters
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
