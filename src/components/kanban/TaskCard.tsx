@@ -424,3 +424,6 @@ export function TaskCard({
     </motion.div>
   );
 }
+
+// Force cache invalidation - v2
+TaskCard.displayName = 'TaskCard';
