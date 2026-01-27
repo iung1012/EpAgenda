@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,7 +14,8 @@ import {
   AlertTriangle,
   Sparkles,
   ClipboardList,
-  TrendingUp
+  TrendingUp,
+  Target
 } from 'lucide-react';
 import { 
   DndContext, 
@@ -340,23 +342,23 @@ export default function Tasks() {
     { 
       id: 'a_fazer' as const, 
       title: 'A Fazer', 
-      icon: <Circle className="h-4 w-4 text-muted-foreground" />,
-      color: 'bg-muted',
-      headerColor: 'bg-muted/50'
+      icon: <Circle className="h-4 w-4 text-slate-500" />,
+      color: 'bg-slate-100 dark:bg-slate-800',
+      headerColor: 'bg-slate-50/80 dark:bg-slate-800/50'
     },
     { 
       id: 'fazendo' as const, 
       title: 'Em Progresso', 
-      icon: <Loader2 className="h-4 w-4 text-info" />,
-      color: 'bg-info/20',
-      headerColor: 'bg-info/10'
+      icon: <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />,
+      color: 'bg-blue-100 dark:bg-blue-900/30',
+      headerColor: 'bg-blue-50/80 dark:bg-blue-900/20'
     },
     { 
       id: 'feito' as const, 
       title: 'Concluído', 
-      icon: <CheckCircle2 className="h-4 w-4 text-success" />,
-      color: 'bg-success/20',
-      headerColor: 'bg-success/10'
+      icon: <CheckCircle2 className="h-4 w-4 text-emerald-500" />,
+      color: 'bg-emerald-100 dark:bg-emerald-900/30',
+      headerColor: 'bg-emerald-50/80 dark:bg-emerald-900/20'
     },
   ];
 
@@ -382,37 +384,75 @@ export default function Tasks() {
   }
 
   return (
-    <div className="space-y-8 animate-in">
-      {/* Hero Header - Dashboard Style */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/5 via-primary/10 to-transparent p-8 border border-border/50">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+    <div className="space-y-6">
+      {/* Hero Header - Enhanced */}
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/5 via-primary/8 to-accent/5 p-6 md:p-8 border border-border/30"
+      >
+        {/* Background decorations */}
+        <div className="absolute top-0 right-0 w-72 h-72 bg-gradient-to-br from-primary/15 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-accent/10 to-transparent rounded-full blur-2xl translate-y-1/2 -translate-x-1/4" />
+        
+        {/* Grid pattern overlay */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border)/0.03)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border)/0.03)_1px,transparent_1px)] bg-[size:24px_24px]" />
+        
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-muted-foreground capitalize mb-2">
+            <motion.p 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="text-sm font-medium text-muted-foreground capitalize mb-2"
+            >
               {currentDate}
-            </p>
-            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight mb-2 flex items-center gap-3">
-              <ClipboardList className="h-8 w-8 text-primary" />
-              Tarefas
-            </h1>
-            <p className="text-muted-foreground max-w-lg">
+            </motion.p>
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.15 }}
+              className="flex items-center gap-3 mb-3"
+            >
+              <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
+                <Target className="h-6 w-6 text-primary" />
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                Gestão de Tarefas
+              </h1>
+            </motion.div>
+            <motion.p 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="text-muted-foreground text-sm md:text-base max-w-lg"
+            >
               Você tem{' '}
-              <span className="font-medium text-foreground">{getTasksByStatus('a_fazer').length + getTasksByStatus('fazendo').length} tarefas</span> pendentes
+              <span className="font-semibold text-foreground">{getTasksByStatus('a_fazer').length + getTasksByStatus('fazendo').length} tarefas</span> pendentes
               {overdueCount > 0 && (
-                <> e <span className="font-medium text-destructive">{overdueCount} atrasadas</span></>
+                <> e <span className="font-semibold text-destructive">{overdueCount} atrasadas</span></>
               )}
-            </p>
+            </motion.p>
           </div>
-          <Button 
-            onClick={() => { setEditingTask(null); setIsDialogOpen(true); }} 
-            size="lg"
-            className="gap-2 shadow-lg"
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.25 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
-            <Plus className="h-5 w-5" />
-            Nova Tarefa
-          </Button>
+            <Button 
+              onClick={() => { setEditingTask(null); setIsDialogOpen(true); }} 
+              size="lg"
+              className="gap-2 shadow-lg rounded-xl h-11 px-6"
+            >
+              <Plus className="h-5 w-5" />
+              Nova Tarefa
+            </Button>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Form Dialog */}
       <TaskFormDialog
@@ -433,7 +473,7 @@ export default function Tasks() {
         } : undefined}
       />
 
-      {/* Stats Grid - Dashboard Style */}
+      {/* Stats Grid - Enhanced */}
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
@@ -441,7 +481,12 @@ export default function Tasks() {
           ))}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        >
           <StatsCard
             title="Total de Tarefas"
             value={tasks.length}
@@ -467,23 +512,33 @@ export default function Tasks() {
             icon={TrendingUp}
             variant="success"
           />
-        </div>
+        </motion.div>
       )}
 
-      {/* Task Alerts - Refined */}
+      {/* Task Alerts - Enhanced */}
       {!isLoading && tasks.length > 0 && overdueCount > 0 && (
-        <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.15 }}
+          className="rounded-2xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm"
+        >
           <div className="p-4">
             <TaskAlerts 
               tasks={tasks as Task[]} 
               onTaskClick={handleTaskAlertClick}
             />
           </div>
-        </div>
+        </motion.div>
       )}
 
-      {/* Filters - Refined */}
-      <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
+      {/* Filters - Enhanced */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.2 }}
+        className="rounded-2xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm"
+      >
         <div className="p-4">
           <TaskFilters
             searchTerm={searchTerm}
@@ -500,7 +555,7 @@ export default function Tasks() {
             onClearFilters={clearFilters}
           />
         </div>
-      </div>
+      </motion.div>
 
       {/* Kanban Board with Drag and Drop */}
       <DndContext

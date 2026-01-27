@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Card, CardContent } from '@/components/ui/card';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -18,7 +18,8 @@ import {
   Link,
   ExternalLink,
   Check,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
 import { format, isPast, isToday, isTomorrow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -69,6 +70,7 @@ export function TaskCard({
 }: TaskCardProps) {
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [linkValue, setLinkValue] = useState(task.delivery_link || '');
+  const [isHovered, setIsHovered] = useState(false);
   const {
     attributes,
     listeners,
@@ -94,21 +96,21 @@ export function TaskCard({
     const isDueTomorrow = isTomorrow(date);
 
     let label = format(date, "dd MMM", { locale: ptBR });
-    let className = "text-muted-foreground";
+    let className = "text-muted-foreground bg-muted/50";
     let Icon = Clock;
 
     if (task.status === 'feito') {
-      className = "text-success";
+      className = "text-success bg-success/10";
       Icon = CheckCircle2;
     } else if (isOverdue) {
-      className = "text-destructive";
+      className = "text-destructive bg-destructive/10";
       label = "Atrasada";
       Icon = AlertCircle;
     } else if (isDueToday) {
-      className = "text-warning";
+      className = "text-warning bg-warning/10";
       label = "Hoje";
     } else if (isDueTomorrow) {
-      className = "text-info";
+      className = "text-info bg-info/10";
       label = "Amanhã";
     }
 
@@ -122,98 +124,142 @@ export function TaskCard({
     return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   };
 
-  const getPriorityIndicator = () => {
+  const getPriorityBorderColor = () => {
     switch (task.priority) {
       case 'alta':
-        return 'bg-destructive';
+        return 'border-l-destructive';
       case 'media':
-        return 'bg-warning';
+        return 'border-l-warning';
       case 'baixa':
-        return 'bg-muted-foreground/50';
+        return 'border-l-muted-foreground/30';
+    }
+  };
+
+  const getPriorityGlow = () => {
+    if (!isHovered) return '';
+    switch (task.priority) {
+      case 'alta':
+        return 'shadow-[0_0_20px_-5px_hsl(var(--destructive)/0.3)]';
+      case 'media':
+        return 'shadow-[0_0_20px_-5px_hsl(var(--warning)/0.3)]';
+      default:
+        return 'shadow-lg';
     }
   };
 
   return (
-    <Card
+    <motion.div
       ref={setNodeRef}
       style={style}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      whileHover={{ y: -2 }}
+      transition={{ duration: 0.2 }}
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
       className={cn(
-        "group relative bg-card hover:shadow-md transition-all duration-200 border-l-[3px]",
-        isDragging && "opacity-50 shadow-xl ring-2 ring-primary rotate-2",
-        task.status === 'feito' && "opacity-75",
-        task.priority === 'alta' ? 'border-l-destructive' : 
-        task.priority === 'media' ? 'border-l-warning' : 
-        'border-l-muted-foreground/30'
+        "group relative rounded-xl border border-border/60 bg-card overflow-hidden transition-all duration-300",
+        "border-l-[3px]",
+        getPriorityBorderColor(),
+        getPriorityGlow(),
+        isDragging && "opacity-50 shadow-2xl ring-2 ring-primary rotate-2 scale-105",
+        task.status === 'feito' && "opacity-70"
       )}
     >
-      <CardContent className="p-3 space-y-2.5">
+      {/* Priority indicator gradient */}
+      <div className={cn(
+        "absolute inset-0 opacity-0 transition-opacity duration-300 pointer-events-none",
+        isHovered && "opacity-100",
+        task.priority === 'alta' && "bg-gradient-to-br from-destructive/5 to-transparent",
+        task.priority === 'media' && "bg-gradient-to-br from-warning/5 to-transparent"
+      )} />
+
+      <div className="relative p-3.5 space-y-3">
         {/* Header with drag handle and priority */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2 flex-1 min-w-0">
-            <button
+            <motion.button
               {...attributes}
               {...listeners}
-              className="cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground mt-0.5 touch-none opacity-0 group-hover:opacity-100 transition-opacity"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+              className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground mt-0.5 touch-none opacity-0 group-hover:opacity-100 transition-all duration-200"
             >
               <GripVertical className="h-4 w-4" />
-            </button>
+            </motion.button>
             <div className="flex-1 min-w-0">
               <h4 className={cn(
-                "font-medium text-sm leading-snug",
+                "font-medium text-sm leading-snug tracking-tight",
                 task.status === 'feito' && "line-through text-muted-foreground"
               )}>
                 {task.title}
               </h4>
               {task.description && (
-                <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                <p className="text-xs text-muted-foreground/80 line-clamp-2 mt-1.5 leading-relaxed">
                   {task.description}
                 </p>
               )}
             </div>
           </div>
           
-          <span className={cn(
-            "text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 uppercase tracking-wide",
-            getPriorityColor(task.priority)
-          )}>
+          <motion.span 
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            className={cn(
+              "text-[10px] font-semibold px-2 py-1 rounded-full shrink-0 uppercase tracking-wider",
+              getPriorityColor(task.priority)
+            )}
+          >
             {getPriorityLabel(task.priority)}
-          </span>
+          </motion.span>
         </div>
 
-        {/* Meta info */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
+        {/* Meta info chips */}
+        <div className="flex flex-wrap items-center gap-1.5">
           {dueDateInfo && (
-            <span className={cn("flex items-center gap-1", dueDateInfo.className)}>
+            <motion.span 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className={cn(
+                "inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-full",
+                dueDateInfo.className
+              )}
+            >
               <dueDateInfo.Icon className="h-3 w-3" />
               {dueDateInfo.label}
-            </span>
+            </motion.span>
           )}
           
           {clientName && (
-            <span className="flex items-center gap-1 text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-muted/50 px-2 py-1 rounded-full">
               <Building2 className="h-3 w-3" />
-              <span className="truncate max-w-[100px]">{clientName}</span>
+              <span className="truncate max-w-[80px]">{clientName}</span>
             </span>
           )}
         </div>
 
         {/* Delivery Link Section - For completed tasks */}
         {task.status === 'feito' && onAddDeliveryLink && (
-          <div className="pt-2 border-t border-dashed">
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="pt-3 border-t border-dashed border-border/50"
+          >
             {isAddingLink ? (
-              <div className="flex gap-1">
+              <div className="flex gap-1.5">
                 <Input
                   type="url"
                   placeholder="Cole o link aqui..."
                   value={linkValue}
                   onChange={(e) => setLinkValue(e.target.value)}
-                  className="h-7 text-xs"
+                  className="h-8 text-xs rounded-lg bg-muted/30 border-border/50"
                   autoFocus
                 />
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 w-7 p-0 text-success hover:text-success hover:bg-success/10 shrink-0"
+                  className="h-8 w-8 p-0 text-success hover:text-success hover:bg-success/10 rounded-lg shrink-0"
                   onClick={() => {
                     if (linkValue.trim()) {
                       onAddDeliveryLink(task.id, linkValue.trim());
@@ -226,7 +272,7 @@ export function TaskCard({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground rounded-lg shrink-0"
                   onClick={() => {
                     setLinkValue(task.delivery_link || '');
                     setIsAddingLink(false);
@@ -236,15 +282,16 @@ export function TaskCard({
                 </Button>
               </div>
             ) : task.delivery_link ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-success/5 border border-success/20">
+                <Sparkles className="h-3.5 w-3.5 text-success shrink-0" />
                 <a
                   href={task.delivery_link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs text-primary hover:underline truncate flex-1"
+                  className="flex items-center gap-1 text-xs text-success hover:underline truncate flex-1 font-medium"
                 >
-                  <ExternalLink className="h-3 w-3 shrink-0" />
                   <span className="truncate">{task.delivery_link}</span>
+                  <ExternalLink className="h-3 w-3 shrink-0" />
                 </a>
                 <Button
                   variant="ghost"
@@ -259,41 +306,41 @@ export function TaskCard({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 w-full text-xs text-muted-foreground hover:text-foreground gap-1"
+                className="h-8 w-full text-xs text-muted-foreground hover:text-primary hover:bg-primary/5 gap-1.5 rounded-lg border border-dashed border-border/50"
                 onClick={() => setIsAddingLink(true)}
               >
-                <Link className="h-3 w-3" />
+                <Link className="h-3.5 w-3.5" />
                 Adicionar link de entrega
               </Button>
             )}
-          </div>
+          </motion.div>
         )}
 
         {/* Footer with assignee and actions */}
-        <div className="flex items-center justify-between pt-2 border-t">
+        <div className="flex items-center justify-between pt-2.5 border-t border-border/30">
           <TooltipProvider>
             {assignedName ? (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1.5">
-                    <Avatar className="h-6 w-6">
-                      <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-6 w-6 ring-2 ring-background">
+                      <AvatarFallback className="text-[10px] bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-semibold">
                         {getInitials(assignedName)}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="text-xs text-muted-foreground truncate max-w-[80px]">
+                    <span className="text-xs text-muted-foreground font-medium truncate max-w-[70px]">
                       {assignedName.split(' ')[0]}
                     </span>
                   </div>
                 </TooltipTrigger>
-                <TooltipContent>
-                  <p>{assignedName}</p>
+                <TooltipContent side="bottom">
+                  <p className="text-xs">{assignedName}</p>
                 </TooltipContent>
               </Tooltip>
             ) : (
-              <div className="flex items-center gap-1.5 text-muted-foreground/50">
+              <div className="flex items-center gap-2 text-muted-foreground/40">
                 <Avatar className="h-6 w-6">
-                  <AvatarFallback className="text-[10px]">
+                  <AvatarFallback className="text-[10px] bg-muted">
                     <User className="h-3 w-3" />
                   </AvatarFallback>
                 </Avatar>
@@ -303,52 +350,61 @@ export function TaskCard({
           </TooltipProvider>
 
           {/* Actions */}
-          <div className="flex gap-0.5">
-            {/* Quick Complete Button - Always visible if not completed */}
+          <div className="flex gap-1">
+            {/* Quick Complete Button */}
             {task.status !== 'feito' && onQuickComplete && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-success hover:text-success hover:bg-success/10"
-                      onClick={() => onQuickComplete(task.id)}
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                    </Button>
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-success hover:text-success hover:bg-success/10 rounded-lg"
+                        onClick={() => onQuickComplete(task.id)}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                      </Button>
+                    </motion.div>
                   </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Concluir tarefa</p>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Concluir tarefa</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             )}
-            {/* Reopen Button - Always visible if completed */}
+            {/* Reopen Button */}
             {task.status === 'feito' && onReopen && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-warning hover:text-warning hover:bg-warning/10"
-                      onClick={() => onReopen(task.id)}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-warning hover:text-warning hover:bg-warning/10 rounded-lg"
+                        onClick={() => onReopen(task.id)}
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                      </Button>
+                    </motion.div>
                   </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Reabrir tarefa</p>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Reabrir tarefa</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             )}
-            <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Edit/Delete - show on hover */}
+            <motion.div 
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: isHovered ? 1 : 0, width: isHovered ? 'auto' : 0 }}
+              className="flex gap-0.5 overflow-hidden"
+            >
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 w-7 p-0"
+                className="h-7 w-7 p-0 rounded-lg"
                 onClick={() => onEdit(task)}
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -356,15 +412,15 @@ export function TaskCard({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-lg"
                 onClick={() => onDelete(task.id, task.title)}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
-            </div>
+            </motion.div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </motion.div>
   );
 }

@@ -1,16 +1,10 @@
-import { useMemo } from 'react';
-import { AlertTriangle, Clock, CalendarClock, ChevronRight } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { AlertTriangle, Clock, CalendarClock, ChevronDown, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { isPast, isToday, isTomorrow, addDays, isWithinInterval, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import { useState } from 'react';
 
 interface Task {
   id: string;
@@ -62,145 +56,184 @@ export function TaskAlerts({ tasks, onTaskClick }: TaskAlertsProps) {
 
   if (totalAlerts === 0) return null;
 
-  return (
-    <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-      <div className="space-y-3">
-        {/* Header */}
-        <CollapsibleTrigger asChild>
-          <Button 
-            variant="ghost" 
-            className="w-full justify-between p-0 h-auto hover:bg-transparent"
-          >
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "p-1.5 rounded-lg",
-                overdueTasks.length > 0 ? "bg-destructive/10" : "bg-warning/10"
-              )}>
-                {overdueTasks.length > 0 ? (
-                  <AlertTriangle className="h-4 w-4 text-destructive" />
-                ) : (
-                  <CalendarClock className="h-4 w-4 text-warning" />
-                )}
-              </div>
-              <span className="font-medium text-sm">
-                {overdueTasks.length > 0 
-                  ? `${overdueTasks.length} tarefa${overdueTasks.length > 1 ? 's' : ''} atrasada${overdueTasks.length > 1 ? 's' : ''}`
-                  : `${totalAlerts} tarefa${totalAlerts > 1 ? 's' : ''} próxima${totalAlerts > 1 ? 's' : ''} do vencimento`
-                }
-              </span>
-              <Badge variant="secondary" className="text-xs">
-                {totalAlerts}
-              </Badge>
-            </div>
-            <ChevronRight className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform",
-              isExpanded && "rotate-90"
-            )} />
-          </Button>
-        </CollapsibleTrigger>
+  const TaskChip = ({ task, variant }: { task: Task; variant: 'danger' | 'warning' | 'info' }) => {
+    const variantStyles = {
+      danger: 'bg-destructive/10 hover:bg-destructive/20 text-destructive border-destructive/20',
+      warning: 'bg-warning/10 hover:bg-warning/20 text-warning border-warning/20',
+      info: 'bg-info/10 hover:bg-info/20 text-info border-info/20'
+    };
 
-        <CollapsibleContent className="space-y-2">
-          {/* Overdue Tasks */}
-          {overdueTasks.length > 0 && (
-            <Alert variant="destructive" className="border-destructive/30 bg-destructive/5">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle className="text-sm font-medium">Tarefas Atrasadas</AlertTitle>
-              <AlertDescription className="mt-2">
+    return (
+      <motion.button
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => onTaskClick?.(task.id)}
+        className={cn(
+          "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all",
+          variantStyles[variant]
+        )}
+      >
+        <span className={cn(
+          "w-1.5 h-1.5 rounded-full",
+          task.priority === 'alta' ? 'bg-destructive' : 
+          task.priority === 'media' ? 'bg-warning' : 'bg-muted-foreground'
+        )} />
+        <span className="truncate max-w-[140px]">{task.title}</span>
+      </motion.button>
+    );
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Header */}
+      <Button 
+        variant="ghost" 
+        className="w-full justify-between p-0 h-auto hover:bg-transparent group"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-3">
+          <motion.div 
+            animate={{ rotate: overdueTasks.length > 0 ? [0, -10, 10, -10, 0] : 0 }}
+            transition={{ duration: 0.5, repeat: overdueTasks.length > 0 ? Infinity : 0, repeatDelay: 3 }}
+            className={cn(
+              "p-2 rounded-xl",
+              overdueTasks.length > 0 ? "bg-destructive/10" : "bg-warning/10"
+            )}
+          >
+            {overdueTasks.length > 0 ? (
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+            ) : (
+              <Zap className="h-4 w-4 text-warning" />
+            )}
+          </motion.div>
+          <div className="text-left">
+            <span className="font-semibold text-sm block">
+              {overdueTasks.length > 0 
+                ? `${overdueTasks.length} tarefa${overdueTasks.length > 1 ? 's' : ''} atrasada${overdueTasks.length > 1 ? 's' : ''}`
+                : `${totalAlerts} tarefa${totalAlerts > 1 ? 's' : ''} próxima${totalAlerts > 1 ? 's' : ''}`
+              }
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Clique para ver detalhes
+            </span>
+          </div>
+        </div>
+        <motion.div
+          animate={{ rotate: isExpanded ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        </motion.div>
+      </Button>
+
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-3 overflow-hidden"
+          >
+            {/* Overdue Tasks */}
+            {overdueTasks.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="p-3 rounded-xl border border-destructive/20 bg-destructive/5"
+              >
+                <div className="flex items-center gap-2 mb-2.5">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <span className="text-sm font-medium text-destructive">Atrasadas</span>
+                  <Badge variant="destructive" className="h-5 text-[10px]">
+                    {overdueTasks.length}
+                  </Badge>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {overdueTasks.slice(0, 5).map(task => (
-                    <button
-                      key={task.id}
-                      onClick={() => onTaskClick?.(task.id)}
-                      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-destructive/10 hover:bg-destructive/20 text-xs transition-colors"
-                    >
-                      <span className={cn(
-                        "w-1.5 h-1.5 rounded-full",
-                        task.priority === 'alta' ? 'bg-destructive' : 
-                        task.priority === 'media' ? 'bg-warning' : 'bg-muted-foreground'
-                      )} />
-                      <span className="truncate max-w-[150px]">{task.title}</span>
-                    </button>
+                    <TaskChip key={task.id} task={task} variant="danger" />
                   ))}
                   {overdueTasks.length > 5 && (
-                    <span className="text-xs text-muted-foreground self-center">
+                    <span className="text-xs text-muted-foreground self-center px-2">
                       +{overdueTasks.length - 5} mais
                     </span>
                   )}
                 </div>
-              </AlertDescription>
-            </Alert>
-          )}
+              </motion.div>
+            )}
 
-          {/* Today's Tasks */}
-          {todayTasks.length > 0 && (
-            <Alert className="border-warning/30 bg-warning/5">
-              <Clock className="h-4 w-4 text-warning" />
-              <AlertTitle className="text-sm font-medium">Vencem Hoje</AlertTitle>
-              <AlertDescription className="mt-2">
+            {/* Today's Tasks */}
+            {todayTasks.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.05 }}
+                className="p-3 rounded-xl border border-warning/20 bg-warning/5"
+              >
+                <div className="flex items-center gap-2 mb-2.5">
+                  <Clock className="h-4 w-4 text-warning" />
+                  <span className="text-sm font-medium text-warning">Hoje</span>
+                  <Badge className="h-5 text-[10px] bg-warning/20 text-warning border-0">
+                    {todayTasks.length}
+                  </Badge>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {todayTasks.slice(0, 5).map(task => (
-                    <button
-                      key={task.id}
-                      onClick={() => onTaskClick?.(task.id)}
-                      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-warning/10 hover:bg-warning/20 text-xs transition-colors"
-                    >
-                      <span className={cn(
-                        "w-1.5 h-1.5 rounded-full",
-                        task.priority === 'alta' ? 'bg-destructive' : 
-                        task.priority === 'media' ? 'bg-warning' : 'bg-muted-foreground'
-                      )} />
-                      <span className="truncate max-w-[150px]">{task.title}</span>
-                    </button>
+                    <TaskChip key={task.id} task={task} variant="warning" />
                   ))}
                   {todayTasks.length > 5 && (
-                    <span className="text-xs text-muted-foreground self-center">
+                    <span className="text-xs text-muted-foreground self-center px-2">
                       +{todayTasks.length - 5} mais
                     </span>
                   )}
                 </div>
-              </AlertDescription>
-            </Alert>
-          )}
+              </motion.div>
+            )}
 
-          {/* Tomorrow's Tasks */}
-          {tomorrowTasks.length > 0 && (
-            <Alert className="border-info/30 bg-info/5">
-              <CalendarClock className="h-4 w-4 text-info" />
-              <AlertTitle className="text-sm font-medium">Vencem Amanhã</AlertTitle>
-              <AlertDescription className="mt-2">
+            {/* Tomorrow's Tasks */}
+            {tomorrowTasks.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 }}
+                className="p-3 rounded-xl border border-info/20 bg-info/5"
+              >
+                <div className="flex items-center gap-2 mb-2.5">
+                  <CalendarClock className="h-4 w-4 text-info" />
+                  <span className="text-sm font-medium text-info">Amanhã</span>
+                  <Badge className="h-5 text-[10px] bg-info/20 text-info border-0">
+                    {tomorrowTasks.length}
+                  </Badge>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {tomorrowTasks.slice(0, 5).map(task => (
-                    <button
-                      key={task.id}
-                      onClick={() => onTaskClick?.(task.id)}
-                      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-info/10 hover:bg-info/20 text-xs transition-colors"
-                    >
-                      <span className={cn(
-                        "w-1.5 h-1.5 rounded-full",
-                        task.priority === 'alta' ? 'bg-destructive' : 
-                        task.priority === 'media' ? 'bg-warning' : 'bg-muted-foreground'
-                      )} />
-                      <span className="truncate max-w-[150px]">{task.title}</span>
-                    </button>
+                    <TaskChip key={task.id} task={task} variant="info" />
                   ))}
                   {tomorrowTasks.length > 5 && (
-                    <span className="text-xs text-muted-foreground self-center">
+                    <span className="text-xs text-muted-foreground self-center px-2">
                       +{tomorrowTasks.length - 5} mais
                     </span>
                   )}
                 </div>
-              </AlertDescription>
-            </Alert>
-          )}
+              </motion.div>
+            )}
 
-          {/* Upcoming this week */}
-          {upcomingTasks.length > 0 && (
-            <div className="text-xs text-muted-foreground px-2">
-              +{upcomingTasks.length} tarefa{upcomingTasks.length > 1 ? 's' : ''} vence{upcomingTasks.length > 1 ? 'm' : ''} esta semana
-            </div>
-          )}
-        </CollapsibleContent>
-      </div>
-    </Collapsible>
+            {/* Upcoming this week */}
+            {upcomingTasks.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.15 }}
+                className="text-xs text-muted-foreground px-1"
+              >
+                +{upcomingTasks.length} tarefa{upcomingTasks.length > 1 ? 's' : ''} vence{upcomingTasks.length > 1 ? 'm' : ''} esta semana
+              </motion.div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
