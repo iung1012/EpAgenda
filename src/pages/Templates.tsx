@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, FileText, Pencil, Trash2, Copy } from 'lucide-react';
+import { Plus, FileText, Pencil, Trash2, Copy, Link2, ExternalLink } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -40,6 +40,7 @@ export default function Templates() {
       title: `${template.title} (cópia)`,
       description: template.description || undefined,
       priority: template.priority,
+      link: template.link || undefined,
     });
 
     if (error) {
@@ -49,7 +50,7 @@ export default function Templates() {
     }
   };
 
-  const handleSubmit = async (data: { title: string; description?: string; priority: 'baixa' | 'media' | 'alta' }) => {
+  const handleSubmit = async (data: { title: string; description?: string; priority: 'baixa' | 'media' | 'alta'; link?: string }) => {
     if (editingTemplate) {
       const { error } = await updateTemplate(editingTemplate.id, data);
       if (error) {
@@ -143,6 +144,18 @@ export default function Templates() {
                         {priorityConfig[template.priority].label}
                       </Badge>
                     </div>
+                    {template.link && (
+                      <a 
+                        href={template.link} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary mt-2 truncate"
+                      >
+                        <Link2 className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{template.link}</span>
+                        <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                      </a>
+                    )}
                   </CardHeader>
                   <CardContent className="pt-0">
                     <div className="flex items-center gap-2">

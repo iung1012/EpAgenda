@@ -7,6 +7,7 @@ export interface TaskTemplate {
   title: string;
   description: string | null;
   priority: TaskPriority;
+  link: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -44,6 +45,7 @@ export function useTaskTemplates() {
     title: string;
     description?: string;
     priority: TaskPriority;
+    link?: string;
   }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: { message: 'Usuário não autenticado' } };
@@ -53,6 +55,7 @@ export function useTaskTemplates() {
         title: template.title,
         description: template.description || null,
         priority: template.priority,
+        link: template.link || null,
         created_by: user.id,
       });
 
@@ -66,6 +69,7 @@ export function useTaskTemplates() {
     title?: string;
     description?: string;
     priority?: TaskPriority;
+    link?: string;
   }) => {
     const { error } = await taskTemplatesTable()
       .update(template)

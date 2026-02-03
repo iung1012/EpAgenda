@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Link2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,7 @@ const templateSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
   description: z.string().optional(),
   priority: z.enum(['baixa', 'media', 'alta']),
+  link: z.string().optional(),
 });
 
 type TemplateFormData = z.infer<typeof templateSchema>;
@@ -55,6 +57,7 @@ export default function TemplateFormDialog({
       title: '',
       description: '',
       priority: 'media',
+      link: '',
     },
   });
 
@@ -64,12 +67,14 @@ export default function TemplateFormDialog({
         title: template.title,
         description: template.description || '',
         priority: template.priority,
+        link: template.link || '',
       });
     } else {
       form.reset({
         title: '',
         description: '',
         priority: 'media',
+        link: '',
       });
     }
   }, [template, form]);
@@ -138,6 +143,27 @@ export default function TemplateFormDialog({
                       <SelectItem value="alta">Alta</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="link"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Link</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        placeholder="https://exemplo.com (opcional)" 
+                        className="pl-9"
+                        {...field} 
+                      />
+                    </div>
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
