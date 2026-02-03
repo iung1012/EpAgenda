@@ -8,7 +8,8 @@ import {
   LogOut,
   Video,
   Film,
-  Package
+  Package,
+  FileText
 } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { NavLink } from '@/components/NavLink';
@@ -35,6 +36,7 @@ const mainNavItems = [
   { title: 'Clientes', url: '/clients', icon: Building2 },
   { title: 'Calendário', url: '/calendar', icon: Calendar },
   { title: 'Tarefas', url: '/tasks', icon: CheckSquare },
+  { title: 'Modelos', url: '/templates', icon: FileText },
 ];
 
 const adminNavItems = [
