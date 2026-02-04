@@ -1,7 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Mail, Phone, User, ChevronRight, CheckSquare } from 'lucide-react';
+import { Mail, Phone, User, ChevronRight, CheckSquare, Link2 } from 'lucide-react';
 import { Client } from '@/hooks/useClients';
 import { cn } from '@/lib/utils';
 
@@ -144,6 +144,24 @@ export function ClientListItem({ client, taskCount, onClick }: ClientListItemPro
               className="h-4 w-4"
             />
           </Button>
+        )}
+        {client.custom_links.slice(0, 2).map((link, i) => (
+          <Button 
+            key={i}
+            variant="ghost" 
+            size="icon"
+            className="h-8 w-8"
+            title={link.name}
+            onClick={(e) => {
+              e.stopPropagation();
+              window.open(link.url, '_blank');
+            }}
+          >
+            <Link2 className="h-4 w-4" />
+          </Button>
+        ))}
+        {client.custom_links.length > 2 && (
+          <span className="text-xs text-muted-foreground">+{client.custom_links.length - 2}</span>
         )}
       </div>
 

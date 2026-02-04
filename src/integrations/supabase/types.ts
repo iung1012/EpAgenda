@@ -205,6 +205,7 @@ export type Database = {
           contact_phone: string | null
           created_at: string
           created_by: string | null
+          custom_links: Json | null
           google_drive_link: string | null
           id: string
           logo_url: string | null
@@ -223,6 +224,7 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           created_by?: string | null
+          custom_links?: Json | null
           google_drive_link?: string | null
           id?: string
           logo_url?: string | null
@@ -241,6 +243,7 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           created_by?: string | null
+          custom_links?: Json | null
           google_drive_link?: string | null
           id?: string
           logo_url?: string | null

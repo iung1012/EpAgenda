@@ -94,6 +94,7 @@ export default function Clients() {
       google_drive_link: data.google_drive_link || null,
       canva_link: data.canva_link || null,
       notes: data.notes || null,
+      custom_links: data.custom_links || [],
       created_by: user?.id,
     });
     setIsSubmitting(false);

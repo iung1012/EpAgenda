@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+export interface CustomLink {
+  name: string;
+  url: string;
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -15,6 +20,7 @@ export interface Client {
   trello_link: string | null;
   canva_link: string | null;
   notes: string | null;
+  custom_links: CustomLink[];
 }
 
 interface UseClientsOptions {
@@ -56,6 +62,7 @@ export function useClients(options: UseClientsOptions = {}) {
           trello_link: null,
           canva_link: null,
           notes: null,
+          custom_links: [],
         })) as Client[];
         setClients(mappedClients);
       }
@@ -78,6 +85,9 @@ export function useClients(options: UseClientsOptions = {}) {
           social_links: typeof c.social_links === 'object' && c.social_links !== null
             ? c.social_links as Record<string, string>
             : {},
+          custom_links: Array.isArray(c.custom_links) 
+            ? (c.custom_links as unknown as CustomLink[]) 
+            : [],
         })) as Client[];
         setClients(mappedClients);
       }

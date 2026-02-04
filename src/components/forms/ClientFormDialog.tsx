@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Plus, Trash2, Link2 } from 'lucide-react';
 
 export const CLIENT_SEGMENTS = [
   'Alimentação',
@@ -45,6 +46,11 @@ export const CLIENT_SEGMENTS = [
   'Outro',
 ] as const;
 
+const customLinkSchema = z.object({
+  name: z.string().min(1, 'Nome é obrigatório').max(50, 'Máximo 50 caracteres'),
+  url: z.string().url('URL inválida'),
+});
+
 const clientSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(100, 'Máximo 100 caracteres'),
   segment: z.string().max(50, 'Máximo 50 caracteres').optional(),
@@ -54,6 +60,7 @@ const clientSchema = z.object({
   google_drive_link: z.string().url('URL inválida').or(z.literal('')).optional(),
   canva_link: z.string().url('URL inválida').or(z.literal('')).optional(),
   notes: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
+  custom_links: z.array(customLinkSchema).optional(),
 });
 
 export type ClientFormValues = z.infer<typeof clientSchema>;
@@ -86,8 +93,14 @@ export function ClientFormDialog({
       google_drive_link: '',
       canva_link: '',
       notes: '',
+      custom_links: [],
       ...defaultValues,
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'custom_links',
   });
 
   const handleSubmit = async (data: ClientFormValues) => {
@@ -104,7 +117,7 @@ export function ClientFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar Cliente' : 'Novo Cliente'}</DialogTitle>
         </DialogHeader>
@@ -220,19 +233,69 @@ export function ClientFormDialog({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="canva_link"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Link Canva</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://canva.com/..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+              {/* Custom Links Section */}
+              <div className="col-span-2 space-y-3">
+                <div className="flex items-center justify-between">
+                  <FormLabel className="text-base">Links Personalizados</FormLabel>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({ name: '', url: '' })}
+                    className="gap-1"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Adicionar Link
+                  </Button>
+                </div>
+
+                {fields.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum link personalizado adicionado
+                  </p>
                 )}
-              />
+
+                {fields.map((field, index) => (
+                  <div key={field.id} className="flex gap-2 items-start">
+                    <FormField
+                      control={form.control}
+                      name={`custom_links.${index}.name`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormControl>
+                            <div className="relative">
+                              <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input placeholder="Nome do link" className="pl-9" {...field} />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name={`custom_links.${index}.url`}
+                      render={({ field }) => (
+                        <FormItem className="flex-[2]">
+                          <FormControl>
+                            <Input placeholder="https://..." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => remove(index)}
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
 
               <FormField
                 control={form.control}
