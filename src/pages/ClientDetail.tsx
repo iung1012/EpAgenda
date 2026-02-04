@@ -123,6 +123,8 @@ export default function ClientDetail() {
     name: string;
     index?: number;
   }>({ open: false, type: 'folder', id: '', name: '' });
+  const [isDeleteClientDialogOpen, setIsDeleteClientDialogOpen] = useState(false);
+  const [isDeletingClient, setIsDeletingClient] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
     segment: '',
@@ -591,6 +593,37 @@ export default function ClientDetail() {
     }
   };
 
+  const handleDeleteClient = async () => {
+    if (!id || !isAdminOrManager) return;
+    
+    setIsDeletingClient(true);
+    
+    try {
+      // Delete related data in order
+      await supabase.from('client_passwords').delete().eq('client_id', id);
+      await supabase.from('client_folders').delete().eq('client_id', id);
+      await supabase.from('client_drive_folders').delete().eq('client_id', id);
+      await supabase.from('tasks').delete().eq('client_id', id);
+      await supabase.from('calendar_events').delete().eq('client_id', id);
+      await supabase.from('filmmaker_demands').delete().eq('client_id', id);
+      await supabase.from('filmmaker_visits').delete().eq('client_id', id);
+      
+      // Finally delete the client
+      const { error } = await supabase.from('clients').delete().eq('id', id);
+      
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao excluir cliente', description: error.message });
+      } else {
+        toast({ title: 'Cliente excluído com sucesso!' });
+        navigate('/clients');
+      }
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir cliente' });
+    } finally {
+      setIsDeletingClient(false);
+    }
+  };
+
   if (!client) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -602,24 +635,35 @@ export default function ClientDetail() {
   return (
     <div className="space-y-6 animate-in">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/clients')}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <FileUpload
-            clientId={id!}
-            folder="logos"
-            accept="image/*"
-            currentUrl={client.logo_url}
-            onUploadComplete={handleLogoUpload}
-            isLogo
-          />
-          <div>
-            <h1 className="text-2xl font-semibold">{client.name}</h1>
-            {client.segment && <p className="text-muted-foreground">{client.segment}</p>}
+          <Button variant="ghost" size="icon" onClick={() => navigate('/clients')}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center gap-4">
+            <FileUpload
+              clientId={id!}
+              folder="logos"
+              accept="image/*"
+              currentUrl={client.logo_url}
+              onUploadComplete={handleLogoUpload}
+              isLogo
+            />
+            <div>
+              <h1 className="text-2xl font-semibold">{client.name}</h1>
+              {client.segment && <p className="text-muted-foreground">{client.segment}</p>}
+            </div>
           </div>
         </div>
+        {isAdminOrManager && (
+          <Button 
+            variant="destructive" 
+            onClick={() => setIsDeleteClientDialogOpen(true)}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Excluir Cliente
+          </Button>
+        )}
       </div>
 
       {/* Quick Links */}
@@ -1362,6 +1406,18 @@ export default function ClientDetail() {
         confirmText="Remover"
         onConfirm={handleConfirmAction}
         variant="destructive"
+      />
+
+      {/* Delete Client Dialog */}
+      <ConfirmDialog
+        open={isDeleteClientDialogOpen}
+        onOpenChange={setIsDeleteClientDialogOpen}
+        title="Excluir Cliente"
+        description={`Tem certeza que deseja excluir "${client.name}"? Esta ação irá remover permanentemente o cliente e TODOS os dados relacionados (senhas, pastas, tarefas, eventos, visitas e demandas). Esta ação NÃO pode ser desfeita.`}
+        confirmText="Excluir Permanentemente"
+        onConfirm={handleDeleteClient}
+        variant="destructive"
+        isLoading={isDeletingClient}
       />
     </div>
   );
