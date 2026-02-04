@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { FileUpload } from '@/components/FileUpload';
 import { DriveExplorer } from '@/components/drive/DriveExplorer';
+import ElfsightInstagramFeed from '@/components/clients/ElfsightInstagramFeed';
 import { 
   ArrowLeft, 
   Building2, 
@@ -809,6 +810,13 @@ export default function ClientDetail() {
               )}
             </CardContent>
           </Card>
+
+          {/* Instagram Feed - Priorize 360 */}
+          {client.id === 'cb5332c8-540b-4c7c-859e-4a131575622c' && (
+            <div className="mt-6">
+              <ElfsightInstagramFeed appId="e87f6cb1-d6c6-4878-9cc5-5695a4488ad3" />
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="social" className="mt-6">
