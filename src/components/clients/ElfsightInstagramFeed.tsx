@@ -17,6 +17,23 @@ const ElfsightInstagramFeed = ({ appId }: ElfsightInstagramFeedProps) => {
       script.async = true;
       document.body.appendChild(script);
     }
+
+    // Add global CSS to try hiding Elfsight branding
+    const style = document.createElement('style');
+    style.textContent = `
+      .eapps-widget-toolbar,
+      [class*="eapps-link"],
+      a[href*="elfsight.com"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      style.remove();
+    };
   }, []);
 
   return (
@@ -27,7 +44,7 @@ const ElfsightInstagramFeed = ({ appId }: ElfsightInstagramFeedProps) => {
           Feed do Instagram
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="overflow-hidden">
         <div 
           className={`elfsight-app-${appId}`} 
           data-elfsight-app-lazy
