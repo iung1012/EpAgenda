@@ -21,6 +21,7 @@ export default function Profile() {
     full_name: "",
     phone: "",
     avatar_url: "",
+    birthday: "",
   });
 
   useEffect(() => {
@@ -29,6 +30,7 @@ export default function Profile() {
         full_name: profile.full_name || "",
         phone: profile.phone || "",
         avatar_url: profile.avatar_url || "",
+        birthday: (profile as any).birthday || "",
       });
     }
   }, [profile]);
@@ -113,7 +115,8 @@ export default function Profile() {
           full_name: formData.full_name.trim(),
           phone: formData.phone.trim() || null,
           avatar_url: formData.avatar_url || null,
-        })
+          birthday: formData.birthday || null,
+        } as any)
         .eq("user_id", user.id);
 
       if (error) throw error;
@@ -223,6 +226,23 @@ export default function Profile() {
                   }
                   placeholder="(00) 00000-0000"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="birthday" className="text-sm font-medium">
+                  Data de Aniversário
+                </Label>
+                <Input
+                  id="birthday"
+                  type="date"
+                  value={formData.birthday}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, birthday: e.target.value }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Será exibido no calendário da equipe
+                </p>
               </div>
             </div>
 
