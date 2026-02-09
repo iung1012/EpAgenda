@@ -19,7 +19,8 @@ import {
   ExternalLink,
   Check,
   X,
-  Sparkles
+  Sparkles,
+  Play
 } from 'lucide-react';
 import { format, isPast, isToday, isTomorrow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -54,6 +55,7 @@ interface TaskCardProps {
   onQuickComplete?: (taskId: string) => void;
   onReopen?: (taskId: string) => void;
   onAddDeliveryLink?: (taskId: string, link: string) => void;
+  onMoveToProgress?: (taskId: string) => void;
 }
 
 export function TaskCard({
@@ -67,6 +69,7 @@ export function TaskCard({
   onQuickComplete,
   onReopen,
   onAddDeliveryLink,
+  onMoveToProgress,
 }: TaskCardProps) {
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [linkValue, setLinkValue] = useState(task.delivery_link || '');
@@ -351,6 +354,28 @@ export function TaskCard({
 
           {/* Actions */}
           <div className="flex gap-1">
+            {/* Move to Progress Button */}
+            {task.status === 'a_fazer' && onMoveToProgress && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10 rounded-lg"
+                        onClick={() => onMoveToProgress(task.id)}
+                      >
+                        <Play className="h-4 w-4" />
+                      </Button>
+                    </motion.div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Mover para Em Progresso</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             {/* Quick Complete Button */}
             {task.status !== 'feito' && onQuickComplete && (
               <TooltipProvider>

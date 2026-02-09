@@ -37,6 +37,7 @@ interface KanbanColumnProps {
   onQuickComplete?: (taskId: string) => void;
   onReopen?: (taskId: string) => void;
   onAddDeliveryLink?: (taskId: string, link: string) => void;
+  onMoveToProgress?: (taskId: string) => void;
 }
 
 export function KanbanColumn({
@@ -57,6 +58,7 @@ export function KanbanColumn({
   onQuickComplete,
   onReopen,
   onAddDeliveryLink,
+  onMoveToProgress,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -133,6 +135,7 @@ export function KanbanColumn({
                     onQuickComplete={onQuickComplete}
                     onReopen={onReopen}
                     onAddDeliveryLink={onAddDeliveryLink}
+                    onMoveToProgress={onMoveToProgress}
                   />
                 </motion.div>
               ))}
