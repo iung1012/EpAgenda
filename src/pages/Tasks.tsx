@@ -275,8 +275,17 @@ export default function Tasks() {
     const taskId = active.id as string;
     const overId = over.id as string;
 
-    const newStatus = columns.find(col => col.id === overId)?.id;
+    // Check if dropped on a column directly
+    let newStatus = columns.find(col => col.id === overId)?.id;
     
+    // If not a column, find which column the target task belongs to
+    if (!newStatus) {
+      const targetTask = tasks.find(t => t.id === overId);
+      if (targetTask) {
+        newStatus = targetTask.status as TaskStatus;
+      }
+    }
+
     if (newStatus) {
       const task = tasks.find(t => t.id === taskId);
       if (task && task.status !== newStatus) {
