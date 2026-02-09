@@ -12,6 +12,7 @@ import {
 import { CalendarEvent } from '@/hooks/useCalendarEvents';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Holiday } from '@/hooks/useHolidays';
 
 interface DayEventsDialogProps {
   open: boolean;
@@ -21,6 +22,7 @@ interface DayEventsDialogProps {
   onEdit: (event: CalendarEvent) => void;
   onDelete: (event: CalendarEvent) => void;
   onAddNew: () => void;
+  holiday?: Holiday | null;
 }
 
 const containerVariants = {
@@ -41,6 +43,7 @@ export function DayEventsDialog({
   onEdit,
   onDelete,
   onAddNew,
+  holiday,
 }: DayEventsDialogProps) {
   if (!date) return null;
 
@@ -81,6 +84,13 @@ export function DayEventsDialog({
 
         {/* Content */}
         <div className="px-4 py-3">
+          {holiday && (
+            <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
+              <span className="text-sm">🔴</span>
+              <span className="text-sm font-medium text-red-400">{holiday.name}</span>
+              <span className="text-xs text-muted-foreground ml-auto">Feriado Nacional</span>
+            </div>
+          )}
           {events.length === 0 ? (
             <div className="py-6">
               <EmptyState
