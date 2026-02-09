@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import { startOfMonth, endOfMonth, isSameDay, setYear, setMonth, setDate, getDate, getMonth } from 'date-fns';
 
 export interface CalendarEvent {
   id: string;
@@ -35,8 +35,8 @@ export function useCalendarEvents(currentDate: Date) {
     const start = startOfMonth(currentDate);
     const end = endOfMonth(currentDate);
 
-    // Fetch calendar events and visits in parallel with client names
-    const [eventsResult, visitsResult] = await Promise.all([
+    // Fetch calendar events, visits, and profiles (for birthdays) in parallel
+    const [eventsResult, visitsResult, profilesResult] = await Promise.all([
       supabase
         .from('calendar_events')
         .select('*, clients(name)')
@@ -48,7 +48,11 @@ export function useCalendarEvents(currentDate: Date) {
         .select('*, clients(name)')
         .gte('visit_date', start.toISOString())
         .lte('visit_date', end.toISOString())
-        .order('visit_date')
+        .order('visit_date'),
+      supabase
+        .from('profiles')
+        .select('user_id, full_name, birthday')
+        .not('birthday', 'is', null)
     ]);
 
     if (eventsResult.error) {
@@ -89,8 +93,41 @@ export function useCalendarEvents(currentDate: Date) {
       visitId: visit.id,
     }));
 
-    console.log('Calendar events:', calendarEvents.length, 'Visit events:', visitEvents.length);
-    setEvents([...calendarEvents, ...visitEvents]);
+    // Generate birthday events for the current month
+    const birthdayEvents: CalendarEvent[] = [];
+    if (profilesResult.data) {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      
+      for (const profile of profilesResult.data) {
+        if (!profile.birthday) continue;
+        const bday = new Date(profile.birthday + 'T00:00:00');
+        // Check if birthday falls in this month
+        if (getMonth(bday) === month) {
+          const birthdayThisYear = new Date(year, month, getDate(bday), 9, 0, 0);
+          birthdayEvents.push({
+            id: `birthday-${profile.user_id}`,
+            title: `🎂 Aniversário: ${profile.full_name}`,
+            description: null,
+            event_type: 'aniversario',
+            start_date: birthdayThisYear.toISOString(),
+            end_date: null,
+            all_day: true,
+            location: null,
+            client_id: null,
+            client_name: null,
+            assigned_to: null,
+            color: '#f59e0b',
+            created_by: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        }
+      }
+    }
+
+    console.log('Calendar events:', calendarEvents.length, 'Visit events:', visitEvents.length, 'Birthday events:', birthdayEvents.length);
+    setEvents([...calendarEvents, ...visitEvents, ...birthdayEvents]);
     setIsLoading(false);
   }, [currentDate]);
 

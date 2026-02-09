@@ -9,6 +9,7 @@ export interface Profile {
   full_name: string;
   avatar_url: string | null;
   phone: string | null;
+  birthday: string | null;
 }
 
 export interface ProfileWithRole extends Profile {
@@ -31,7 +32,7 @@ export function useProfiles(options: UseProfilesOptions = {}) {
 
     const { data: profilesData, error: profilesError } = await supabase
       .from('profiles')
-      .select('id, user_id, full_name, avatar_url, phone')
+      .select('id, user_id, full_name, avatar_url, phone, birthday')
       .order('full_name');
 
     if (profilesError) {
