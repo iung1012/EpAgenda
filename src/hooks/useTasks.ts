@@ -126,6 +126,10 @@ export function useTasks() {
   }, [tasks]);
 
   const updateTaskStatus = useCallback(async (taskId: string, newStatus: TaskStatus) => {
+    // Optimistic update - immediately update local state
+    const previousTasks = tasks;
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+
     // Check if it's a demand task
     if (taskId.startsWith('demand-')) {
       const demandId = taskId.replace('demand-', '');
@@ -136,8 +140,9 @@ export function useTasks() {
         .update({ status: demandStatus })
         .eq('id', demandId);
 
-      if (!error) {
-        fetchTasks();
+      if (error) {
+        // Rollback on error
+        setTasks(previousTasks);
       }
       return { error };
     } else {
@@ -147,12 +152,13 @@ export function useTasks() {
         .update({ status: newStatus })
         .eq('id', taskId);
 
-      if (!error) {
-        fetchTasks();
+      if (error) {
+        // Rollback on error
+        setTasks(previousTasks);
       }
       return { error };
     }
-  }, [fetchTasks]);
+  }, [tasks]);
 
   const updateTaskDeliveryLink = useCallback(async (taskId: string, deliveryLink: string, taskTitle?: string) => {
     // Get current user
