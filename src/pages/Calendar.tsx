@@ -1,16 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, MapPin, Clock, CalendarDays, Pencil, Trash2 } from 'lucide-react';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { StatsCard } from '@/components/layout/StatsCard';
+import { ChevronLeft, ChevronRight, Plus, MapPin, Clock, CalendarDays, Pencil, Trash2, Video, Users, FileText, BarChart3 } from 'lucide-react';
 import { EmptyState } from '@/components/layout/EmptyState';
-import { CalendarDaySkeleton, StatsSkeleton } from '@/components/layout/CardSkeleton';
+import { CalendarDaySkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { EventFormDialog, EventFormValues } from '@/components/forms/EventFormDialog';
 import { VisitFormDialog, VisitFormValues } from '@/components/forms/VisitFormDialog';
@@ -22,6 +20,8 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MonthView } from '@/components/calendar/MonthView';
 import { WeekView } from '@/components/calendar/WeekView';
 import { DayView } from '@/components/calendar/DayView';
+import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 interface Client {
   id: string;
@@ -456,10 +456,27 @@ export default function Calendar() {
 
   const todayEvents = getTodayEvents();
 
+  // Stats
+  const visitCount = events.filter(e => e.event_type === 'visita').length;
+  const meetingCount = events.filter(e => e.event_type === 'reuniao').length;
+  const demandCount = events.filter(e => e.event_type === 'demanda').length;
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: { opacity: 1, transition: { staggerChildren: 0.06 } }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 12 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.3 } }
+  };
+
+  const currentDateFormatted = format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR });
+
   if (error) {
     return (
       <div className="space-y-6 animate-in">
-        <PageHeader title="Calendário" description="Gerencie eventos, demandas e visitas" />
+        <h1 className="text-2xl font-bold">Calendário</h1>
         <Card>
           <CardContent className="pt-6">
             <ErrorState onRetry={refetch} />
@@ -470,24 +487,227 @@ export default function Calendar() {
   }
 
   return (
-    <div className="space-y-6 animate-in">
-      <PageHeader 
-        title="Calendário" 
-        description="Gerencie eventos, demandas e visitas"
-        action={
-          <Button onClick={() => {
-            setEditingEvent(null);
-            setSelectedDate('');
-            setSelectedTime('');
-            setIsDialogOpen(true);
-          }}>
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Evento
-          </Button>
-        }
-      />
+    <motion.div 
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+      className="space-y-5"
+    >
+      {/* Header */}
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-muted-foreground capitalize">{currentDateFormatted}</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-1">Calendário</h1>
+        </div>
+        <Button onClick={() => {
+          setEditingEvent(null);
+          setSelectedDate('');
+          setSelectedTime('');
+          setIsDialogOpen(true);
+        }} className="rounded-xl gap-2 h-9">
+          <Plus className="h-4 w-4" />
+          Novo Evento
+        </Button>
+      </motion.div>
 
-      {/* Form Dialog */}
+      {/* Stats Row */}
+      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: 'Este Mês', value: events.length, icon: CalendarDays, iconBg: 'bg-info/10', iconColor: 'text-info' },
+          { label: 'Hoje', value: todayEvents.length, icon: Clock, iconBg: 'bg-success/10', iconColor: 'text-success' },
+          { label: 'Visitas', value: visitCount, icon: Video, iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-600 dark:text-emerald-400' },
+          { label: 'Reuniões', value: meetingCount, icon: Users, iconBg: 'bg-purple-500/10', iconColor: 'text-purple-600 dark:text-purple-400' },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="group relative overflow-hidden rounded-2xl border border-border/50 bg-card p-4 transition-all duration-300 hover:shadow-md hover:border-border"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-transparent to-muted/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative flex items-center gap-3">
+              <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center shrink-0", stat.iconBg)}>
+                <stat.icon className={cn("h-5 w-5", stat.iconColor)} />
+              </div>
+              <div>
+                <p className={cn("text-2xl font-bold tabular-nums tracking-tight", stat.iconColor)}>
+                  {isLoading ? '—' : stat.value}
+                </p>
+                <p className="text-xs text-muted-foreground font-medium">{stat.label}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </motion.div>
+
+      {/* Legend Chips */}
+      <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-2">
+        {[
+          { label: 'Visita', color: '#22c55e' },
+          { label: 'Reunião', color: '#a855f7' },
+          { label: 'Demanda', color: '#3b82f6' },
+          { label: 'Outro', color: '#6b7280' },
+          { label: 'Aniversário', color: '#f59e0b' },
+        ].map(({ label, color }) => (
+          <span
+            key={label}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-lg border border-border/30"
+          >
+            <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+            {label}
+          </span>
+        ))}
+      </motion.div>
+
+      {/* Calendar Card */}
+      <motion.div variants={itemVariants}>
+        <Card className="overflow-hidden rounded-2xl border-border/50">
+          {/* Navigation Header */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 sm:p-5 border-b border-border/40 bg-card">
+            <div className="flex items-center justify-center sm:justify-start gap-2 sm:gap-3">
+              <Button variant="ghost" size="icon" onClick={navigatePrevious} className="h-8 w-8 rounded-xl hover:bg-muted">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <h2 className="text-base sm:text-lg font-semibold capitalize text-center min-w-[140px] sm:min-w-[200px]">
+                {getHeaderTitle()}
+              </h2>
+              <Button variant="ghost" size="icon" onClick={navigateNext} className="h-8 w-8 rounded-xl hover:bg-muted">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex items-center justify-center sm:justify-end gap-2">
+              <Tabs value={viewType} onValueChange={(v) => setViewType(v as ViewType)}>
+                <TabsList className="h-8 sm:h-9 rounded-xl">
+                  <TabsTrigger value="month" className="text-xs sm:text-sm px-2.5 sm:px-3 rounded-lg">Mês</TabsTrigger>
+                  <TabsTrigger value="week" className="text-xs sm:text-sm px-2.5 sm:px-3 rounded-lg">Semana</TabsTrigger>
+                  <TabsTrigger value="day" className="text-xs sm:text-sm px-2.5 sm:px-3 rounded-lg">Dia</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())} className="h-8 sm:h-9 text-xs sm:text-sm rounded-xl">
+                Hoje
+              </Button>
+            </div>
+          </div>
+
+          <CardContent className="p-2 sm:p-5">
+            {isLoading ? (
+              <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
+                {[...Array(35)].map((_, i) => (
+                  <CalendarDaySkeleton key={i} />
+                ))}
+              </div>
+            ) : viewType === 'month' ? (
+              <MonthView
+                currentDate={currentDate}
+                events={events}
+                getEventsForDay={getEventsForDay}
+                onDayClick={handleDateClick}
+              />
+            ) : viewType === 'week' ? (
+              <div className="h-[60vh] sm:h-[600px] sm:max-h-[600px] overflow-hidden rounded-xl border flex flex-col">
+                <WeekView
+                  currentDate={currentDate}
+                  events={events}
+                  onEventClick={handleEventClick}
+                  onTimeSlotClick={handleTimeSlotClick}
+                  onEventMove={handleEventMove}
+                  onEventDelete={handleDeleteEvent}
+                  onDateChange={setCurrentDate}
+                />
+              </div>
+            ) : (
+              <div className="rounded-xl border overflow-hidden">
+                <DayView
+                  currentDate={currentDate}
+                  events={events}
+                  onEventClick={handleEventClick}
+                  onTimeSlotClick={handleTimeSlotClick}
+                  onEventMove={handleEventMove}
+                  onEventDelete={handleDeleteEvent}
+                  onDateChange={setCurrentDate}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Today's Events */}
+      <motion.div variants={itemVariants} className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Eventos de Hoje</h2>
+          <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md">
+            {todayEvents.length} {todayEvents.length === 1 ? 'evento' : 'eventos'}
+          </span>
+        </div>
+        <div className="rounded-2xl border border-border/50 bg-card overflow-hidden">
+          {isLoading ? (
+            <div className="space-y-0 divide-y divide-border/40">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="flex items-start gap-4 p-4 animate-pulse">
+                  <div className="h-10 w-1 rounded-full bg-muted" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-32 bg-muted rounded" />
+                    <div className="h-3 w-24 bg-muted rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : todayEvents.length === 0 ? (
+            <div className="py-10 px-4">
+              <EmptyState
+                icon={CalendarDays}
+                title="Nenhum evento para hoje"
+                description="Clique em um dia do calendário para adicionar um evento"
+              />
+            </div>
+          ) : (
+            <div className="divide-y divide-border/40">
+              {todayEvents.map((event) => (
+                <div key={event.id} className="flex items-start gap-3 p-3.5 hover:bg-muted/40 transition-colors group">
+                  <div
+                    className="h-10 w-1 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: event.color || '#3b82f6' }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-medium group-hover:text-primary transition-colors">{event.title}</h4>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md">
+                        <Clock className="h-3 w-3" />
+                        {format(new Date(event.start_date), 'HH:mm')}
+                      </span>
+                      {event.location && (
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                          <MapPin className="h-3 w-3 text-primary/60" />
+                          {event.location}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
+                      onClick={() => handleEditEvent(event)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-lg text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDeleteEvent(event)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Dialogs */}
       <EventFormDialog
         open={isDialogOpen}
         onOpenChange={(open) => {
@@ -506,7 +726,6 @@ export default function Calendar() {
         isLoading={isSubmitting}
       />
 
-      {/* Day Events Dialog */}
       <DayEventsDialog
         open={dayDialogOpen}
         onOpenChange={setDayDialogOpen}
@@ -517,7 +736,6 @@ export default function Calendar() {
         onAddNew={handleAddNewFromDay}
       />
 
-      {/* Visit Form Dialog */}
       <VisitFormDialog
         open={isVisitDialogOpen}
         onOpenChange={(open) => {
@@ -534,7 +752,6 @@ export default function Calendar() {
         isLoading={isVisitSubmitting}
       />
 
-      {/* Delete Confirmation */}
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
@@ -545,191 +762,6 @@ export default function Calendar() {
         variant="destructive"
         isLoading={isDeleting}
       />
-
-      {/* Stats */}
-      {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <StatsSkeleton />
-          <StatsSkeleton />
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <StatsCard
-            title="Eventos este mês"
-            value={events.length}
-            icon={CalendarDays}
-            variant="info"
-          />
-          <StatsCard
-            title="Eventos hoje"
-            value={todayEvents.length}
-            icon={Clock}
-            variant={todayEvents.length > 0 ? 'success' : 'default'}
-          />
-        </div>
-      )}
-
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 px-1">
-        <span className="text-sm text-muted-foreground font-medium">Legenda:</span>
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#22c55e' }} />
-          <span className="text-sm text-muted-foreground">Visita</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#a855f7' }} />
-          <span className="text-sm text-muted-foreground">Reunião</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#3b82f6' }} />
-          <span className="text-sm text-muted-foreground">Demanda</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: '#6b7280' }} />
-          <span className="text-sm text-muted-foreground">Outro</span>
-        </div>
-      </div>
-
-      {/* Calendar */}
-      <Card className="overflow-hidden">
-        <CardHeader className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between pb-4">
-          <div className="flex items-center justify-center sm:justify-start gap-2 sm:gap-4">
-            <Button variant="ghost" size="icon" onClick={navigatePrevious} className="h-8 w-8 sm:h-9 sm:w-9">
-              <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
-            <CardTitle className="text-base sm:text-xl capitalize text-center min-w-[140px] sm:min-w-[200px]">
-              {getHeaderTitle()}
-            </CardTitle>
-            <Button variant="ghost" size="icon" onClick={navigateNext} className="h-8 w-8 sm:h-9 sm:w-9">
-              <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
-          </div>
-          <div className="flex items-center justify-center sm:justify-end gap-2">
-            <Tabs value={viewType} onValueChange={(v) => setViewType(v as ViewType)}>
-              <TabsList className="h-8 sm:h-9">
-                <TabsTrigger value="month" className="text-xs sm:text-sm px-2 sm:px-3">Mês</TabsTrigger>
-                <TabsTrigger value="week" className="text-xs sm:text-sm px-2 sm:px-3">Semana</TabsTrigger>
-                <TabsTrigger value="day" className="text-xs sm:text-sm px-2 sm:px-3">Dia</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())} className="h-8 sm:h-9 text-xs sm:text-sm">
-              Hoje
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-2 sm:p-6">
-          {isLoading ? (
-            <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
-              {[...Array(35)].map((_, i) => (
-                <CalendarDaySkeleton key={i} />
-              ))}
-            </div>
-          ) : viewType === 'month' ? (
-            <MonthView
-              currentDate={currentDate}
-              events={events}
-              getEventsForDay={getEventsForDay}
-              onDayClick={handleDateClick}
-            />
-          ) : viewType === 'week' ? (
-            <div className="h-[60vh] sm:h-[600px] sm:max-h-[600px] overflow-hidden rounded-lg border flex flex-col">
-              <WeekView
-                currentDate={currentDate}
-                events={events}
-                onEventClick={handleEventClick}
-                onTimeSlotClick={handleTimeSlotClick}
-                onEventMove={handleEventMove}
-                onEventDelete={handleDeleteEvent}
-                onDateChange={setCurrentDate}
-              />
-            </div>
-          ) : (
-            <div className="rounded-lg border overflow-hidden">
-              <DayView
-                currentDate={currentDate}
-                events={events}
-                onEventClick={handleEventClick}
-                onTimeSlotClick={handleTimeSlotClick}
-                onEventMove={handleEventMove}
-                onEventDelete={handleDeleteEvent}
-                onDateChange={setCurrentDate}
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Today's Events */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Eventos de Hoje</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-3">
-              {[...Array(2)].map((_, i) => (
-                <div key={i} className="flex items-start gap-4 p-4 rounded-lg bg-secondary/50 animate-pulse">
-                  <div className="h-10 w-1 rounded-full bg-muted" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 w-32 bg-muted rounded" />
-                    <div className="h-3 w-24 bg-muted rounded" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : todayEvents.length === 0 ? (
-            <EmptyState
-              icon={CalendarDays}
-              title="Nenhum evento para hoje"
-              description="Clique em um dia do calendário para adicionar um evento"
-            />
-          ) : (
-            <div className="space-y-3">
-              {todayEvents.map((event) => (
-                <div key={event.id} className="flex items-start gap-4 p-4 rounded-lg bg-secondary/50 group">
-                  <div
-                    className="h-10 w-1 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: event.color || '#3b82f6' }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium">{event.title}</h4>
-                    <div className="flex flex-wrap gap-3 mt-1 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {format(new Date(event.start_date), 'HH:mm')}
-                      </span>
-                      {event.location && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {event.location}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleEditEvent(event)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => handleDeleteEvent(event)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+    </motion.div>
   );
 }

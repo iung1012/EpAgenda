@@ -25,7 +25,7 @@ export function MonthView({ currentDate, events, getEventsForDay, onDayClick }: 
       {/* Week days header - Desktop */}
       <div className="hidden sm:grid grid-cols-7 gap-1 mb-2">
         {weekDays.map((day) => (
-          <div key={day} className="text-center text-sm font-medium text-muted-foreground py-2">
+          <div key={day} className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider py-2.5">
             {day}
           </div>
         ))}
@@ -34,7 +34,7 @@ export function MonthView({ currentDate, events, getEventsForDay, onDayClick }: 
       {/* Week days header - Mobile */}
       <div className="grid sm:hidden grid-cols-7 gap-0.5 mb-1">
         {weekDaysMobile.map((day, index) => (
-          <div key={index} className="text-center text-xs font-medium text-muted-foreground py-1.5">
+          <div key={index} className="text-center text-xs font-semibold text-muted-foreground py-1.5">
             {day}
           </div>
         ))}
@@ -52,30 +52,32 @@ export function MonthView({ currentDate, events, getEventsForDay, onDayClick }: 
               key={day.toISOString()}
               onClick={() => onDayClick(day)}
               className={`
-                min-h-[100px] lg:min-h-[120px] p-2 rounded-lg text-left transition-all duration-200
-                ${isCurrentMonth ? 'bg-secondary/30 hover:bg-secondary/50' : 'bg-secondary/10 text-muted-foreground hover:bg-secondary/20'}
-                ${isToday ? 'ring-2 ring-primary shadow-md' : ''}
+                min-h-[100px] lg:min-h-[120px] p-2 rounded-xl text-left transition-all duration-200 border
+                ${isCurrentMonth 
+                  ? 'bg-card border-border/30 hover:border-border hover:shadow-sm' 
+                  : 'bg-muted/20 border-transparent text-muted-foreground/60 hover:bg-muted/40'}
+                ${isToday ? 'ring-2 ring-primary/80 border-primary/30 shadow-sm' : ''}
               `}
             >
               <span className={`
-                inline-flex items-center justify-center h-7 w-7 rounded-full text-sm font-medium
+                inline-flex items-center justify-center h-7 w-7 rounded-lg text-sm font-semibold
                 ${isToday ? 'bg-primary text-primary-foreground' : ''}
               `}>
                 {format(day, 'd')}
               </span>
-              <div className="mt-1 space-y-1">
+              <div className="mt-1 space-y-0.5">
                 {dayEvents.slice(0, 3).map((event) => (
                   <div
                     key={event.id}
-                    className="text-xs px-1.5 py-0.5 rounded truncate font-medium shadow-sm"
+                    className="text-[11px] px-1.5 py-0.5 rounded-md truncate font-medium"
                     style={{ backgroundColor: event.color || '#3b82f6', color: 'white' }}
                     title={event.client_name ? `${event.title} - ${event.client_name}` : event.title}
                   >
-                    {event.client_name ? `${event.title} • ${event.client_name}` : event.title}
+                    {event.client_name ? `${event.title} · ${event.client_name}` : event.title}
                   </div>
                 ))}
                 {dayEvents.length > 3 && (
-                  <div className="text-xs text-muted-foreground font-medium">
+                  <div className="text-[11px] text-muted-foreground font-medium px-1">
                     +{dayEvents.length - 3} mais
                   </div>
                 )}
@@ -98,18 +100,19 @@ export function MonthView({ currentDate, events, getEventsForDay, onDayClick }: 
               key={day.toISOString()}
               onClick={() => onDayClick(day)}
               className={`
-                aspect-square p-1 rounded-md text-center transition-all duration-200 flex flex-col items-center justify-start
-                ${isCurrentMonth ? 'bg-secondary/30 active:bg-secondary/60' : 'bg-secondary/10 text-muted-foreground'}
-                ${isToday ? 'ring-2 ring-primary' : ''}
+                aspect-square p-1 rounded-lg text-center transition-all duration-200 flex flex-col items-center justify-start border
+                ${isCurrentMonth 
+                  ? 'bg-card border-border/20 active:bg-accent' 
+                  : 'bg-transparent border-transparent text-muted-foreground/50'}
+                ${isToday ? 'ring-2 ring-primary border-primary/30' : ''}
               `}
             >
               <span className={`
-                inline-flex items-center justify-center h-6 w-6 rounded-full text-xs font-medium
+                inline-flex items-center justify-center h-6 w-6 rounded-md text-xs font-semibold
                 ${isToday ? 'bg-primary text-primary-foreground' : ''}
               `}>
                 {format(day, 'd')}
               </span>
-              {/* Event indicators */}
               {hasEvents && (
                 <div className="flex gap-0.5 mt-0.5 flex-wrap justify-center max-w-full">
                   {dayEvents.slice(0, 3).map((event) => (
