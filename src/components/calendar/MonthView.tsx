@@ -4,7 +4,6 @@ import { CalendarEvent } from '@/hooks/useCalendarEvents';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Holiday } from '@/hooks/useHolidays';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Star } from 'lucide-react';
 
 interface MonthViewProps {
   currentDate: Date;
@@ -75,9 +74,8 @@ export function MonthView({ currentDate, events, getEventsForDay, onDayClick, ge
                   <TooltipProvider delayDuration={200}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-red-400 truncate max-w-[90px] lg:max-w-[110px]">
-                          <Star className="h-3 w-3 fill-red-400 text-red-400 shrink-0" />
-                          {holiday.name}
+                        <span className="text-[10px] font-medium text-red-400 truncate max-w-[80px] lg:max-w-[100px]">
+                          🔴 {holiday.name}
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="text-xs">
@@ -157,8 +155,8 @@ export function MonthView({ currentDate, events, getEventsForDay, onDayClick, ge
                   </button>
                 </TooltipTrigger>
                 {holiday && (
-                  <TooltipContent side="top" className="text-xs flex items-center gap-1">
-                    <Star className="h-3 w-3 fill-red-400 text-red-400" /> {holiday.name}
+                  <TooltipContent side="top" className="text-xs">
+                    🔴 {holiday.name}
                   </TooltipContent>
                 )}
               </Tooltip>
