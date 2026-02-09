@@ -275,20 +275,28 @@ export default function Tasks() {
     const taskId = active.id as string;
     const overId = over.id as string;
 
+    console.log('[DragEnd] active.id:', taskId, 'over.id:', overId, 'over.data:', over.data?.current);
+
     // Check if dropped on a column directly
-    let newStatus = columns.find(col => col.id === overId)?.id;
+    const columnIds = columns.map(col => col.id);
+    let newStatus: TaskStatus | undefined;
     
-    // If not a column, find which column the target task belongs to
-    if (!newStatus) {
+    if (columnIds.includes(overId as TaskStatus)) {
+      newStatus = overId as TaskStatus;
+    } else {
+      // Dropped on a task - find its parent column via the task's status
       const targetTask = tasks.find(t => t.id === overId);
       if (targetTask) {
         newStatus = targetTask.status as TaskStatus;
       }
     }
 
+    console.log('[DragEnd] resolved newStatus:', newStatus);
+
     if (newStatus) {
       const task = tasks.find(t => t.id === taskId);
       if (task && task.status !== newStatus) {
+        console.log('[DragEnd] moving task from', task.status, 'to', newStatus);
         const { error } = await updateTaskStatus(taskId, newStatus);
         if (error) {
           toast({ variant: 'destructive', title: 'Erro ao mover tarefa' });
