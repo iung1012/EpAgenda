@@ -13,6 +13,7 @@ import { ErrorState } from '@/components/layout/ErrorState';
 import { EventFormDialog, EventFormValues } from '@/components/forms/EventFormDialog';
 import { VisitFormDialog, VisitFormValues } from '@/components/forms/VisitFormDialog';
 import { useCalendarEvents, CalendarEvent } from '@/hooks/useCalendarEvents';
+import { useHolidays } from '@/hooks/useHolidays';
 import { useProfiles } from '@/hooks/useProfiles';
 import { DayEventsDialog } from '@/components/calendar/DayEventsDialog';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
@@ -51,6 +52,7 @@ export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewType, setViewType] = useState<ViewType>('month');
   const { events, isLoading, error, refetch, getEventsForDay, getTodayEvents, updateEventLocally } = useCalendarEvents(currentDate);
+  const { getHolidayForDate } = useHolidays(currentDate.getFullYear());
   const { profiles } = useProfiles();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -546,6 +548,7 @@ export default function Calendar() {
           { label: 'Demanda', color: '#3b82f6' },
           { label: 'Outro', color: '#6b7280' },
           { label: 'Aniversário', color: '#f59e0b' },
+          { label: 'Feriado', color: '#ef4444' },
         ].map(({ label, color }) => (
           <span
             key={label}
@@ -600,6 +603,7 @@ export default function Calendar() {
                 events={events}
                 getEventsForDay={getEventsForDay}
                 onDayClick={handleDateClick}
+                getHolidayForDate={getHolidayForDate}
               />
             ) : viewType === 'week' ? (
               <div className="h-[60vh] sm:h-[600px] sm:max-h-[600px] overflow-hidden rounded-xl border flex flex-col">
