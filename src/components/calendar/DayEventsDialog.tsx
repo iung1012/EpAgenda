@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Clock, MapPin, Pencil, Trash2, User, Plus, CalendarDays } from 'lucide-react';
+import { Clock, MapPin, Pencil, Trash2, User, Plus, CalendarDays, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -86,7 +86,7 @@ export function DayEventsDialog({
         <div className="px-4 py-3">
           {holiday && (
             <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20">
-              <span className="text-sm">🔴</span>
+              <Star className="h-4 w-4 fill-red-400 text-red-400 shrink-0" />
               <span className="text-sm font-medium text-red-400">{holiday.name}</span>
               <span className="text-xs text-muted-foreground ml-auto">Feriado Nacional</span>
             </div>
