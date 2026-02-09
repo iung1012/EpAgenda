@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,7 +11,6 @@ import {
   Loader2,
   ListTodo,
   AlertTriangle,
-  Sparkles,
   ClipboardList,
   TrendingUp,
   Target,
@@ -31,8 +29,6 @@ import {
 } from '@dnd-kit/core';
 import { isPast, isToday, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { StatsCard } from '@/components/layout/StatsCard';
-import { StatsSkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 import { TaskFormDialog, TaskFormValues } from '@/components/forms/TaskFormDialog';
@@ -399,89 +395,139 @@ export default function Tasks() {
   if (error) {
     return (
       <div className="space-y-6 animate-in">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/5 via-primary/10 to-transparent p-8 border border-border/50">
-          <h1 className="text-3xl font-semibold tracking-tight">Tarefas</h1>
-          <p className="text-muted-foreground">Gerencie as tarefas da equipe</p>
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+            <Target className="h-5 w-5 text-primary" />
+          </div>
+          <h1 className="text-xl font-bold tracking-tight">Tarefas</h1>
         </div>
-        <Card>
-          <CardContent className="pt-6">
-            <ErrorState onRetry={refetch} />
-          </CardContent>
-        </Card>
+        <div className="rounded-2xl border border-border/50 bg-card p-6">
+          <ErrorState onRetry={refetch} />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Hero Header - Enhanced */}
+    <div className="flex flex-col gap-4 h-full">
+      {/* Compact Header Bar */}
       <motion.div 
-        initial={{ opacity: 0, y: -20 }}
+        initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/5 via-primary/8 to-accent/5 p-6 md:p-8 border border-border/30"
+        transition={{ duration: 0.3 }}
+        className="flex flex-col gap-3"
       >
-        {/* Background decorations */}
-        <div className="absolute top-0 right-0 w-72 h-72 bg-gradient-to-br from-primary/15 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-accent/10 to-transparent rounded-full blur-2xl translate-y-1/2 -translate-x-1/4" />
-        
-        {/* Grid pattern overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border)/0.03)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border)/0.03)_1px,transparent_1px)] bg-[size:24px_24px]" />
-        
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <motion.p 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="text-sm font-medium text-muted-foreground capitalize mb-2"
-            >
-              {currentDate}
-            </motion.p>
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.15 }}
-              className="flex items-center gap-3 mb-3"
-            >
-              <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
-                <Target className="h-6 w-6 text-primary" />
-              </div>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-                Gestão de Tarefas
-              </h1>
-            </motion.div>
-            <motion.p 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="text-muted-foreground text-sm md:text-base max-w-lg"
-            >
-              Você tem{' '}
-              <span className="font-semibold text-foreground">{getTasksByStatus('a_fazer').length + getTasksByStatus('fazendo').length} tarefas</span> pendentes
-              {overdueCount > 0 && (
-                <> e <span className="font-semibold text-destructive">{overdueCount} atrasadas</span></>
-              )}
-            </motion.p>
+        {/* Top row: Title + Action */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-primary/10 border border-primary/20">
+              <Target className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">Gestão de Tarefas</h1>
+              <p className="text-xs text-muted-foreground capitalize">{currentDate}</p>
+            </div>
           </div>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.25 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
             <Button 
               onClick={() => { setEditingTask(null); setIsDialogOpen(true); }} 
-              size="lg"
-              className="gap-2 shadow-lg rounded-xl h-11 px-6"
+              size="sm"
+              className="gap-2 shadow-md rounded-xl h-9 px-4"
             >
-              <Plus className="h-5 w-5" />
+              <Plus className="h-4 w-4" />
               Nova Tarefa
             </Button>
           </motion.div>
         </div>
+
+        {/* Inline Stats Row */}
+        {!isLoading && (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary border border-border/50 text-sm">
+              <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-semibold tabular-nums">{tasks.length}</span>
+              <span className="text-muted-foreground text-xs">total</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary border border-border/50 text-sm">
+              <ListTodo className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-semibold tabular-nums">{getTasksByStatus('a_fazer').length}</span>
+              <span className="text-muted-foreground text-xs">a fazer</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-info/10 border border-info/20 text-sm">
+              <Loader2 className="h-3.5 w-3.5 text-info animate-spin" />
+              <span className="font-semibold tabular-nums text-info">{getTasksByStatus('fazendo').length}</span>
+              <span className="text-info/70 text-xs">em progresso</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/10 border border-success/20 text-sm">
+              <TrendingUp className="h-3.5 w-3.5 text-success" />
+              <span className="font-semibold tabular-nums text-success">{productivity}%</span>
+              <span className="text-success/70 text-xs">concluído</span>
+            </div>
+            {overdueCount > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/10 border border-destructive/20 text-sm">
+                <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+                <span className="font-semibold tabular-nums text-destructive">{overdueCount}</span>
+                <span className="text-destructive/70 text-xs">atrasadas</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Filters Row */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+          <Button
+            variant={assignedFilter === user?.id ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              if (assignedFilter === user?.id) {
+                setAssignedFilter('all');
+              } else {
+                setAssignedFilter(user?.id || 'all');
+              }
+            }}
+            className="gap-1.5 rounded-full h-8 text-xs"
+          >
+            <User className="h-3.5 w-3.5" />
+            Minhas Tarefas
+            {assignedFilter === user?.id && (
+              <span className="ml-0.5 bg-primary-foreground/20 px-1.5 py-0.5 rounded-full text-[10px]">
+                {filteredTasks.length}
+              </span>
+            )}
+          </Button>
+          <div className="flex-1 w-full sm:w-auto">
+            <TaskFilters
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              priorityFilter={priorityFilter}
+              onPriorityChange={setPriorityFilter}
+              assignedFilter={assignedFilter}
+              onAssignedChange={setAssignedFilter}
+              clientFilter={clientFilter}
+              onClientChange={setClientFilter}
+              profiles={profiles}
+              clients={clients}
+              activeFiltersCount={activeFiltersCount}
+              onClearFilters={clearFilters}
+            />
+          </div>
+        </div>
       </motion.div>
+
+      {/* Task Alerts - Compact */}
+      {!isLoading && tasks.length > 0 && overdueCount > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="rounded-xl border border-destructive/20 bg-destructive/5 p-3"
+        >
+          <TaskAlerts 
+            tasks={tasks as Task[]} 
+            onTaskClick={handleTaskAlertClick}
+          />
+        </motion.div>
+      )}
 
       {/* Form Dialog */}
       <TaskFormDialog
@@ -502,122 +548,14 @@ export default function Tasks() {
         } : undefined}
       />
 
-      {/* Stats Grid - Enhanced */}
-      {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <StatsSkeleton key={i} />
-          ))}
-        </div>
-      ) : (
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-        >
-          <StatsCard
-            title="Total de Tarefas"
-            value={tasks.length}
-            icon={ClipboardList}
-          />
-          <StatsCard
-            title="A Fazer"
-            value={getTasksByStatus('a_fazer').length}
-            subtitle={overdueCount > 0 ? `${overdueCount} atrasadas` : undefined}
-            icon={overdueCount > 0 ? AlertTriangle : ListTodo}
-            variant={overdueCount > 0 ? 'warning' : 'default'}
-          />
-          <StatsCard
-            title="Em Progresso"
-            value={getTasksByStatus('fazendo').length}
-            icon={Loader2}
-            variant="info"
-          />
-          <StatsCard
-            title="Produtividade"
-            value={`${productivity}%`}
-            subtitle="tarefas concluídas"
-            icon={TrendingUp}
-            variant="success"
-          />
-        </motion.div>
-      )}
-
-      {/* Task Alerts - Enhanced */}
-      {!isLoading && tasks.length > 0 && overdueCount > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.15 }}
-          className="rounded-2xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm"
-        >
-          <div className="p-4">
-            <TaskAlerts 
-              tasks={tasks as Task[]} 
-              onTaskClick={handleTaskAlertClick}
-            />
-          </div>
-        </motion.div>
-      )}
-
-      {/* Filters - Enhanced */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.2 }}
-        className="rounded-2xl border border-border/40 bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm"
-      >
-        <div className="p-4 space-y-3">
-          {/* Quick Filter - Minhas Tarefas */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant={assignedFilter === user?.id ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                if (assignedFilter === user?.id) {
-                  setAssignedFilter('all');
-                } else {
-                  setAssignedFilter(user?.id || 'all');
-                }
-              }}
-              className="gap-2 rounded-full"
-            >
-              <User className="h-4 w-4" />
-              Minhas Tarefas
-              {assignedFilter === user?.id && (
-                <span className="ml-1 bg-primary-foreground/20 px-1.5 py-0.5 rounded-full text-xs">
-                  {filteredTasks.length}
-                </span>
-              )}
-            </Button>
-          </div>
-          
-          <TaskFilters
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            priorityFilter={priorityFilter}
-            onPriorityChange={setPriorityFilter}
-            assignedFilter={assignedFilter}
-            onAssignedChange={setAssignedFilter}
-            clientFilter={clientFilter}
-            onClientChange={setClientFilter}
-            profiles={profiles}
-            clients={clients}
-            activeFiltersCount={activeFiltersCount}
-            onClearFilters={clearFilters}
-          />
-        </div>
-      </motion.div>
-
-      {/* Kanban Board with Drag and Drop */}
+      {/* Kanban Board - Full remaining height */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-1 min-h-0">
           {columns.map((column) => (
             <KanbanColumn
               key={column.id}
@@ -643,7 +581,6 @@ export default function Tasks() {
           ))}
         </div>
 
-        {/* Drag Overlay for visual feedback */}
         <DragOverlay>
           {activeTask ? (
             <div className="w-[300px]">
