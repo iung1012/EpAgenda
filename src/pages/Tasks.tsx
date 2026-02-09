@@ -325,6 +325,15 @@ export default function Tasks() {
     }
   };
 
+  const handleMoveToProgress = async (taskId: string) => {
+    const { error } = await updateTaskStatus(taskId, 'fazendo');
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erro ao mover tarefa' });
+    } else {
+      toast({ title: 'Tarefa em progresso!' });
+    }
+  };
+
   const handleAddDeliveryLink = async (taskId: string, link: string) => {
     // Find the task to get its title for the notification
     const task = tasks.find(t => t.id === taskId);
@@ -629,6 +638,7 @@ export default function Tasks() {
               onQuickComplete={handleQuickComplete}
               onReopen={handleReopen}
               onAddDeliveryLink={handleAddDeliveryLink}
+              onMoveToProgress={handleMoveToProgress}
             />
           ))}
         </div>
