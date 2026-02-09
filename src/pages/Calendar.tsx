@@ -738,6 +738,7 @@ export default function Calendar() {
         onEdit={handleEditEvent}
         onDelete={handleDeleteEvent}
         onAddNew={handleAddNewFromDay}
+        holiday={selectedDay ? getHolidayForDate(format(selectedDay, 'yyyy-MM-dd')) : null}
       />
 
       <VisitFormDialog
