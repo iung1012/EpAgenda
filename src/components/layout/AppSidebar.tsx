@@ -4,32 +4,33 @@ import {
   Calendar, 
   CheckSquare, 
   LayoutDashboard,
-  Settings,
   LogOut,
   Video,
   Film,
   Package,
-  FileText
+  FileText,
+  Settings,
+  ChevronRight
 } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
+import { cn } from '@/lib/utils';
 
 const mainNavItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
@@ -67,7 +68,7 @@ export function AppSidebar() {
 
   const getRoleBadge = (role: string | null) => {
     switch (role) {
-      case 'admin': return 'Admin';
+      case 'admin': return 'Administrador';
       case 'gerente': return 'Gerente';
       case 'colaborador': return 'Colaborador';
       case 'filmmaker': return 'Filmmaker';
@@ -76,125 +77,124 @@ export function AppSidebar() {
     }
   };
 
+  const renderNavItem = (item: typeof mainNavItems[0]) => (
+    <SidebarMenuItem key={item.title}>
+      <SidebarMenuButton asChild tooltip={item.title}>
+        <NavLink 
+          to={item.url} 
+          end={item.url === '/'}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium",
+            "text-sidebar-foreground/70 hover:text-sidebar-foreground",
+            "hover:bg-sidebar-accent/80 transition-all duration-200"
+          )}
+          activeClassName="bg-sidebar-primary text-sidebar-primary-foreground shadow-sm hover:bg-sidebar-primary hover:text-sidebar-primary-foreground"
+        >
+          <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
+          {!collapsed && <span>{item.title}</span>}
+        </NavLink>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+
   return (
-    <Sidebar collapsible="offcanvas" className="border-r border-sidebar-border">
-      <SidebarHeader className="p-4">
-        <div className="flex items-center justify-start">
+    <Sidebar collapsible="offcanvas" className="border-r border-sidebar-border/50">
+      {/* Logo Header */}
+      <SidebarHeader className="p-4 pb-2">
+        <div className="flex items-center justify-center">
           <img 
             src={logo} 
             alt="EP Mídias" 
-            className={collapsed ? "h-12 w-auto" : "h-20 w-auto"}
+            className={cn(
+              "w-auto transition-all duration-300",
+              collapsed ? "h-10" : "h-16"
+            )}
           />
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
+      <SidebarContent className="px-3 py-2">
+        {/* Main Navigation */}
         <SidebarGroup>
+          <SidebarGroupLabel className="px-3 text-[10px] uppercase tracking-widest text-sidebar-foreground/40 font-semibold mb-1">
+            Principal
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
-              {mainNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild tooltip={item.title}>
-                    <NavLink 
-                      to={item.url} 
-                      end={item.url === '/'}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+            <SidebarMenu className="space-y-0.5">
+              {mainNavItems.map(renderNavItem)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* Admin Navigation */}
         {isAdminOrManager && (
-          <>
-            <Separator className="my-2" />
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {adminNavItems.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild tooltip={item.title}>
-                        <NavLink 
-                          to={item.url}
-                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-                          activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-                        >
-                          <item.icon className="h-5 w-5 flex-shrink-0" />
-                          {!collapsed && <span>{item.title}</span>}
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </>
+          <SidebarGroup className="mt-4">
+            <SidebarGroupLabel className="px-3 text-[10px] uppercase tracking-widest text-sidebar-foreground/40 font-semibold mb-1">
+              Administração
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="space-y-0.5">
+                {adminNavItems.map(renderNavItem)}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         )}
 
+        {/* Filmmaker Navigation */}
         {(isFilmmaker || isAdminOrManager) && (
-          <>
-            <Separator className="my-2" />
-            <SidebarGroup>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {filmmakerNavItems.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild tooltip={item.title}>
-                        <NavLink 
-                          to={item.url}
-                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-                          activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-                        >
-                          <item.icon className="h-5 w-5 flex-shrink-0" />
-                          {!collapsed && <span>{item.title}</span>}
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </>
+          <SidebarGroup className="mt-4">
+            <SidebarGroupLabel className="px-3 text-[10px] uppercase tracking-widest text-sidebar-foreground/40 font-semibold mb-1">
+              Audiovisual
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="space-y-0.5">
+                {filmmakerNavItems.map(renderNavItem)}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         )}
       </SidebarContent>
 
-      <SidebarFooter className="p-3">
-        <Separator className="mb-3" />
-        <NavLink 
-          to="/profile"
-          className="flex items-center gap-3 rounded-lg hover:bg-sidebar-accent transition-colors p-1 -m-1"
-          activeClassName="bg-sidebar-accent"
-        >
-          <Avatar className="h-9 w-9 flex-shrink-0">
-            <AvatarImage src={profile?.avatar_url ?? undefined} />
-            <AvatarFallback className="text-xs">
-              {profile?.full_name ? getInitials(profile.full_name) : 'U'}
-            </AvatarFallback>
-          </Avatar>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{profile?.full_name}</p>
-              <p className="text-xs text-muted-foreground">{getRoleBadge(role)}</p>
-            </div>
-          )}
-        </NavLink>
-        {!collapsed && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={signOut}
-            className="w-full justify-start gap-2 mt-2 text-muted-foreground hover:text-foreground"
+      {/* Footer with profile */}
+      <SidebarFooter className="p-3 mt-auto">
+        <div className="rounded-xl bg-sidebar-accent/50 p-1">
+          <NavLink 
+            to="/profile"
+            className={cn(
+              "flex items-center gap-3 rounded-lg p-2 transition-all duration-200",
+              "hover:bg-sidebar-accent"
+            )}
+            activeClassName="bg-sidebar-accent"
           >
-            <LogOut className="h-4 w-4" />
-            Sair
-          </Button>
-        )}
+            <Avatar className="h-9 w-9 flex-shrink-0 ring-2 ring-sidebar-border/50">
+              <AvatarImage src={profile?.avatar_url ?? undefined} />
+              <AvatarFallback className="text-xs font-semibold bg-sidebar-primary text-sidebar-primary-foreground">
+                {profile?.full_name ? getInitials(profile.full_name) : 'U'}
+              </AvatarFallback>
+            </Avatar>
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate">{profile?.full_name}</p>
+                <p className="text-[11px] text-sidebar-foreground/50">{getRoleBadge(role)}</p>
+              </div>
+            )}
+            {!collapsed && (
+              <ChevronRight className="h-4 w-4 text-sidebar-foreground/30 flex-shrink-0" />
+            )}
+          </NavLink>
+
+          {!collapsed && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={signOut}
+              className="w-full justify-start gap-2 mt-1 text-sidebar-foreground/50 hover:text-destructive hover:bg-destructive/10 rounded-lg h-9 text-xs"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sair da conta
+            </Button>
+          )}
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
