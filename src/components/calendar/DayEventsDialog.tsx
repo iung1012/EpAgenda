@@ -52,7 +52,7 @@ export function DayEventsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md p-0 gap-0 overflow-hidden rounded-xl border-border/60 shadow-xl">
         {/* Header */}
-        <div className="bg-primary/5 border-b border-border/40 px-5 pt-5 pb-4">
+        <div className="bg-primary/5 border-b border-border/40 px-5 pt-5 pb-4 pr-12">
           <DialogHeader className="space-y-0">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
