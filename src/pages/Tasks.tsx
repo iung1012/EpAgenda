@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -58,6 +59,7 @@ interface Task {
 }
 
 export default function Tasks() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { tasks, isLoading, error, refetch, getTasksByStatus, updateTaskStatus, updateTaskDeliveryLink } = useTasks();
   const { profiles, getProfileName } = useProfiles();
   const { clients } = useClients({ minimal: true });
@@ -97,6 +99,20 @@ export default function Tasks() {
       },
     })
   );
+
+  // Auto-open task from URL query param (e.g. from notification click)
+  useEffect(() => {
+    const taskId = searchParams.get('taskId');
+    if (taskId && !isLoading && tasks.length > 0) {
+      const task = tasks.find(t => t.id === taskId);
+      if (task) {
+        setEditingTask(task as Task);
+        setIsDialogOpen(true);
+      }
+      searchParams.delete('taskId');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, tasks, isLoading]);
 
   // Calculate active filters count
   const activeFiltersCount = useMemo(() => {
