@@ -9,6 +9,7 @@ export interface Notification {
   created_by: string;
   created_at: string;
   read_by: string[];
+  target_user_id: string | null;
 }
 
 export function useNotifications() {
@@ -19,15 +20,18 @@ export function useNotifications() {
 
   const fetchNotifications = async () => {
     setIsLoading(true);
+    if (!user) { setIsLoading(false); return; }
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
+      .or(`target_user_id.is.null,target_user_id.eq.${user.id}`)
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      const parsed: Notification[] = data.map((n) => ({
+      const parsed: Notification[] = data.map((n: any) => ({
         ...n,
         read_by: Array.isArray(n.read_by) ? (n.read_by as string[]) : [],
+        target_user_id: n.target_user_id ?? null,
       }));
       setNotifications(parsed);
       if (user) {
@@ -110,10 +114,11 @@ export function useNotifications() {
         (payload) => {
           fetchNotifications();
           const newNotif = payload.new as any;
-          // Trigger Chrome push notification if it's not from the current user
+          // Trigger Chrome push notification only if targeted to this user (or global)
           if (
             user &&
             newNotif.created_by !== user.id &&
+            (newNotif.target_user_id === null || newNotif.target_user_id === user.id) &&
             'Notification' in window &&
             Notification.permission === 'granted'
           ) {

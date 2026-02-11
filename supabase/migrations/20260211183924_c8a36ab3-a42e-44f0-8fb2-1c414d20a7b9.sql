@@ -1,0 +1,1 @@
+ALTER TABLE public.notifications ADD COLUMN target_user_id uuid;

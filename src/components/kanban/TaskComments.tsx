@@ -98,7 +98,8 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
         title: `💬 ${authorName} mencionou você`,
         message: `Em um comentário de tarefa: "${displayContent.substring(0, 100)}${displayContent.length > 100 ? '...' : ''}" [task:${taskId}]`,
         created_by: user.id,
-      });
+        target_user_id: userId,
+      } as any);
     }
   };
 
