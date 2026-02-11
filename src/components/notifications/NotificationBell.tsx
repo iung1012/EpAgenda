@@ -13,12 +13,32 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { NotificationFormDialog } from './NotificationFormDialog';
+import { useNavigate } from 'react-router-dom';
 
 export function NotificationBell() {
   const { user } = useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead, isLoading } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const extractTaskId = (message: string): string | null => {
+    const match = message.match(/\[task:([a-f0-9-]+)\]/);
+    return match ? match[1] : null;
+  };
+
+  const getDisplayMessage = (message: string) => {
+    return message.replace(/\s*\[task:[a-f0-9-]+\]/, '');
+  };
+
+  const handleNotificationClick = (notification: { id: string; message: string; read_by: string[] }) => {
+    markAsRead(notification.id);
+    const taskId = extractTaskId(notification.message);
+    if (taskId) {
+      setIsOpen(false);
+      navigate(`/tasks?taskId=${taskId}`);
+    }
+  };
 
   if (!user) return null;
 
@@ -86,7 +106,7 @@ export function NotificationBell() {
                       className={`p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
                         !isRead ? 'bg-primary/5' : ''
                       }`}
-                      onClick={() => markAsRead(notification.id)}
+                      onClick={() => handleNotificationClick(notification)}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
@@ -99,7 +119,7 @@ export function NotificationBell() {
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground line-clamp-2 mt-0.5">
-                            {notification.message}
+                            {getDisplayMessage(notification.message)}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
                             {formatDistanceToNow(new Date(notification.created_at), {

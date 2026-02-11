@@ -96,7 +96,7 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
       if (userId === user.id) continue; // don't notify self
       await supabase.from('notifications').insert({
         title: `💬 ${authorName} mencionou você`,
-        message: `Em um comentário de tarefa: "${displayContent.substring(0, 100)}${displayContent.length > 100 ? '...' : ''}"`,
+        message: `Em um comentário de tarefa: "${displayContent.substring(0, 100)}${displayContent.length > 100 ? '...' : ''}" [task:${taskId}]`,
         created_by: user.id,
       });
     }
