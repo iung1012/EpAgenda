@@ -394,6 +394,7 @@ export type Database = {
           id: string
           message: string
           read_by: Json
+          target_user_id: string | null
           title: string
         }
         Insert: {
@@ -402,6 +403,7 @@ export type Database = {
           id?: string
           message: string
           read_by?: Json
+          target_user_id?: string | null
           title: string
         }
         Update: {
@@ -410,6 +412,7 @@ export type Database = {
           id?: string
           message?: string
           read_by?: Json
+          target_user_id?: string | null
           title?: string
         }
         Relationships: []
