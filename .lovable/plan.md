@@ -1,105 +1,59 @@
 
-# Plano: Remover Cliente e Todos os Dados Relacionados
 
-## Objetivo
-Adicionar funcionalidade para que administradores/gerentes possam excluir um cliente e todos os seus dados relacionados do banco de dados.
+# Corrigir Notificações de Menção Aparecendo Para Todos
 
-## Implementação
+## Problema
+Quando alguém menciona um usuário em um comentário de tarefa, **todos** os outros usuários recebem a notificação push do Chrome, não apenas o mencionado. Isso acontece porque:
 
-### 1. Adicionar Botão de Exclusão na Página do Cliente
-Adicionar um botão vermelho "Excluir Cliente" no cabeçalho da página `ClientDetail.tsx`, visível apenas para admins/gerentes.
+1. A função `notifyMentionedUsers` cria um registro na tabela `notifications` para cada usuário mencionado, mas a tabela não tem campo para indicar **quem** deve receber
+2. No `useNotifications.ts`, a notificação push é disparada para **qualquer** usuário que não seja o criador: `newNotif.created_by !== user.id`
 
-### 2. Diálogo de Confirmação
-Usar o componente `ConfirmDialog` existente para confirmar a exclusão, com aviso claro sobre a ação irreversível.
+## Solução
 
-### 3. Função de Exclusão em Cascata
-Criar função que deleta dados na seguinte ordem:
+### 1. Adicionar coluna `target_user_id` na tabela `notifications`
+- Nova coluna opcional (`uuid`, nullable) que indica para quem a notificação é destinada
+- Quando `null`, a notificação é para todos (comportamento atual para avisos gerais)
+- Quando preenchido, apenas aquele usuário deve receber
 
-```text
-┌─────────────────────────────────────────┐
-│ 1. client_passwords                     │
-│ 2. client_folders                       │
-│ 3. client_drive_folders                 │
-│ 4. tasks (onde client_id = cliente)     │
-│ 5. calendar_events (onde client_id)     │
-│ 6. filmmaker_visits (onde client_id)    │
-│ 7. filmmaker_demands (onde client_id)   │
-│ 8. clients (registro principal)         │
-└─────────────────────────────────────────┘
-```
+### 2. Atualizar `TaskComments.tsx`
+- No `notifyMentionedUsers`, passar o `userId` mencionado como `target_user_id` no insert
 
----
+### 3. Atualizar `useNotifications.ts`
+- Na busca de notificações: filtrar para mostrar apenas notificações onde `target_user_id` é `null` (para todos) **ou** igual ao `user.id` (para o usuário logado)
+- Na notificação push do Chrome: adicionar a mesma verificação — só disparar push se `target_user_id` for `null` ou igual ao `user.id`
+
+### 4. Atualizar contagem de não lidas
+- O `unreadCount` passará a considerar apenas notificações visíveis para o usuário
 
 ## Detalhes Técnicos
 
-### Arquivo a Modificar
-- `src/pages/ClientDetail.tsx`
+### Migração SQL
+```sql
+ALTER TABLE notifications ADD COLUMN target_user_id uuid;
+```
 
-### Mudanças no Código
-
-**1. Novo estado para controle do diálogo:**
+### Filtro na query de busca
 ```typescript
-const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-const [isDeleting, setIsDeleting] = useState(false);
+// Buscar notificações para todos OU direcionadas ao usuário
+.or(`target_user_id.is.null,target_user_id.eq.${user.id}`)
 ```
 
-**2. Função de exclusão:**
+### Filtro no push do Chrome
 ```typescript
-const handleDeleteClient = async () => {
-  if (!id || !isAdminOrManager) return;
-  
-  setIsDeleting(true);
-  
-  // Deletar em ordem
-  await supabase.from('client_passwords').delete().eq('client_id', id);
-  await supabase.from('client_folders').delete().eq('client_id', id);
-  await supabase.from('client_drive_folders').delete().eq('client_id', id);
-  await supabase.from('tasks').delete().eq('client_id', id);
-  await supabase.from('calendar_events').delete().eq('client_id', id);
-  await supabase.from('filmmaker_visits').delete().eq('client_id', id);
-  await supabase.from('filmmaker_demands').delete().eq('client_id', id);
-  
-  const { error } = await supabase.from('clients').delete().eq('id', id);
-  
-  if (error) {
-    toast({ variant: 'destructive', title: 'Erro', description: error.message });
-  } else {
-    toast({ title: 'Cliente excluído com sucesso!' });
-    navigate('/clients');
-  }
-  
-  setIsDeleting(false);
-};
+if (
+  user &&
+  newNotif.created_by !== user.id &&
+  (newNotif.target_user_id === null || newNotif.target_user_id === user.id)
+) { ... }
 ```
 
-**3. Botão no cabeçalho (apenas para admins/gerentes):**
-```tsx
-{isAdminOrManager && (
-  <Button 
-    variant="destructive" 
-    onClick={() => setIsDeleteDialogOpen(true)}
-  >
-    <Trash2 className="h-4 w-4 mr-2" />
-    Excluir Cliente
-  </Button>
-)}
+### Insert com target
+```typescript
+await supabase.from('notifications').insert({
+  title: `mensagem`,
+  message: `conteudo`,
+  created_by: user.id,
+  target_user_id: userId, // usuario mencionado
+});
 ```
 
-**4. Diálogo de confirmação:**
-```tsx
-<ConfirmDialog
-  open={isDeleteDialogOpen}
-  onOpenChange={setIsDeleteDialogOpen}
-  title="Excluir Cliente"
-  description={`Tem certeza que deseja excluir "${client?.name}"? Esta ação irá remover permanentemente o cliente e TODOS os dados relacionados (senhas, pastas, tarefas, eventos, visitas e demandas). Esta ação NÃO pode ser desfeita.`}
-  confirmText="Excluir Permanentemente"
-  onConfirm={handleDeleteClient}
-  variant="destructive"
-  isLoading={isDeleting}
-/>
-```
-
-### Segurança
-- Botão visível apenas para `isAdminOrManager`
-- RLS do banco já protege a operação de DELETE
-- Confirmação dupla com texto descritivo
