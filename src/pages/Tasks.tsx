@@ -14,7 +14,8 @@ import {
   ClipboardList,
   TrendingUp,
   Target,
-  User
+  User,
+  Trash2
 } from 'lucide-react';
 import { 
   DndContext, 
@@ -72,7 +73,8 @@ export default function Tasks() {
     taskTitle: '',
   });
   const [isDeleting, setIsDeleting] = useState(false);
-
+  const [deleteAllCompletedDialog, setDeleteAllCompletedDialog] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -254,6 +256,31 @@ export default function Tasks() {
     }
   };
 
+  const completedTasks = getTasksByStatus('feito');
+  const regularCompletedIds = completedTasks.filter(t => !t.isDemand).map(t => t.id);
+  const demandCompletedIds = completedTasks.filter(t => t.isDemand).map(t => t.demandId!);
+
+  const handleDeleteAllCompleted = async () => {
+    setIsDeletingAll(true);
+    const promises: Promise<any>[] = [];
+    if (regularCompletedIds.length > 0) {
+      promises.push(Promise.resolve(supabase.from('tasks').delete().in('id', regularCompletedIds)));
+    }
+    if (demandCompletedIds.length > 0) {
+      promises.push(Promise.resolve(supabase.from('filmmaker_demands').delete().in('id', demandCompletedIds)));
+    }
+    const results = await Promise.all(promises);
+    const hasError = results.some(r => r.error);
+    setIsDeletingAll(false);
+    setDeleteAllCompletedDialog(false);
+    if (hasError) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir algumas tarefas' });
+    } else {
+      toast({ title: `${completedTasks.length} tarefas concluídas excluídas!` });
+      refetch();
+    }
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     const task = tasks.find(t => t.id === active.id);
@@ -428,16 +455,32 @@ export default function Tasks() {
               <p className="text-xs text-muted-foreground capitalize">{currentDate}</p>
             </div>
           </div>
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Button 
-              onClick={() => { setEditingTask(null); setIsDialogOpen(true); }} 
-              size="sm"
-              className="gap-2 shadow-md rounded-xl h-9 px-4"
-            >
-              <Plus className="h-4 w-4" />
-              Nova Tarefa
-            </Button>
-          </motion.div>
+          <div className="flex items-center gap-2">
+            {completedTasks.length > 0 && (
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDeleteAllCompletedDialog(true)}
+                  className="gap-2 rounded-xl h-9 px-4 text-destructive border-destructive/30 hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Limpar Concluídas</span>
+                  <span className="bg-destructive/10 px-1.5 py-0.5 rounded-full text-[10px] font-semibold">{completedTasks.length}</span>
+                </Button>
+              </motion.div>
+            )}
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button 
+                onClick={() => { setEditingTask(null); setIsDialogOpen(true); }} 
+                size="sm"
+                className="gap-2 shadow-md rounded-xl h-9 px-4"
+              >
+                <Plus className="h-4 w-4" />
+                Nova Tarefa
+              </Button>
+            </motion.div>
+          </div>
         </div>
 
         {/* Inline Stats Row */}
@@ -608,6 +651,18 @@ export default function Tasks() {
         onConfirm={handleDeleteTask}
         variant="destructive"
         isLoading={isDeleting}
+      />
+
+      {/* Confirm Delete All Completed Dialog */}
+      <ConfirmDialog
+        open={deleteAllCompletedDialog}
+        onOpenChange={setDeleteAllCompletedDialog}
+        title="Excluir todas as concluídas"
+        description={`Tem certeza que deseja excluir ${completedTasks.length} tarefa(s) concluída(s)? Esta ação não pode ser desfeita.`}
+        confirmText="Excluir todas"
+        onConfirm={handleDeleteAllCompleted}
+        variant="destructive"
+        isLoading={isDeletingAll}
       />
     </div>
   );
