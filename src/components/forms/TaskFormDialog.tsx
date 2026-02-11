@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { TaskComments } from '@/components/kanban/TaskComments';
 
 const taskSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório').max(100, 'Máximo 100 caracteres'),
@@ -57,6 +59,7 @@ interface TaskFormDialogProps {
   clients: Client[];
   isEditing?: boolean;
   isLoading?: boolean;
+  taskId?: string;
 }
 
 export function TaskFormDialog({
@@ -68,6 +71,7 @@ export function TaskFormDialog({
   clients,
   isEditing = false,
   isLoading = false,
+  taskId,
 }: TaskFormDialogProps) {
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskSchema),
@@ -246,6 +250,14 @@ export function TaskFormDialog({
             </div>
           </form>
         </Form>
+
+        {/* Comments Section - only when editing */}
+        {isEditing && taskId && (
+          <>
+            <Separator className="my-2" />
+            <TaskComments taskId={taskId} />
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -1,0 +1,30 @@
+
+-- Create task comments table
+CREATE TABLE public.task_comments (
+  id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  task_id UUID NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+-- Enable RLS
+ALTER TABLE public.task_comments ENABLE ROW LEVEL SECURITY;
+
+-- Everyone can view comments on tasks they can see
+CREATE POLICY "Authenticated users can view comments"
+  ON public.task_comments FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+
+-- Users can create their own comments
+CREATE POLICY "Users can create comments"
+  ON public.task_comments FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Users can delete their own comments, admins can delete any
+CREATE POLICY "Users can delete own comments"
+  ON public.task_comments FOR DELETE
+  USING (auth.uid() = user_id OR is_admin_or_manager(auth.uid()));
+
+-- Enable realtime for comments
+ALTER PUBLICATION supabase_realtime ADD TABLE public.task_comments;
