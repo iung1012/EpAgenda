@@ -10,37 +10,37 @@ interface TaskPayload {
   assigned_to: string | null;
   status: string;
   priority: string;
+  created_by: string | null;
 }
 
 export function useTaskAssignmentNotifications() {
   const { user } = useAuth();
-  const { profiles } = useProfiles();
-  const previousAssignmentsRef = useRef<Map<string, string | null>>(new Map());
+  const { profiles, getProfileName } = useProfiles();
+  const previousTasksRef = useRef<Map<string, { assigned_to: string | null; status: string }>>(new Map());
   const isInitializedRef = useRef(false);
 
   useEffect(() => {
     if (!user) return;
 
-    // Fetch initial task assignments to track changes
-    const initializeAssignments = async () => {
+    const initializeTasks = async () => {
       const { data } = await supabase
         .from('tasks')
-        .select('id, assigned_to');
+        .select('id, assigned_to, status');
       
       if (data) {
-        const assignmentMap = new Map<string, string | null>();
+        const taskMap = new Map<string, { assigned_to: string | null; status: string }>();
         data.forEach(task => {
-          assignmentMap.set(task.id, task.assigned_to);
+          taskMap.set(task.id, { assigned_to: task.assigned_to, status: task.status });
         });
-        previousAssignmentsRef.current = assignmentMap;
+        previousTasksRef.current = taskMap;
         isInitializedRef.current = true;
       }
     };
 
-    initializeAssignments();
+    initializeTasks();
 
     const channel = supabase
-      .channel('task-assignments')
+      .channel('task-global-notifications')
       .on(
         'postgres_changes',
         {
@@ -53,16 +53,36 @@ export function useTaskAssignmentNotifications() {
 
           const newTask = payload.new as TaskPayload;
           const oldTask = payload.old as TaskPayload;
-          
-          // Check if assigned_to changed and if the new assignee is the current user
+          const previous = previousTasksRef.current.get(newTask.id);
+          const oldStatus = previous?.status || oldTask.status;
+
+          // Status changed - notify everyone
+          if (newTask.status !== oldStatus) {
+            const taskTitle = newTask.title;
+
+            if (newTask.status === 'fazendo') {
+              toast.info('🔄 Tarefa em progresso', {
+                description: taskTitle,
+                duration: 4000,
+              });
+            } else if (newTask.status === 'feito') {
+              toast.success('✅ Tarefa concluída', {
+                description: taskTitle,
+                duration: 4000,
+              });
+            } else if (newTask.status === 'a_fazer' && oldStatus === 'feito') {
+              toast.info('🔁 Tarefa reaberta', {
+                description: taskTitle,
+                duration: 4000,
+              });
+            }
+          }
+
+          // Assignment changed - notify assigned user specifically
           if (
             newTask.assigned_to !== oldTask.assigned_to &&
             newTask.assigned_to === user.id
           ) {
-            // Get the name of who assigned the task
-            const assignerName = profiles?.find(p => p.user_id === oldTask.assigned_to)?.full_name;
-            
-            // Show toast notification
             toast.info('📋 Nova tarefa atribuída a você!', {
               description: newTask.title,
               duration: 5000,
@@ -74,7 +94,6 @@ export function useTaskAssignmentNotifications() {
               },
             });
 
-            // Play notification sound (optional browser API)
             if ('Notification' in window && Notification.permission === 'granted') {
               new Notification('Nova tarefa atribuída!', {
                 body: newTask.title,
@@ -83,8 +102,11 @@ export function useTaskAssignmentNotifications() {
             }
           }
 
-          // Update the reference
-          previousAssignmentsRef.current.set(newTask.id, newTask.assigned_to);
+          // Update reference
+          previousTasksRef.current.set(newTask.id, { 
+            assigned_to: newTask.assigned_to, 
+            status: newTask.status 
+          });
         }
       )
       .on(
@@ -96,35 +118,31 @@ export function useTaskAssignmentNotifications() {
         },
         (payload) => {
           const newTask = payload.new as TaskPayload;
-          
-          // If a new task is created and assigned to current user
-          if (newTask.assigned_to === user.id) {
-            toast.info('📋 Nova tarefa criada para você!', {
-              description: newTask.title,
-              duration: 5000,
-              action: {
-                label: 'Ver',
-                onClick: () => {
-                  window.location.href = '/tasks';
-                },
-              },
-            });
 
+          // Notify everyone about new task
+          toast.info('📌 Nova tarefa adicionada', {
+            description: newTask.title,
+            duration: 4000,
+          });
+
+          // Extra notification if assigned to current user
+          if (newTask.assigned_to === user.id && newTask.created_by !== user.id) {
             if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification('Nova tarefa criada!', {
+              new Notification('Nova tarefa criada para você!', {
                 body: newTask.title,
                 icon: '/favicon.png',
               });
             }
           }
 
-          // Track the new task
-          previousAssignmentsRef.current.set(newTask.id, newTask.assigned_to);
+          previousTasksRef.current.set(newTask.id, { 
+            assigned_to: newTask.assigned_to, 
+            status: newTask.status 
+          });
         }
       )
       .subscribe();
 
-    // Request notification permission
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
