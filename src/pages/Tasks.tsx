@@ -581,6 +581,7 @@ export default function Tasks() {
         clients={clients}
         isEditing={!!editingTask}
         isLoading={isSubmitting}
+        taskId={editingTask?.id}
         defaultValues={editingTask ? {
           title: editingTask.title,
           description: editingTask.description || '',
