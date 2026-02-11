@@ -97,11 +97,36 @@ export function useNotifications() {
   useEffect(() => {
     fetchNotifications();
 
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
     const channel = supabase
       .channel('notifications-changes')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'notifications' },
+        { event: 'INSERT', schema: 'public', table: 'notifications' },
+        (payload) => {
+          fetchNotifications();
+          const newNotif = payload.new as any;
+          // Trigger Chrome push notification if it's not from the current user
+          if (
+            user &&
+            newNotif.created_by !== user.id &&
+            'Notification' in window &&
+            Notification.permission === 'granted'
+          ) {
+            new Notification(newNotif.title || 'Nova notificação', {
+              body: (newNotif.message || '').replace(/\s*\[task:[a-f0-9-]+\]/, ''),
+              icon: '/favicon.png',
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'notifications' },
         () => {
           fetchNotifications();
         }
