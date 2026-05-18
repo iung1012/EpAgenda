@@ -68,7 +68,7 @@ export function useCalendarEvents(currentDate: Date) {
     }
 
     const calendarEvents: CalendarEvent[] = (eventsResult.data || []).map((event: Record<string, unknown>) => ({
-      ...(event as CalendarEvent),
+      ...(event as unknown as CalendarEvent),
       client_name: (event.clients as { name: string } | null)?.name ?? null,
     }));
 
