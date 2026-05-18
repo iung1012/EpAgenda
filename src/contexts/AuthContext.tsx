@@ -51,27 +51,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Initialize from the persisted session; this is the authoritative initial load.
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    // onAuthStateChange fires INITIAL_SESSION synchronously with the persisted
+    // session, so we don't need to call getSession() (which can hang in some
+    // edge cases). It also handles SIGN_IN / SIGN_OUT / TOKEN_REFRESHED.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchUserData(session.user.id);
-      }
-      setLoading(false);
-    });
 
-    // React to subsequent auth events (SIGN_IN, SIGN_OUT, TOKEN_REFRESHED, etc.).
-    // Skip INITIAL_SESSION — handled by getSession above to avoid a double fetch.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'INITIAL_SESSION') return;
-      setSession(session);
-      setUser(session?.user ?? null);
       if (session?.user) {
-        await fetchUserData(session.user.id);
+        // Defer the supabase calls to avoid deadlocks inside the auth callback.
+        setTimeout(() => {
+          fetchUserData(session.user.id).finally(() => setLoading(false));
+        }, 0);
       } else {
         setProfile(null);
         setRole(null);
+        setLoading(false);
       }
     });
 
