@@ -417,6 +417,84 @@ export type Database = {
         }
         Relationships: []
       }
+      pautas: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      posts: {
+        Row: {
+          caption: string | null
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          link: string | null
+          media_url: string | null
+          platform: string
+          posted_at: string | null
+          scheduled_date: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          caption?: string | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          link?: string | null
+          media_url?: string | null
+          platform?: string
+          posted_at?: string | null
+          scheduled_date: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          caption?: string | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          link?: string | null
+          media_url?: string | null
+          platform?: string
+          posted_at?: string | null
+          scheduled_date?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -525,6 +603,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          pauta_id: string | null
           priority: Database["public"]["Enums"]["task_priority"]
           status: Database["public"]["Enums"]["task_status"]
           title: string
@@ -539,6 +618,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          pauta_id?: string | null
           priority?: Database["public"]["Enums"]["task_priority"]
           status?: Database["public"]["Enums"]["task_status"]
           title: string
@@ -553,6 +633,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          pauta_id?: string | null
           priority?: Database["public"]["Enums"]["task_priority"]
           status?: Database["public"]["Enums"]["task_status"]
           title?: string

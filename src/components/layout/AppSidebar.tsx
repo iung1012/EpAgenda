@@ -8,6 +8,8 @@ import {
   Video,
   Film,
   Package,
+  Instagram,
+  Newspaper,
   FileText,
   Settings,
   ChevronRight
@@ -37,6 +39,8 @@ const mainNavItems = [
   { title: 'Clientes', url: '/clients', icon: Building2 },
   { title: 'Calendário', url: '/calendar', icon: Calendar },
   { title: 'Tarefas', url: '/tasks', icon: CheckSquare },
+  { title: 'Pautas', url: '/pautas', icon: Newspaper },
+  { title: 'Postagens', url: '/posts', icon: Instagram },
   { title: 'Modelos', url: '/templates', icon: FileText },
 ];
 

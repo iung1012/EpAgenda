@@ -1,59 +1,41 @@
+## Entrega: 3 features novas
 
+### 1. Página de Postagens (Calendário)
+- Nova rota `/postagens` no menu lateral (ícone Instagram).
+- Nova tabela `posts`: `client_id`, `title`, `caption`, `scheduled_date`, `posted_at`, `status` (`agendado`/`postado`/`atrasado`), `platform` (instagram/facebook/tiktok/etc), `media_url`, `link`, `created_by`.
+- Visão calendário mensal (reaproveitando o padrão de `MonthView`) com:
+  - Pontos coloridos por status (verde = postado, amarelo = agendado, vermelho = atrasado).
+  - Filtro por cliente e plataforma.
+  - Clique no dia abre dialog listando posts daquele dia, com botão "Marcar como postado" (preenche `posted_at`).
+- Formulário de criação/edição de post (dialog).
+- RLS: todos autenticados veem; criador ou admin/gerente edita/exclui.
 
-# Corrigir Notificações de Menção Aparecendo Para Todos
+### 2. Wizard de criação de Visita (com Equipamentos)
+- Refatorar `VisitFormDialog.tsx` em wizard de 3 passos:
+  1. **Dados da visita** — título, cliente, data, local, descrição.
+  2. **Equipamentos** — seleção múltipla a partir da tabela `equipment` (cria registros em `visit_equipment`).
+  3. **Concluir** — resumo + botão "Criar visita".
+- Indicador de progresso no topo (Steps), botões Voltar/Avançar.
+- Página de Demandas continua intacta.
 
-## Problema
-Quando alguém menciona um usuário em um comentário de tarefa, **todos** os outros usuários recebem a notificação push do Chrome, não apenas o mencionado. Isso acontece porque:
+### 3. Página global de Pautas
+- Nova rota `/pautas` no menu lateral (ícone FileText).
+- Nova tabela `pautas`: `title`, `description`, `client_id`, `created_by`.
+- Nova coluna `pauta_id` (nullable) em `tasks` para agrupar tarefas dentro de uma pauta.
+- UI: lista de pautas em accordion/cards expansíveis; ao expandir mostra as tarefas vinculadas, com botão para criar tarefa já associada à pauta.
+- Filtro por cliente.
+- RLS: todos autenticados veem; criador ou admin/gerente edita/exclui.
 
-1. A função `notifyMentionedUsers` cria um registro na tabela `notifications` para cada usuário mencionado, mas a tabela não tem campo para indicar **quem** deve receber
-2. No `useNotifications.ts`, a notificação push é disparada para **qualquer** usuário que não seja o criador: `newNotif.created_by !== user.id`
+### Detalhes técnicos
+- Migration cria `posts`, `pautas`, adiciona `pauta_id` em `tasks`, RLS completas.
+- Sidebar: adicionar links "Postagens" e "Pautas".
+- Hooks novos: `usePosts`, `usePautas`. `useTasks` ganha suporte opcional a `pauta_id`.
+- Componentes novos:
+  - `src/pages/Posts.tsx`, `src/components/posts/PostsCalendar.tsx`, `src/components/forms/PostFormDialog.tsx`, `src/components/posts/DayPostsDialog.tsx`.
+  - `src/pages/Pautas.tsx`, `src/components/forms/PautaFormDialog.tsx`.
+  - `VisitFormDialog` reescrito como wizard (mantém mesma API de props).
+- Sem mudanças em RLS de tabelas existentes.
 
-## Solução
-
-### 1. Adicionar coluna `target_user_id` na tabela `notifications`
-- Nova coluna opcional (`uuid`, nullable) que indica para quem a notificação é destinada
-- Quando `null`, a notificação é para todos (comportamento atual para avisos gerais)
-- Quando preenchido, apenas aquele usuário deve receber
-
-### 2. Atualizar `TaskComments.tsx`
-- No `notifyMentionedUsers`, passar o `userId` mencionado como `target_user_id` no insert
-
-### 3. Atualizar `useNotifications.ts`
-- Na busca de notificações: filtrar para mostrar apenas notificações onde `target_user_id` é `null` (para todos) **ou** igual ao `user.id` (para o usuário logado)
-- Na notificação push do Chrome: adicionar a mesma verificação — só disparar push se `target_user_id` for `null` ou igual ao `user.id`
-
-### 4. Atualizar contagem de não lidas
-- O `unreadCount` passará a considerar apenas notificações visíveis para o usuário
-
-## Detalhes Técnicos
-
-### Migração SQL
-```sql
-ALTER TABLE notifications ADD COLUMN target_user_id uuid;
-```
-
-### Filtro na query de busca
-```typescript
-// Buscar notificações para todos OU direcionadas ao usuário
-.or(`target_user_id.is.null,target_user_id.eq.${user.id}`)
-```
-
-### Filtro no push do Chrome
-```typescript
-if (
-  user &&
-  newNotif.created_by !== user.id &&
-  (newNotif.target_user_id === null || newNotif.target_user_id === user.id)
-) { ... }
-```
-
-### Insert com target
-```typescript
-await supabase.from('notifications').insert({
-  title: `mensagem`,
-  message: `conteudo`,
-  created_by: user.id,
-  target_user_id: userId, // usuario mencionado
-});
-```
-
+### Fora de escopo
+- Integração automática com APIs do Instagram/Meta (postagem real).
+- Notificações de pauta atrasada (pode vir depois).

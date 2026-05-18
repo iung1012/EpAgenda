@@ -18,6 +18,8 @@ import Profile from "./pages/Profile";
 import FilmmakerVisits from "./pages/FilmmakerVisits";
 import FilmmakerDemands from "./pages/FilmmakerDemands";
 import Equipment from "./pages/Equipment";
+import Posts from "./pages/Posts";
+import Pautas from "./pages/Pautas";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -40,6 +42,8 @@ function AppRoutes() {
         <Route path="/filmmaker/visits" element={<ProtectedRoute><FilmmakerVisits /></ProtectedRoute>} />
         <Route path="/filmmaker/demands" element={<ProtectedRoute><FilmmakerDemands /></ProtectedRoute>} />
         <Route path="/equipment" element={<ProtectedRoute><Equipment /></ProtectedRoute>} />
+        <Route path="/posts" element={<ProtectedRoute><Posts /></ProtectedRoute>} />
+        <Route path="/pautas" element={<ProtectedRoute><Pautas /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AuthProvider>
