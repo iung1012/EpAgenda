@@ -71,7 +71,7 @@ export default function Pautas() {
 
   const handleDelete = async () => {
     // Unlink tasks first
-    await supabase.from('tasks').update({ pauta_id: null } as any).eq('pauta_id' as any, confirmDelete.id);
+    await (supabase.from('tasks') as any).update({ pauta_id: null }).eq('pauta_id', confirmDelete.id);
     const { error } = await supabase.from('pautas').delete().eq('id', confirmDelete.id);
     if (error) toast({ variant: 'destructive', title: 'Erro', description: error.message });
     else { toast({ title: 'Pauta excluída' }); refetch(); refetchTasks(); }
