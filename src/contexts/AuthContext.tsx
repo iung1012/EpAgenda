@@ -51,13 +51,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    console.log('[Auth] mount, calling getSession');
     // Initialize from the persisted session; this is the authoritative initial load.
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      console.log('[Auth] getSession resolved', { hasSession: !!session, userId: session?.user?.id });
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        await fetchUserData(session.user.id);
+        try {
+          await fetchUserData(session.user.id);
+          console.log('[Auth] fetchUserData done');
+        } catch (e) {
+          console.error('[Auth] fetchUserData error', e);
+        }
       }
+      setLoading(false);
+    }).catch((e) => {
+      console.error('[Auth] getSession error', e);
       setLoading(false);
     });
 
