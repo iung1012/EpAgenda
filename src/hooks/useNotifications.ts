@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -29,6 +29,11 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const channelInstanceId = useRef(
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2)
+  );
 
   const fetchNotifications = useCallback(async () => {
     setIsLoading(true);
@@ -105,13 +110,19 @@ export function useNotifications() {
   useEffect(() => {
     fetchNotifications();
 
+    if (!user?.id) {
+      return;
+    }
+
+    const userId = user.id;
+
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
 
-    // Deterministic channel name — no random suffix to avoid channel leaks
+    // Unique per hook instance because NotificationBell and the dialog can mount together.
     const channel = supabase
-      .channel(`notifications:user:${user?.id ?? 'anon'}`)
+      .channel(`notifications:user:${userId}:${channelInstanceId.current}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications' },
@@ -119,18 +130,17 @@ export function useNotifications() {
           const raw = payload.new as Record<string, unknown>;
           const newNotif = parseNotification(raw);
 
-          if (!user) return;
           // Ignore notifications not targeted at this user
-          if (newNotif.target_user_id !== null && newNotif.target_user_id !== user.id) return;
+          if (newNotif.target_user_id !== null && newNotif.target_user_id !== userId) return;
 
           setNotifications((prev) => [newNotif, ...prev]);
-          if (!newNotif.read_by.includes(user.id)) {
+          if (!newNotif.read_by.includes(userId)) {
             setUnreadCount((prev) => prev + 1);
           }
 
           // Browser push notification for other users' inserts
           if (
-            newNotif.created_by !== user.id &&
+            newNotif.created_by !== userId &&
             'Notification' in window &&
             Notification.permission === 'granted'
           ) {
@@ -153,9 +163,7 @@ export function useNotifications() {
             const updated = prev.map((n) =>
               n.id === updatedId ? { ...n, read_by: updatedReadBy } : n
             );
-            if (user) {
-              setUnreadCount(updated.filter((n) => !n.read_by.includes(user.id)).length);
-            }
+            setUnreadCount(updated.filter((n) => !n.read_by.includes(userId)).length);
             return updated;
           });
         }
