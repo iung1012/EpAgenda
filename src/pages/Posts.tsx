@@ -119,8 +119,8 @@ export default function Posts() {
         action={
           <Sheet open={manageOpen} onOpenChange={setManageOpen}>
             <SheetTrigger asChild>
-              <Button size="sm" variant="outline" className="gap-2">
-                <Settings2 className="h-4 w-4" /> Gerenciar clientes
+              <Button size="sm" className="gap-2">
+                <Settings2 className="h-4 w-4" /> Gerenciar clientes fixos
               </Button>
             </SheetTrigger>
             <SheetContent className="w-full sm:max-w-md overflow-y-auto">
