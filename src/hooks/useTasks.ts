@@ -1,11 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export type TaskStatus = 'a_fazer' | 'fazendo' | 'feito';
 export type TaskPriority = 'baixa' | 'media' | 'alta';
+export type TaskSource = 'task' | 'demand';
 
 export interface Task {
   id: string;
+  source: TaskSource;  // discriminator: which table this row came from
+  sourceId: string;    // original DB id without any prefix
   title: string;
   description: string | null;
   status: TaskStatus;
@@ -17,46 +20,40 @@ export interface Task {
   created_at: string;
   delivery_link: string | null;
   updated_at: string;
-  // For demand tasks
-  isDemand?: boolean;
-  demandId?: string;
 }
 
-// Map demand status to task status
-// DB constraint allows: 'a_fazer', 'em_processo', 'terminado', 'alteracoes'
 const mapDemandStatusToTaskStatus = (demandStatus: string): TaskStatus => {
   switch (demandStatus) {
-    case 'terminado':
-      return 'feito';
-    case 'em_processo':
-      return 'fazendo';
+    case 'terminado': return 'feito';
+    case 'em_processo': return 'fazendo';
     case 'a_fazer':
     case 'alteracoes':
-    default:
-      return 'a_fazer';
+    default: return 'a_fazer';
   }
 };
 
-// Map task status back to demand status
-// DB constraint allows: 'a_fazer', 'em_processo', 'terminado', 'alteracoes'
 const mapTaskStatusToDemandStatus = (taskStatus: TaskStatus): string => {
   switch (taskStatus) {
-    case 'feito':
-      return 'terminado';
-    case 'fazendo':
-      return 'em_processo';
+    case 'feito': return 'terminado';
+    case 'fazendo': return 'em_processo';
     case 'a_fazer':
-    default:
-      return 'a_fazer';
+    default: return 'a_fazer';
   }
 };
 
-// Helper function to notify admins when a delivery is completed
+// Deduplication window: prevent duplicate notifications within 10 seconds
+const lastDeliveryNotification = new Map<string, number>();
+
 async function notifyAdminsOnDelivery(taskTitle: string, deliveryLink: string, userId: string) {
+  const key = `${taskTitle}:${deliveryLink}`;
+  const now = Date.now();
+  const last = lastDeliveryNotification.get(key) ?? 0;
+  if (now - last < 10_000) return; // skip if notified in last 10s
+  lastDeliveryNotification.set(key, now);
+
   try {
-    // Create a notification for all users (admins/managers will see it)
     await supabase.from('notifications').insert({
-      title: '🎉 Entrega Concluída',
+      title: 'Entrega Concluída',
       message: `A tarefa "${taskTitle}" foi concluída. Link: ${deliveryLink}`,
       created_by: userId,
     });
@@ -69,21 +66,17 @@ export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Keep a stable ref for rollback without stale closure issues
+  const tasksRef = useRef<Task[]>([]);
+  tasksRef.current = tasks;
 
   const fetchTasks = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
-    // Fetch tasks and demands in parallel
     const [tasksResult, demandsResult] = await Promise.all([
-      supabase
-        .from('tasks')
-        .select('*')
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('filmmaker_demands')
-        .select('*')
-        .order('created_at', { ascending: false })
+      supabase.from('tasks').select('*').order('created_at', { ascending: false }),
+      supabase.from('filmmaker_demands').select('*').order('created_at', { ascending: false }),
     ]);
 
     if (tasksResult.error) {
@@ -92,15 +85,20 @@ export function useTasks() {
       return;
     }
 
-    // Convert demands to task format
-    const regularTasks = (tasksResult.data || []) as Task[];
-    
-    const demandTasks: Task[] = (demandsResult.data || []).map(demand => ({
+    const regularTasks: Task[] = (tasksResult.data || []).map((t) => ({
+      ...(t as Omit<Task, 'source' | 'sourceId'>),
+      source: 'task' as TaskSource,
+      sourceId: t.id,
+    }));
+
+    const demandTasks: Task[] = (demandsResult.data || []).map((demand) => ({
       id: `demand-${demand.id}`,
-      title: `📋 ${demand.title}`,
+      source: 'demand' as TaskSource,
+      sourceId: demand.id,
+      title: demand.title,  // no emoji prefix in DB data
       description: demand.description,
       status: mapDemandStatusToTaskStatus(demand.status),
-      priority: 'media' as TaskPriority, // Default priority for demands
+      priority: 'media' as TaskPriority,
       due_date: demand.due_date,
       client_id: demand.client_id,
       assigned_to: demand.filmmaker_id,
@@ -108,11 +106,8 @@ export function useTasks() {
       created_at: demand.created_at,
       updated_at: demand.updated_at,
       delivery_link: demand.delivery_link,
-      isDemand: true,
-      demandId: demand.id,
     }));
 
-    // Combine tasks and demands
     setTasks([...regularTasks, ...demandTasks]);
     setIsLoading(false);
   }, []);
@@ -121,84 +116,67 @@ export function useTasks() {
     fetchTasks();
   }, [fetchTasks]);
 
-  const getTasksByStatus = useCallback((status: TaskStatus) => {
-    return tasks.filter(t => t.status === status);
-  }, [tasks]);
+  const getTasksByStatus = useCallback(
+    (status: TaskStatus) => tasks.filter((t) => t.status === status),
+    [tasks]
+  );
 
   const updateTaskStatus = useCallback(async (taskId: string, newStatus: TaskStatus) => {
-    // Optimistic update - immediately update local state
-    const previousTasks = tasks;
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    const previous = tasksRef.current;
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)));
 
-    // Check if it's a demand task
-    if (taskId.startsWith('demand-')) {
-      const demandId = taskId.replace('demand-', '');
-      const demandStatus = mapTaskStatusToDemandStatus(newStatus);
-      
+    const task = previous.find((t) => t.id === taskId);
+    if (!task) return { error: new Error('Task not found') };
+
+    if (task.source === 'demand') {
       const { error } = await supabase
         .from('filmmaker_demands')
-        .update({ status: demandStatus })
-        .eq('id', demandId);
-
-      if (error) {
-        // Rollback on error
-        setTasks(previousTasks);
-      }
-      return { error };
-    } else {
-      // Regular task
-      const { error } = await supabase
-        .from('tasks')
-        .update({ status: newStatus })
-        .eq('id', taskId);
-
-      if (error) {
-        // Rollback on error
-        setTasks(previousTasks);
-      }
+        .update({ status: mapTaskStatusToDemandStatus(newStatus) })
+        .eq('id', task.sourceId);
+      if (error) setTasks(previous);
       return { error };
     }
-  }, [tasks]);
 
-  const updateTaskDeliveryLink = useCallback(async (taskId: string, deliveryLink: string, taskTitle?: string) => {
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-    const userId = user?.id;
+    const { error } = await supabase
+      .from('tasks')
+      .update({ status: newStatus })
+      .eq('id', task.sourceId);
+    if (error) setTasks(previous);
+    return { error };
+  }, []);
 
-    // Check if it's a demand task
-    if (taskId.startsWith('demand-')) {
-      const demandId = taskId.replace('demand-', '');
-      
-      const { error } = await supabase
-        .from('filmmaker_demands')
-        .update({ delivery_link: deliveryLink })
-        .eq('id', demandId);
+  const updateTaskDeliveryLink = useCallback(
+    async (taskId: string, deliveryLink: string, taskTitle?: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
 
-      if (!error) {
-        // Notify admins about the delivery
-        if (userId && taskTitle) {
-          await notifyAdminsOnDelivery(taskTitle.replace('📋 ', ''), deliveryLink, userId);
+      const task = tasksRef.current.find((t) => t.id === taskId);
+      if (!task) return { error: new Error('Task not found') };
+
+      if (task.source === 'demand') {
+        const { error } = await supabase
+          .from('filmmaker_demands')
+          .update({ delivery_link: deliveryLink })
+          .eq('id', task.sourceId);
+        if (!error) {
+          if (userId && taskTitle) await notifyAdminsOnDelivery(taskTitle, deliveryLink, userId);
+          fetchTasks();
         }
-        fetchTasks();
+        return { error };
       }
-      return { error };
-    } else {
-      // Regular task
+
       const { error } = await supabase
         .from('tasks')
         .update({ delivery_link: deliveryLink })
-        .eq('id', taskId);
-
+        .eq('id', task.sourceId);
       if (!error) {
-        // Notify admins about the delivery
-        if (userId && taskTitle) {
-          await notifyAdminsOnDelivery(taskTitle, deliveryLink, userId);
-        }
+        if (userId && taskTitle) await notifyAdminsOnDelivery(taskTitle, deliveryLink, userId);
         fetchTasks();
       }
       return { error };
-    }
-  }, [fetchTasks]);
+    },
+    [fetchTasks]
+  );
 
   return {
     tasks,
