@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -12,30 +12,13 @@ export interface Notification {
   target_user_id: string | null;
 }
 
-function parseNotification(raw: Record<string, unknown>): Notification {
-  return {
-    id: raw.id as string,
-    title: raw.title as string,
-    message: raw.message as string,
-    created_by: raw.created_by as string,
-    created_at: raw.created_at as string,
-    read_by: Array.isArray(raw.read_by) ? (raw.read_by as string[]) : [],
-    target_user_id: (raw.target_user_id as string | null) ?? null,
-  };
-}
-
 export function useNotifications() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
-  const channelInstanceId = useRef(
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2)
-  );
 
-  const fetchNotifications = useCallback(async () => {
+  const fetchNotifications = async () => {
     setIsLoading(true);
     if (!user) { setIsLoading(false); return; }
     const { data, error } = await supabase
@@ -45,15 +28,22 @@ export function useNotifications() {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      const parsed = (data as Record<string, unknown>[]).map(parseNotification);
+      const parsed: Notification[] = data.map((n: any) => ({
+        ...n,
+        read_by: Array.isArray(n.read_by) ? (n.read_by as string[]) : [],
+        target_user_id: n.target_user_id ?? null,
+      }));
       setNotifications(parsed);
-      setUnreadCount(parsed.filter((n) => !n.read_by.includes(user.id)).length);
+      if (user) {
+        setUnreadCount(parsed.filter((n) => !n.read_by.includes(user.id)).length);
+      }
     }
     setIsLoading(false);
-  }, [user]);
+  };
 
   const markAsRead = async (notificationId: string) => {
     if (!user) return;
+
     const notification = notifications.find((n) => n.id === notificationId);
     if (!notification || notification.read_by.includes(user.id)) return;
 
@@ -65,19 +55,25 @@ export function useNotifications() {
 
     if (!error) {
       setNotifications((prev) =>
-        prev.map((n) => n.id === notificationId ? { ...n, read_by: updatedReadBy } : n)
+        prev.map((n) =>
+          n.id === notificationId ? { ...n, read_by: updatedReadBy } : n
+        )
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
     }
   };
 
-  // Parallel updates instead of sequential loop — N→1 roundtrip reduction
   const markAllAsRead = async () => {
     if (!user) return;
-    const unread = notifications.filter((n) => !n.read_by.includes(user.id));
-    if (unread.length === 0) return;
 
-    // Optimistic update first for instant UI response
+    const unread = notifications.filter((n) => !n.read_by.includes(user.id));
+    for (const notification of unread) {
+      await supabase
+        .from('notifications')
+        .update({ read_by: [...notification.read_by, user.id] })
+        .eq('id', notification.id);
+    }
+    
     setNotifications((prev) =>
       prev.map((n) => ({
         ...n,
@@ -85,62 +81,44 @@ export function useNotifications() {
       }))
     );
     setUnreadCount(0);
-
-    // Fire all DB updates in parallel
-    await Promise.all(
-      unread.map((n) =>
-        supabase
-          .from('notifications')
-          .update({ read_by: [...n.read_by, user.id] })
-          .eq('id', n.id)
-      )
-    );
   };
 
   const createNotification = async (title: string, message: string) => {
     if (!user) return { error: 'Not authenticated' };
+
     const { error } = await supabase.from('notifications').insert({
       title,
       message,
       created_by: user.id,
     });
+
+    if (!error) {
+      fetchNotifications();
+    }
     return { error };
   };
 
   useEffect(() => {
     fetchNotifications();
 
-    if (!user?.id) {
-      return;
-    }
-
-    const userId = user.id;
-
+    // Request notification permission
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
 
-    // Unique per hook instance because NotificationBell and the dialog can mount together.
     const channel = supabase
-      .channel(`notifications:user:${userId}:${channelInstanceId.current}`)
+      .channel(`notifications-changes-${user?.id ?? 'anon'}-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications' },
         (payload) => {
-          const raw = payload.new as Record<string, unknown>;
-          const newNotif = parseNotification(raw);
-
-          // Ignore notifications not targeted at this user
-          if (newNotif.target_user_id !== null && newNotif.target_user_id !== userId) return;
-
-          setNotifications((prev) => [newNotif, ...prev]);
-          if (!newNotif.read_by.includes(userId)) {
-            setUnreadCount((prev) => prev + 1);
-          }
-
-          // Browser push notification for other users' inserts
+          fetchNotifications();
+          const newNotif = payload.new as any;
+          // Trigger Chrome push notification only if targeted to this user (or global)
           if (
-            newNotif.created_by !== userId &&
+            user &&
+            newNotif.created_by !== user.id &&
+            (newNotif.target_user_id === null || newNotif.target_user_id === user.id) &&
             'Notification' in window &&
             Notification.permission === 'granted'
           ) {
@@ -154,18 +132,8 @@ export function useNotifications() {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'notifications' },
-        (payload) => {
-          const raw = payload.new as Record<string, unknown>;
-          const updatedId = raw.id as string;
-          const updatedReadBy: string[] = Array.isArray(raw.read_by) ? (raw.read_by as string[]) : [];
-
-          setNotifications((prev) => {
-            const updated = prev.map((n) =>
-              n.id === updatedId ? { ...n, read_by: updatedReadBy } : n
-            );
-            setUnreadCount(updated.filter((n) => !n.read_by.includes(userId)).length);
-            return updated;
-          });
+        () => {
+          fetchNotifications();
         }
       )
       .subscribe();
@@ -173,7 +141,7 @@ export function useNotifications() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id]);
+  }, [user]);
 
   return {
     notifications,

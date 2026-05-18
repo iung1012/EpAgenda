@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { startOfMonth, endOfMonth, isSameDay, getDate, getMonth } from 'date-fns';
+import { startOfMonth, endOfMonth, isSameDay, setYear, setMonth, setDate, getDate, getMonth } from 'date-fns';
 
 export interface CalendarEvent {
   id: string;
@@ -18,6 +18,7 @@ export interface CalendarEvent {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // For visit events
   isVisit?: boolean;
   visitId?: string;
 }
@@ -26,9 +27,6 @@ export function useCalendarEvents(currentDate: Date) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Snapshot ref allows updateEventLocally to return a rollback closure
-  const eventsRef = useRef<CalendarEvent[]>([]);
-  eventsRef.current = events;
 
   const fetchEvents = useCallback(async () => {
     setIsLoading(true);
@@ -37,6 +35,7 @@ export function useCalendarEvents(currentDate: Date) {
     const start = startOfMonth(currentDate);
     const end = endOfMonth(currentDate);
 
+    // Fetch calendar events, visits, and profiles (for birthdays) in parallel
     const [eventsResult, visitsResult, profilesResult] = await Promise.all([
       supabase
         .from('calendar_events')
@@ -53,7 +52,7 @@ export function useCalendarEvents(currentDate: Date) {
       supabase
         .from('profiles')
         .select('user_id, full_name, birthday')
-        .not('birthday', 'is', null),
+        .not('birthday', 'is', null)
     ]);
 
     if (eventsResult.error) {
@@ -65,45 +64,50 @@ export function useCalendarEvents(currentDate: Date) {
 
     if (visitsResult.error) {
       console.error('Error fetching visits:', visitsResult.error);
+      // Don't fail completely, just log and continue with calendar events only
     }
 
-    const calendarEvents: CalendarEvent[] = (eventsResult.data || []).map((event: Record<string, unknown>) => ({
-      ...(event as unknown as CalendarEvent),
-      client_name: (event.clients as { name: string } | null)?.name ?? null,
+    // Convert events with client names
+    const calendarEvents: CalendarEvent[] = (eventsResult.data || []).map((event: any) => ({
+      ...event,
+      client_name: event.clients?.name || null,
     }));
-
-    const visitEvents: CalendarEvent[] = (visitsResult.data || []).map((visit: Record<string, unknown>) => ({
-      id: `visit-${visit.id as string}`,
-      title: visit.title as string,   // no emoji prefix — display layer handles icons
-      description: visit.description as string | null,
+    
+    const visitEvents: CalendarEvent[] = (visitsResult.data || []).map((visit: any) => ({
+      id: `visit-${visit.id}`,
+      title: `📹 ${visit.title}`,
+      description: visit.description,
       event_type: 'visita',
-      start_date: visit.visit_date as string,
+      start_date: visit.visit_date,
       end_date: null,
       all_day: false,
-      location: visit.location as string | null,
-      client_id: visit.client_id as string | null,
-      client_name: (visit.clients as { name: string } | null)?.name ?? null,
-      assigned_to: visit.filmmaker_id as string | null,
-      color: '#22c55e',
-      created_by: visit.filmmaker_id as string | null,
-      created_at: visit.created_at as string,
-      updated_at: visit.updated_at as string,
+      location: visit.location,
+      client_id: visit.client_id,
+      client_name: visit.clients?.name || null,
+      assigned_to: visit.filmmaker_id,
+      color: '#22c55e', // Green for visits
+      created_by: visit.filmmaker_id,
+      created_at: visit.created_at,
+      updated_at: visit.updated_at,
       isVisit: true,
-      visitId: visit.id as string,
+      visitId: visit.id,
     }));
 
+    // Generate birthday events for the current month
     const birthdayEvents: CalendarEvent[] = [];
     if (profilesResult.data) {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
+      
       for (const profile of profilesResult.data) {
         if (!profile.birthday) continue;
         const bday = new Date(profile.birthday + 'T00:00:00');
+        // Check if birthday falls in this month
         if (getMonth(bday) === month) {
           const birthdayThisYear = new Date(year, month, getDate(bday), 9, 0, 0);
           birthdayEvents.push({
             id: `birthday-${profile.user_id}`,
-            title: `Aniversário: ${profile.full_name}`,  // no emoji in data
+            title: `🎂 Aniversário: ${profile.full_name}`,
             description: null,
             event_type: 'aniversario',
             start_date: birthdayThisYear.toISOString(),
@@ -122,6 +126,7 @@ export function useCalendarEvents(currentDate: Date) {
       }
     }
 
+    console.log('Calendar events:', calendarEvents.length, 'Visit events:', visitEvents.length, 'Birthday events:', birthdayEvents.length);
     setEvents([...calendarEvents, ...visitEvents, ...birthdayEvents]);
     setIsLoading(false);
   }, [currentDate]);
@@ -130,32 +135,32 @@ export function useCalendarEvents(currentDate: Date) {
     fetchEvents();
   }, [fetchEvents]);
 
-  const getEventsForDay = useCallback(
-    (date: Date) => events.filter((event) => isSameDay(new Date(event.start_date), date)),
-    [events]
-  );
+  const getEventsForDay = useCallback((date: Date) => {
+    return events.filter(event => isSameDay(new Date(event.start_date), date));
+  }, [events]);
 
-  const getTodayEvents = useCallback(() => getEventsForDay(new Date()), [getEventsForDay]);
+  const getTodayEvents = useCallback(() => {
+    return getEventsForDay(new Date());
+  }, [getEventsForDay]);
 
-  // Returns a rollback function so callers can revert if the DB update fails
-  const updateEventLocally = useCallback(
-    (eventId: string, newStartDate: Date, newEndDate?: Date | null): (() => void) => {
-      const snapshot = [...eventsRef.current];
-      setEvents((prevEvents) =>
-        prevEvents.map((event) =>
-          event.id === eventId
-            ? {
-                ...event,
-                start_date: newStartDate.toISOString(),
-                end_date: newEndDate ? newEndDate.toISOString() : event.end_date,
-              }
-            : event
-        )
-      );
-      return () => setEvents(snapshot);
-    },
-    []
-  );
+  // Optimistic update for moving events
+  // Uses ISO format to keep consistency with database timestamps
+  const updateEventLocally = useCallback((eventId: string, newStartDate: Date, newEndDate?: Date | null) => {
+    setEvents(prevEvents => 
+      prevEvents.map(event => {
+        if (event.id === eventId) {
+          // For visit events, store the ISO string which will be consistent
+          // with how the database stores and returns the data
+          return {
+            ...event,
+            start_date: newStartDate.toISOString(),
+            end_date: newEndDate ? newEndDate.toISOString() : event.end_date,
+          };
+        }
+        return event;
+      })
+    );
+  }, []);
 
   return {
     events,

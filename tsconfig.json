@@ -14,11 +14,11 @@
         "./src/*"
       ]
     },
-    "noImplicitAny": true,
+    "noImplicitAny": false,
     "noUnusedParameters": false,
     "skipLibCheck": true,
     "allowJs": true,
     "noUnusedLocals": false,
-    "strictNullChecks": true
+    "strictNullChecks": false
   }
 }

@@ -133,7 +133,7 @@ export default function FilmmakerVisits() {
         const { data: newVisit, error } = await supabase
           .from('filmmaker_visits')
           .insert({
-            filmmaker_id: user!.id,
+            filmmaker_id: user?.id,
             title: data.title,
             description: data.description || null,
             location: data.location || null,

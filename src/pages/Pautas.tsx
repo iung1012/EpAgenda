@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 import { PautaFormDialog, PautaFormValues } from '@/components/forms/PautaFormDialog';
 import { usePautas, Pauta } from '@/hooks/usePautas';
-import { useMinimalClients } from '@/hooks/useClients';
+import { useClients } from '@/hooks/useClients';
 import { useTasks } from '@/hooks/useTasks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 
 export default function Pautas() {
   const { pautas, refetch } = usePautas();
-  const { clients } = useMinimalClients();
+  const { clients } = useClients({ minimal: true });
   const { tasks, refetch: refetchTasks } = useTasks();
   const { user, isAdminOrManager } = useAuth();
   const { toast } = useToast();

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { encryptPassword, decryptPassword } from '@/lib/crypto';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
@@ -64,7 +63,7 @@ interface ClientDriveFolder {
 }
 
 export default function ClientDetail() {
-  const { id = '' } = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isAdminOrManager } = useAuth();
   const { toast } = useToast();
@@ -158,22 +157,20 @@ export default function ClientDetail() {
   const handleAddPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!passwordForm.service_name || !passwordForm.password) { toast({ variant: 'destructive', title: 'Preencha os campos obrigatórios' }); return; }
-    const encrypted = await encryptPassword(passwordForm.password);
     if (editingPassword) {
-      const { error } = await supabase.from('client_passwords').update({ service_name: passwordForm.service_name, username: passwordForm.username || null, encrypted_password: encrypted, notes: passwordForm.notes || null }).eq('id', editingPassword.id);
+      const { error } = await supabase.from('client_passwords').update({ service_name: passwordForm.service_name, username: passwordForm.username || null, encrypted_password: btoa(passwordForm.password), notes: passwordForm.notes || null }).eq('id', editingPassword.id);
       if (error) { toast({ variant: 'destructive', title: 'Erro ao atualizar senha', description: error.message }); }
       else { toast({ title: 'Senha atualizada!' }); setIsPasswordDialogOpen(false); setEditingPassword(null); setPasswordForm({ service_name: '', username: '', password: '', notes: '' }); fetchPasswords(); }
     } else {
-      const { error } = await supabase.from('client_passwords').insert({ client_id: id, service_name: passwordForm.service_name, username: passwordForm.username || null, encrypted_password: encrypted, notes: passwordForm.notes || null, created_by: user?.id });
+      const { error } = await supabase.from('client_passwords').insert({ client_id: id, service_name: passwordForm.service_name, username: passwordForm.username || null, encrypted_password: btoa(passwordForm.password), notes: passwordForm.notes || null, created_by: user?.id });
       if (error) { toast({ variant: 'destructive', title: 'Erro ao salvar senha', description: error.message }); }
       else { toast({ title: 'Senha salva!' }); setIsPasswordDialogOpen(false); setPasswordForm({ service_name: '', username: '', password: '', notes: '' }); fetchPasswords(); }
     }
   };
 
-  const handleEditPassword = async (pwd: ClientPassword) => {
+  const handleEditPassword = (pwd: ClientPassword) => {
     setEditingPassword(pwd);
-    const plaintext = await decryptPassword(pwd.encrypted_password);
-    setPasswordForm({ service_name: pwd.service_name, username: pwd.username || '', password: plaintext, notes: pwd.notes || '' });
+    setPasswordForm({ service_name: pwd.service_name, username: pwd.username || '', password: atob(pwd.encrypted_password), notes: pwd.notes || '' });
     setIsPasswordDialogOpen(true);
   };
 

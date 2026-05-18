@@ -34,9 +34,9 @@ import { ptBR } from 'date-fns/locale';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 import { TaskFormDialog, TaskFormValues } from '@/components/forms/TaskFormDialog';
-import { useTasks, TaskPriority, TaskSource } from '@/hooks/useTasks';
+import { useTasks, TaskPriority } from '@/hooks/useTasks';
 import { useProfiles } from '@/hooks/useProfiles';
-import { useMinimalClients } from '@/hooks/useClients';
+import { useClients } from '@/hooks/useClients';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { TaskCard } from '@/components/kanban/TaskCard';
 import { TaskFilters } from '@/components/kanban/TaskFilters';
@@ -54,15 +54,15 @@ interface Task {
   client_id: string | null;
   status: TaskStatus;
   delivery_link: string | null;
-  source: TaskSource;
-  sourceId: string;
+  isDemand?: boolean;
+  demandId?: string;
 }
 
 export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { tasks, isLoading, error, refetch, getTasksByStatus, updateTaskStatus, updateTaskDeliveryLink } = useTasks();
   const { profiles, getProfileName } = useProfiles();
-  const { clients } = useMinimalClients();
+  const { clients } = useClients({ minimal: true });
   
   // Dialog states
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -223,10 +223,11 @@ export default function Tasks() {
   };
 
   const handleEdit = (task: Task) => {
-    if (task.source === 'demand') {
-      toast({
-        title: 'Demanda',
-        description: 'Edite esta demanda na página de Demandas do Filmmaker'
+    // Don't allow editing demands from tasks - redirect to demands page
+    if (task.isDemand) {
+      toast({ 
+        title: 'Demanda', 
+        description: 'Edite esta demanda na página de Demandas do Filmmaker' 
       });
       return;
     }
@@ -243,29 +244,37 @@ export default function Tasks() {
 
   const handleDeleteTask = async () => {
     setIsDeleting(true);
+    
+    // Check if it's a demand
+    if (deleteDialog.taskId.startsWith('demand-')) {
+      const demandId = deleteDialog.taskId.replace('demand-', '');
+      const { error } = await supabase.from('filmmaker_demands').delete().eq('id', demandId);
+      setIsDeleting(false);
 
-    const task = tasks.find(t => t.id === deleteDialog.taskId);
-    const isDemand = task?.source === 'demand';
-    const sourceId = task?.sourceId ?? deleteDialog.taskId;
-
-    const { error } = isDemand
-      ? await supabase.from('filmmaker_demands').delete().eq('id', sourceId)
-      : await supabase.from('tasks').delete().eq('id', sourceId);
-
-    setIsDeleting(false);
-
-    if (error) {
-      toast({ variant: 'destructive', title: isDemand ? 'Erro ao excluir demanda' : 'Erro ao excluir tarefa', description: error.message });
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao excluir demanda', description: error.message });
+      } else {
+        toast({ title: 'Demanda excluída com sucesso!' });
+        setDeleteDialog({ open: false, taskId: '', taskTitle: '' });
+        refetch();
+      }
     } else {
-      toast({ title: isDemand ? 'Demanda excluída com sucesso!' : 'Tarefa excluída com sucesso!' });
-      setDeleteDialog({ open: false, taskId: '', taskTitle: '' });
-      refetch();
+      const { error } = await supabase.from('tasks').delete().eq('id', deleteDialog.taskId);
+      setIsDeleting(false);
+
+      if (error) {
+        toast({ variant: 'destructive', title: 'Erro ao excluir tarefa', description: error.message });
+      } else {
+        toast({ title: 'Tarefa excluída com sucesso!' });
+        setDeleteDialog({ open: false, taskId: '', taskTitle: '' });
+        refetch();
+      }
     }
   };
 
   const completedTasks = getTasksByStatus('feito');
-  const regularCompletedIds = completedTasks.filter(t => t.source === 'task').map(t => t.sourceId);
-  const demandCompletedIds = completedTasks.filter(t => t.source === 'demand').map(t => t.sourceId);
+  const regularCompletedIds = completedTasks.filter(t => !t.isDemand).map(t => t.id);
+  const demandCompletedIds = completedTasks.filter(t => t.isDemand).map(t => t.demandId!);
 
   const handleDeleteAllCompleted = async () => {
     setIsDeletingAll(true);
@@ -621,7 +630,7 @@ export default function Tasks() {
               getPriorityLabel={getPriorityLabel}
               getProfileName={getProfileName}
               getClientName={getClientName}
-              onEdit={handleEdit as (task: { id: string }) => void}
+              onEdit={handleEdit}
               onDelete={(taskId, taskTitle) => setDeleteDialog({ open: true, taskId, taskTitle })}
               onAddTask={() => { setEditingTask(null); setIsDialogOpen(true); }}
               onQuickComplete={handleQuickComplete}

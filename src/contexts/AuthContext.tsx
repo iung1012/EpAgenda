@@ -51,21 +51,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // onAuthStateChange fires INITIAL_SESSION synchronously with the persisted
-    // session, so we don't need to call getSession() (which can hang in some
-    // edge cases). It also handles SIGN_IN / SIGN_OUT / TOKEN_REFRESHED.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        // Defer the supabase calls to avoid deadlocks inside the auth callback.
         setTimeout(() => {
-          fetchUserData(session.user.id).finally(() => setLoading(false));
+          fetchUserData(session.user.id);
         }, 0);
       } else {
         setProfile(null);
         setRole(null);
+      }
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        fetchUserData(session.user.id).finally(() => setLoading(false));
+      } else {
         setLoading(false);
       }
     });
