@@ -208,6 +208,7 @@ export type Database = {
           custom_links: Json | null
           google_drive_link: string | null
           id: string
+          is_fixed_posting: boolean
           logo_url: string | null
           name: string
           notes: string | null
@@ -227,6 +228,7 @@ export type Database = {
           custom_links?: Json | null
           google_drive_link?: string | null
           id?: string
+          is_fixed_posting?: boolean
           logo_url?: string | null
           name: string
           notes?: string | null
@@ -246,6 +248,7 @@ export type Database = {
           custom_links?: Json | null
           google_drive_link?: string | null
           id?: string
+          is_fixed_posting?: boolean
           logo_url?: string | null
           name?: string
           notes?: string | null
