@@ -40,7 +40,7 @@ export function useTaskAssignmentNotifications() {
     initializeTasks();
 
     const channel = supabase
-      .channel('task-global-notifications')
+      .channel(`task-global-notifications-${user.id}-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {
