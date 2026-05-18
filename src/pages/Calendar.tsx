@@ -812,6 +812,7 @@ export default function Calendar() {
         defaultValues={getVisitDefaultValues()}
         clients={clients}
         equipment={equipment}
+        profiles={profiles}
         isEditing={true}
         isLoading={isVisitSubmitting}
       />
