@@ -273,12 +273,48 @@ export default function Calendar() {
   };
 
   const handleVisitSubmit = async (data: VisitFormValues) => {
-    if (!editingVisit || !user) return;
+    if (!user) return;
 
     setIsVisitSubmitting(true);
 
     // Keep the datetime as local time string without timezone conversion
     const visitDateTime = data.visit_date; // e.g., "2026-01-14T09:00"
+
+    if (!editingVisit) {
+      // Create new visit
+      const { data: created, error } = await supabase
+        .from('filmmaker_visits')
+        .insert({
+          title: data.title,
+          description: data.description || null,
+          location: data.location || null,
+          visit_date: visitDateTime,
+          client_id: data.client_id || null,
+          status: data.status,
+          notes: data.notes || null,
+          filmmaker_id: user.id,
+        })
+        .select()
+        .single();
+
+      if (error || !created) {
+        toast({ variant: 'destructive', title: 'Erro ao criar visita', description: error?.message });
+        setIsVisitSubmitting(false);
+        return;
+      }
+
+      if (data.equipment_ids.length > 0) {
+        await supabase.from('visit_equipment').insert(
+          data.equipment_ids.map((equipmentId) => ({ visit_id: created.id, equipment_id: equipmentId }))
+        );
+      }
+
+      setIsVisitSubmitting(false);
+      setIsVisitDialogOpen(false);
+      toast({ title: 'Visita agendada com sucesso!' });
+      refetch();
+      return;
+    }
 
     const { error } = await supabase
       .from('filmmaker_visits')
@@ -319,7 +355,15 @@ export default function Calendar() {
   };
 
   const getVisitDefaultValues = (): Partial<VisitFormValues> | undefined => {
-    if (!editingVisit) return undefined;
+    if (!editingVisit) {
+      return {
+        visit_date: selectedDate
+          ? `${selectedDate}T${selectedTime || '09:00'}`
+          : '',
+        status: 'agendada',
+        equipment_ids: [],
+      };
+    }
     
     const visitDate = new Date(editingVisit.visit_date);
     return {
@@ -501,15 +545,30 @@ export default function Calendar() {
           <p className="text-sm font-medium text-muted-foreground capitalize">{currentDateFormatted}</p>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-1">Calendário</h1>
         </div>
-        <Button onClick={() => {
-          setEditingEvent(null);
-          setSelectedDate('');
-          setSelectedTime('');
-          setIsDialogOpen(true);
-        }} className="rounded-xl gap-2 h-9">
-          <Plus className="h-4 w-4" />
-          Novo Evento
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setEditingVisit(null);
+              setSelectedDate('');
+              setSelectedTime('');
+              setIsVisitDialogOpen(true);
+            }}
+            className="rounded-xl gap-2 h-9"
+          >
+            <Video className="h-4 w-4" />
+            Agendar Visita
+          </Button>
+          <Button onClick={() => {
+            setEditingEvent(null);
+            setSelectedDate('');
+            setSelectedTime('');
+            setIsDialogOpen(true);
+          }} className="rounded-xl gap-2 h-9">
+            <Plus className="h-4 w-4" />
+            Novo Evento
+          </Button>
+        </div>
       </motion.div>
 
       {/* Stats Row */}
