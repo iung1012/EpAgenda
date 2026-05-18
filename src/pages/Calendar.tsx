@@ -545,15 +545,30 @@ export default function Calendar() {
           <p className="text-sm font-medium text-muted-foreground capitalize">{currentDateFormatted}</p>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-1">Calendário</h1>
         </div>
-        <Button onClick={() => {
-          setEditingEvent(null);
-          setSelectedDate('');
-          setSelectedTime('');
-          setIsDialogOpen(true);
-        }} className="rounded-xl gap-2 h-9">
-          <Plus className="h-4 w-4" />
-          Novo Evento
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setEditingVisit(null);
+              setSelectedDate('');
+              setSelectedTime('');
+              setIsVisitDialogOpen(true);
+            }}
+            className="rounded-xl gap-2 h-9"
+          >
+            <Video className="h-4 w-4" />
+            Agendar Visita
+          </Button>
+          <Button onClick={() => {
+            setEditingEvent(null);
+            setSelectedDate('');
+            setSelectedTime('');
+            setIsDialogOpen(true);
+          }} className="rounded-xl gap-2 h-9">
+            <Plus className="h-4 w-4" />
+            Novo Evento
+          </Button>
+        </div>
       </motion.div>
 
       {/* Stats Row */}
