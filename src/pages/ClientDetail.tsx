@@ -64,7 +64,7 @@ interface ClientDriveFolder {
 }
 
 export default function ClientDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isAdminOrManager } = useAuth();
   const { toast } = useToast();

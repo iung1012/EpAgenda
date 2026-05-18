@@ -17,6 +17,8 @@ interface Task {
   client_id: string | null;
   status: 'a_fazer' | 'fazendo' | 'feito';
   delivery_link: string | null;
+  source?: unknown;
+  sourceId?: string;
 }
 
 interface KanbanColumnProps {

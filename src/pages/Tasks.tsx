@@ -621,7 +621,7 @@ export default function Tasks() {
               getPriorityLabel={getPriorityLabel}
               getProfileName={getProfileName}
               getClientName={getClientName}
-              onEdit={handleEdit}
+              onEdit={handleEdit as (task: { id: string }) => void}
               onDelete={(taskId, taskTitle) => setDeleteDialog({ open: true, taskId, taskTitle })}
               onAddTask={() => { setEditingTask(null); setIsDialogOpen(true); }}
               onQuickComplete={handleQuickComplete}
