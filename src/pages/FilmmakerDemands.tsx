@@ -112,7 +112,7 @@ export default function FilmmakerDemands() {
         const { error } = await supabase
           .from('filmmaker_demands')
           .insert({
-            filmmaker_id: user?.id,
+            filmmaker_id: user!.id,
             title: data.title,
             description: data.description || null,
             client_id: data.client_id || null,
