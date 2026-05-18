@@ -27,12 +27,15 @@ const visitSchema = z.object({
   status: z.enum(['agendada', 'realizada', 'cancelada']),
   notes: z.string().max(1000).optional(),
   equipment_ids: z.array(z.string()),
+  assigned_to: z.string().min(1, 'Responsável é obrigatório'),
+  delivery_deadline: z.string().min(1, 'Prazo de entrega é obrigatório'),
 });
 
 export type VisitFormValues = z.infer<typeof visitSchema>;
 
 interface Client { id: string; name: string; }
 interface Equipment { id: string; name: string; }
+interface Profile { user_id: string; full_name: string; }
 
 interface VisitFormDialogProps {
   open: boolean;
@@ -41,6 +44,7 @@ interface VisitFormDialogProps {
   defaultValues?: Partial<VisitFormValues>;
   clients: Client[];
   equipment: Equipment[];
+  profiles: Profile[];
   isEditing?: boolean;
   isLoading?: boolean;
 }
@@ -48,10 +52,11 @@ interface VisitFormDialogProps {
 const empty: VisitFormValues = {
   title: '', description: '', location: '', visit_date: '',
   client_id: '', status: 'agendada', notes: '', equipment_ids: [],
+  assigned_to: '', delivery_deadline: '',
 };
 
 export function VisitFormDialog({
-  open, onOpenChange, onSubmit, defaultValues, clients, equipment,
+  open, onOpenChange, onSubmit, defaultValues, clients, equipment, profiles,
   isEditing = false, isLoading = false,
 }: VisitFormDialogProps) {
   const [step, setStep] = useState(0);
@@ -86,7 +91,7 @@ export function VisitFormDialog({
 
   const nextStep = async () => {
     if (step === 0) {
-      const valid = await form.trigger(['title', 'visit_date']);
+      const valid = await form.trigger(['title', 'visit_date', 'assigned_to', 'delivery_deadline']);
       if (!valid) return;
     }
     setStep(s => Math.min(2, s + 1));
@@ -95,6 +100,7 @@ export function VisitFormDialog({
   const watched = form.watch();
   const selectedEquipment = equipment.filter(e => watched.equipment_ids?.includes(e.id));
   const selectedClient = clients.find(c => c.id === watched.client_id);
+  const selectedAssignee = profiles.find(p => p.user_id === watched.assigned_to);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -185,6 +191,28 @@ export function VisitFormDialog({
                   </FormItem>
                 )} />
 
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="assigned_to" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Responsável *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          {profiles.map(p => <SelectItem key={p.user_id} value={p.user_id}>{p.full_name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="delivery_deadline" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Prazo de entrega *</FormLabel>
+                      <FormControl><Input type="date" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+
                 <FormField control={form.control} name="description" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Descrição</FormLabel>
@@ -243,6 +271,16 @@ export function VisitFormDialog({
                     <div>
                       <p className="text-xs text-muted-foreground">Cliente</p>
                       <p className="text-sm">{selectedClient?.name || '—'}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Responsável</p>
+                      <p className="text-sm">{selectedAssignee?.full_name || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Prazo de entrega</p>
+                      <p className="text-sm">{watched.delivery_deadline || '—'}</p>
                     </div>
                   </div>
                   {watched.location && (

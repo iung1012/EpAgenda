@@ -9,6 +9,8 @@ import { StatsCard } from '@/components/layout/StatsCard';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 import { VisitFormDialog, VisitFormValues } from '@/components/forms/VisitFormDialog';
+import { useProfiles } from '@/hooks/useProfiles';
+import { useNavigate } from 'react-router-dom';
 import { Plus, MapPin, Calendar, Video, Package, Clock, CheckCircle, XCircle, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -43,6 +45,8 @@ export default function FilmmakerVisits() {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const { profiles } = useProfiles();
+  const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
@@ -156,7 +160,26 @@ export default function FilmmakerVisits() {
           );
         }
 
-        toast({ title: 'Visita criada com sucesso!' });
+        // Auto-create linked task for the assignee
+        if (newVisit && data.assigned_to) {
+          await supabase.from('tasks').insert({
+            title: `Entrega: ${data.title}`,
+            description: `Tarefa gerada a partir da visita agendada em ${format(localDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}.${data.notes ? `\n\nNotas: ${data.notes}` : ''}`,
+            status: 'a_fazer',
+            priority: 'media',
+            due_date: data.delivery_deadline,
+            client_id: data.client_id || null,
+            assigned_to: data.assigned_to,
+            created_by: user?.id,
+          });
+        }
+
+        toast({ title: 'Visita criada e tarefa atribuída!' });
+        setIsDialogOpen(false);
+        setEditingVisit(null);
+        fetchData();
+        navigate('/tasks');
+        return;
       }
 
       setIsDialogOpen(false);
@@ -251,6 +274,7 @@ export default function FilmmakerVisits() {
         defaultValues={getDefaultValues()}
         clients={clients}
         equipment={equipment}
+        profiles={profiles}
         isEditing={!!editingVisit}
         isLoading={isLoading}
       />
