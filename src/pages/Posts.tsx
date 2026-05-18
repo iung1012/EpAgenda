@@ -16,7 +16,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 import { PostFormDialog, PostFormValues } from '@/components/forms/PostFormDialog';
 import { usePosts, Post } from '@/hooks/usePosts';
-import { useClients } from '@/hooks/useClients';
+import { useMinimalClients } from '@/hooks/useClients';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils';
 
 export default function Posts() {
   const { posts, refetch } = usePosts();
-  const { clients } = useClients({ minimal: true });
+  const { clients } = useMinimalClients();
   const { user } = useAuth();
   const { toast } = useToast();
 
