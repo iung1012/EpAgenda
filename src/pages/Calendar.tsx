@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Plus, MapPin, Clock, CalendarDays, Pencil, Trash2, Video, Users, FileText, BarChart3 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { CalendarDaySkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
@@ -50,6 +51,7 @@ type ViewType = 'month' | 'week' | 'day';
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const navigate = useNavigate();
   const [viewType, setViewType] = useState<ViewType>('month');
   const { events, isLoading, error, refetch, getEventsForDay, getTodayEvents, updateEventLocally } = useCalendarEvents(currentDate);
   const { getHolidayForDate } = useHolidays(currentDate.getFullYear());
@@ -309,10 +311,24 @@ export default function Calendar() {
         );
       }
 
+      if (data.assigned_to) {
+        await supabase.from('tasks').insert({
+          title: `Entrega: ${data.title}`,
+          description: `Tarefa gerada a partir da visita agendada (${visitDateTime}).${data.notes ? `\n\nNotas: ${data.notes}` : ''}`,
+          status: 'a_fazer',
+          priority: 'media',
+          due_date: data.delivery_deadline,
+          client_id: data.client_id || null,
+          assigned_to: data.assigned_to,
+          created_by: user.id,
+        });
+      }
+
       setIsVisitSubmitting(false);
       setIsVisitDialogOpen(false);
-      toast({ title: 'Visita agendada com sucesso!' });
+      toast({ title: 'Visita agendada e tarefa atribuída!' });
       refetch();
+      navigate('/tasks');
       return;
     }
 
