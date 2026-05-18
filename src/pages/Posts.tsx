@@ -61,7 +61,7 @@ export default function Posts() {
 
   const getEffectiveStatus = (p: Post): 'agendado' | 'postado' | 'atrasado' => {
     if (p.posted_at || p.status === 'postado') return 'postado';
-    if (isPast(new Date(p.scheduled_date)) && p.status !== 'postado') return 'atrasado';
+    if (isPast(new Date(p.scheduled_date))) return 'atrasado';
     return 'agendado';
   };
 
