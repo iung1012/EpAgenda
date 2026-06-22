@@ -198,7 +198,6 @@ export type Database = {
       }
       clients: {
         Row: {
-          archived: boolean
           canva_link: string | null
           color_palette: Json | null
           contact_email: string | null
@@ -219,7 +218,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          archived?: boolean
           canva_link?: string | null
           color_palette?: Json | null
           contact_email?: string | null
@@ -240,7 +238,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          archived?: boolean
           canva_link?: string | null
           color_palette?: Json | null
           contact_email?: string | null
@@ -345,48 +342,39 @@ export type Database = {
       }
       filmmaker_visits: {
         Row: {
-          assigned_to: string | null
           client_id: string | null
           created_at: string
-          delivery_deadline: string | null
           description: string | null
           filmmaker_id: string
           id: string
           location: string | null
           notes: string | null
-          reminder_sent: boolean
           status: string
           title: string
           updated_at: string
           visit_date: string
         }
         Insert: {
-          assigned_to?: string | null
           client_id?: string | null
           created_at?: string
-          delivery_deadline?: string | null
           description?: string | null
           filmmaker_id: string
           id?: string
           location?: string | null
           notes?: string | null
-          reminder_sent?: boolean
           status?: string
           title: string
           updated_at?: string
           visit_date: string
         }
         Update: {
-          assigned_to?: string | null
           client_id?: string | null
           created_at?: string
-          delivery_deadline?: string | null
           description?: string | null
           filmmaker_id?: string
           id?: string
           location?: string | null
           notes?: string | null
-          reminder_sent?: boolean
           status?: string
           title?: string
           updated_at?: string
@@ -623,7 +611,6 @@ export type Database = {
           status: Database["public"]["Enums"]["task_status"]
           title: string
           updated_at: string
-          visit_id: string | null
         }
         Insert: {
           assigned_to?: string | null
@@ -639,7 +626,6 @@ export type Database = {
           status?: Database["public"]["Enums"]["task_status"]
           title: string
           updated_at?: string
-          visit_id?: string | null
         }
         Update: {
           assigned_to?: string | null
@@ -655,7 +641,6 @@ export type Database = {
           status?: Database["public"]["Enums"]["task_status"]
           title?: string
           updated_at?: string
-          visit_id?: string | null
         }
         Relationships: [
           {
@@ -663,13 +648,6 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tasks_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "filmmaker_visits"
             referencedColumns: ["id"]
           },
         ]
