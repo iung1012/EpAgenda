@@ -36,6 +36,8 @@ interface Visit {
   visit_date: string;
   status: 'agendada' | 'realizada' | 'cancelada';
   notes: string | null;
+  assigned_to: string | null;
+  delivery_deadline: string | null;
   created_at: string;
   client?: Client | null;
   equipment?: Equipment[];
@@ -116,6 +118,8 @@ export default function FilmmakerVisits() {
             client_id: data.client_id || null,
             status: data.status,
             notes: data.notes || null,
+            assigned_to: data.assigned_to || null,
+            delivery_deadline: data.delivery_deadline || null,
           })
           .eq('id', editingVisit.id);
 
@@ -145,6 +149,8 @@ export default function FilmmakerVisits() {
             client_id: data.client_id || null,
             status: data.status,
             notes: data.notes || null,
+            assigned_to: data.assigned_to || null,
+            delivery_deadline: data.delivery_deadline || null,
           })
           .select()
           .single();
@@ -160,7 +166,7 @@ export default function FilmmakerVisits() {
           );
         }
 
-        // Auto-create linked task for the assignee
+        // Auto-create linked task for the assignee (vínculo via visit_id → exclusão em cascata)
         if (newVisit && data.assigned_to) {
           await supabase.from('tasks').insert({
             title: `Entrega: ${data.title}`,
@@ -171,6 +177,7 @@ export default function FilmmakerVisits() {
             client_id: data.client_id || null,
             assigned_to: data.assigned_to,
             created_by: user?.id,
+            visit_id: newVisit.id,
           });
         }
 
@@ -245,6 +252,8 @@ export default function FilmmakerVisits() {
       status: editingVisit.status,
       notes: editingVisit.notes || '',
       equipment_ids: editingVisit.equipment?.map(e => e.id) || [],
+      assigned_to: editingVisit.assigned_to || '',
+      delivery_deadline: editingVisit.delivery_deadline || '',
     };
   };
 
@@ -386,7 +395,7 @@ export default function FilmmakerVisits() {
         open={confirmDialog.open}
         onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
         title="Excluir visita"
-        description={`Tem certeza que deseja excluir "${confirmDialog.title}"? Esta ação não pode ser desfeita.`}
+        description={`Tem certeza que deseja excluir "${confirmDialog.title}"? A tarefa de entrega vinculada também será removida. Esta ação não pode ser desfeita.`}
         confirmText="Excluir"
         onConfirm={handleDelete}
         variant="destructive"

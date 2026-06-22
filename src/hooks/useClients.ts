@@ -21,10 +21,12 @@ export interface Client {
   canva_link: string | null;
   notes: string | null;
   custom_links: CustomLink[];
+  archived: boolean;
 }
 
 interface UseClientsOptions {
   minimal?: boolean; // Only fetch id and name
+  includeArchived?: boolean; // When true, also returns archived clients
 }
 
 export function useClients(options: UseClientsOptions = {}) {
@@ -37,10 +39,12 @@ export function useClients(options: UseClientsOptions = {}) {
     setError(null);
 
     if (options.minimal) {
-      const { data, error: fetchError } = await supabase
+      let query = supabase
         .from('clients')
-        .select('id, name')
+        .select('id, name, archived')
         .order('name');
+      if (!options.includeArchived) query = query.eq('archived', false);
+      const { data, error: fetchError } = await query;
 
       if (fetchError) {
         setError(fetchError.message);
@@ -67,10 +71,12 @@ export function useClients(options: UseClientsOptions = {}) {
         setClients(mappedClients);
       }
     } else {
-      const { data, error: fetchError } = await supabase
+      let query = supabase
         .from('clients')
         .select('*')
         .order('name');
+      if (!options.includeArchived) query = query.eq('archived', false);
+      const { data, error: fetchError } = await query;
 
       if (fetchError) {
         setError(fetchError.message);
@@ -85,15 +91,15 @@ export function useClients(options: UseClientsOptions = {}) {
           social_links: typeof c.social_links === 'object' && c.social_links !== null
             ? c.social_links as Record<string, string>
             : {},
-          custom_links: Array.isArray(c.custom_links) 
-            ? (c.custom_links as unknown as CustomLink[]) 
+          custom_links: Array.isArray(c.custom_links)
+            ? (c.custom_links as unknown as CustomLink[])
             : [],
         })) as Client[];
         setClients(mappedClients);
       }
     }
     setIsLoading(false);
-  }, [options.minimal]);
+  }, [options.minimal, options.includeArchived]);
 
   useEffect(() => {
     fetchClients();

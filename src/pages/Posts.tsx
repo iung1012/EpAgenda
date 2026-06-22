@@ -108,6 +108,23 @@ export default function Posts() {
     }
   };
 
+  const setAllFixed = async (value: boolean) => {
+    const targets = clients.filter(c => c.is_fixed_posting !== value);
+    if (targets.length === 0) return;
+    const snapshot = clients;
+    setClients(cs => cs.map(c => ({ ...c, is_fixed_posting: value })));
+    const { error } = await supabase
+      .from('clients')
+      .update({ is_fixed_posting: value })
+      .in('id', targets.map(c => c.id));
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+      setClients(snapshot);
+    } else {
+      toast({ title: value ? 'Todos os clientes marcados como fixos' : 'Todos os clientes desmarcados' });
+    }
+  };
+
   const postedCount = fixedClients.filter(c => postedByClient.has(c.id)).length;
   const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
 
@@ -130,6 +147,16 @@ export default function Posts() {
               <p className="text-sm text-muted-foreground mt-2">
                 Ative os clientes que devem aparecer todos os dias no checklist de postagens.
               </p>
+              {clients.length > 0 && (
+                <div className="mt-3 flex gap-2">
+                  <Button size="sm" variant="secondary" className="flex-1" onClick={() => setAllFixed(true)}>
+                    Marcar todos
+                  </Button>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => setAllFixed(false)}>
+                    Desmarcar todos
+                  </Button>
+                </div>
+              )}
               <div className="mt-4 space-y-2">
                 {clients.map(c => (
                   <div key={c.id} className="flex items-center justify-between gap-3 rounded-md border p-3">

@@ -14,6 +14,8 @@ import { ClientListItem } from '@/components/clients/ClientListItem';
 import { ClientFilters } from '@/components/clients/ClientFilters';
 import { useClients } from '@/hooks/useClients';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { motion } from 'framer-motion';
 
 type TaskCountMap = Record<string, { pending: number; total: number }>;
@@ -39,17 +41,44 @@ const statsConfig = [
 ] as const;
 
 export default function Clients() {
-  const { clients, isLoading, error, refetch } = useClients();
+  const { clients, isLoading, error, refetch } = useClients({ includeArchived: true });
   const [search, setSearch] = useState('');
   const [selectedSegment, setSelectedSegment] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewArchived, setViewArchived] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [taskCounts, setTaskCounts] = useState<TaskCountMap>({});
-  
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const handleArchiveToggle = async (id: string, archived: boolean) => {
+    const { error } = await supabase.from('clients').update({ archived: !archived }).eq('id', id);
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    } else {
+      toast({ title: archived ? 'Cliente desarquivado' : 'Cliente arquivado' });
+      refetch();
+    }
+  };
+
+  const handleDeleteClient = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    const { error } = await supabase.from('clients').delete().eq('id', deleteTarget.id);
+    setIsDeleting(false);
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir cliente', description: error.message });
+    } else {
+      toast({ title: 'Cliente excluído com sucesso!' });
+      setDeleteTarget(null);
+      refetch();
+    }
+  };
 
   useEffect(() => {
     const fetchTaskCounts = async () => {
@@ -78,19 +107,22 @@ export default function Clients() {
     fetchTaskCounts();
   }, [clients]);
 
+  const activeClients = useMemo(() => clients.filter(c => !c.archived), [clients]);
+  const archivedClients = useMemo(() => clients.filter(c => c.archived), [clients]);
+
   const segments = useMemo(() => {
     const segmentSet = new Set<string>();
-    clients.forEach(client => {
+    activeClients.forEach(client => {
       if (client.segment) segmentSet.add(client.segment);
     });
     return Array.from(segmentSet).sort();
-  }, [clients]);
+  }, [activeClients]);
 
   const stats = useMemo(() => {
-    const withPalette = clients.filter(c => c.color_palette.length > 0).length;
-    const withLinks = clients.filter(c => c.google_drive_link || c.trello_link).length;
-    return { total: clients.length, segments: segments.length, withPalette, withLinks };
-  }, [clients, segments]);
+    const withPalette = activeClients.filter(c => c.color_palette.length > 0).length;
+    const withLinks = activeClients.filter(c => c.google_drive_link || c.trello_link).length;
+    return { total: activeClients.length, segments: segments.length, withPalette, withLinks };
+  }, [activeClients, segments]);
 
   const handleSubmit = async (data: ClientFormValues) => {
     setIsSubmitting(true);
@@ -118,8 +150,9 @@ export default function Clients() {
   };
 
   const filteredClients = useMemo(() => {
-    return clients.filter(client => {
-      const matchesSearch = 
+    const base = viewArchived ? archivedClients : activeClients;
+    return base.filter(client => {
+      const matchesSearch =
         client.name.toLowerCase().includes(search.toLowerCase()) ||
         client.segment?.toLowerCase().includes(search.toLowerCase()) ||
         client.contact_name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -127,7 +160,7 @@ export default function Clients() {
       const matchesSegment = selectedSegment === null || client.segment === selectedSegment;
       return matchesSearch && matchesSegment;
     });
-  }, [clients, search, selectedSegment]);
+  }, [viewArchived, archivedClients, activeClients, search, selectedSegment]);
 
   if (error) {
     return (
@@ -156,7 +189,7 @@ export default function Clients() {
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
           <p className="text-muted-foreground">
-            {isLoading ? 'Carregando...' : `${clients.length} clientes cadastrados na agência`}
+            {isLoading ? 'Carregando...' : `${activeClients.length} clientes cadastrados na agência`}
           </p>
         </div>
         <Button onClick={() => setIsDialogOpen(true)} size="lg" className="gap-2 rounded-xl shadow-sm">
@@ -221,6 +254,18 @@ export default function Clients() {
         </motion.div>
       )}
 
+      {/* Ativos / Arquivados */}
+      <motion.div variants={itemVariants}>
+        <Tabs value={viewArchived ? 'archived' : 'active'} onValueChange={(v) => setViewArchived(v === 'archived')}>
+          <TabsList className="rounded-xl">
+            <TabsTrigger value="active" className="rounded-lg">Ativos</TabsTrigger>
+            <TabsTrigger value="archived" className="rounded-lg">
+              Arquivados{archivedClients.length > 0 ? ` (${archivedClients.length})` : ''}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </motion.div>
+
       {/* Filters */}
       <motion.div variants={itemVariants}>
         <ClientFilters
@@ -261,10 +306,12 @@ export default function Clients() {
           >
             {filteredClients.map((client) => (
               <motion.div key={client.id} variants={itemVariants}>
-                <ClientCard 
+                <ClientCard
                   client={client}
                   taskCount={taskCounts[client.id]}
                   onClick={() => navigate(`/clients/${client.id}`)}
+                  onArchiveToggle={() => handleArchiveToggle(client.id, client.archived)}
+                  onDelete={() => setDeleteTarget({ id: client.id, name: client.name })}
                 />
               </motion.div>
             ))}
@@ -282,6 +329,8 @@ export default function Clients() {
                   client={client}
                   taskCount={taskCounts[client.id]}
                   onClick={() => navigate(`/clients/${client.id}`)}
+                  onArchiveToggle={() => handleArchiveToggle(client.id, client.archived)}
+                  onDelete={() => setDeleteTarget({ id: client.id, name: client.name })}
                 />
               </motion.div>
             ))}
@@ -292,9 +341,20 @@ export default function Clients() {
       {/* Results count */}
       {!isLoading && filteredClients.length > 0 && (
         <motion.p variants={itemVariants} className="text-xs text-muted-foreground text-center pb-4">
-          Exibindo {filteredClients.length} de {clients.length} clientes
+          Exibindo {filteredClients.length} de {viewArchived ? archivedClients.length : activeClients.length} clientes
         </motion.p>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        title="Excluir cliente"
+        description={`Tem certeza que deseja excluir "${deleteTarget?.name}"? Esta ação não pode ser desfeita. Considere arquivar em vez de excluir.`}
+        confirmText="Excluir"
+        onConfirm={handleDeleteClient}
+        variant="destructive"
+        isLoading={isDeleting}
+      />
     </motion.div>
   );
 }

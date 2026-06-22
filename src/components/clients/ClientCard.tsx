@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Palette, Mail, Phone, User, CheckSquare, ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Client } from '@/hooks/useClients';
+import { ClientActionsMenu } from './ClientActionsMenu';
 
 interface TaskCount {
   pending: number;
@@ -15,9 +16,11 @@ interface ClientCardProps {
   client: Client;
   taskCount?: TaskCount;
   onClick: () => void;
+  onArchiveToggle?: () => void;
+  onDelete?: () => void;
 }
 
-export function ClientCard({ client, taskCount, onClick }: ClientCardProps) {
+export function ClientCard({ client, taskCount, onClick, onArchiveToggle, onDelete }: ClientCardProps) {
   const hasLinks = client.google_drive_link || client.trello_link || client.canva_link;
   const hasContact = client.contact_name || client.contact_email || client.contact_phone;
 
@@ -36,9 +39,16 @@ export function ClientCard({ client, taskCount, onClick }: ClientCardProps) {
         }}
       />
 
-      {/* Hover arrow */}
-      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-        <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+      {/* Top-right: actions menu + hover arrow */}
+      <div className="absolute top-3 right-3 flex items-center gap-1">
+        {onArchiveToggle && onDelete && (
+          <ClientActionsMenu
+            archived={client.archived}
+            onArchiveToggle={onArchiveToggle}
+            onDelete={onDelete}
+          />
+        )}
+        <ArrowUpRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
       
       <CardContent className="p-5">

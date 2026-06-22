@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Mail, Phone, User, ChevronRight, CheckSquare, Link2 } from 'lucide-react';
 import { Client } from '@/hooks/useClients';
 import { cn } from '@/lib/utils';
+import { ClientActionsMenu } from './ClientActionsMenu';
 
 interface TaskCount {
   pending: number;
@@ -14,9 +15,11 @@ interface ClientListItemProps {
   client: Client;
   taskCount?: TaskCount;
   onClick: () => void;
+  onArchiveToggle?: () => void;
+  onDelete?: () => void;
 }
 
-export function ClientListItem({ client, taskCount, onClick }: ClientListItemProps) {
+export function ClientListItem({ client, taskCount, onClick, onArchiveToggle, onDelete }: ClientListItemProps) {
   return (
     <div 
       className="group flex items-center gap-4 p-4 bg-card rounded-xl border hover:shadow-md hover:border-primary/20 transition-all cursor-pointer"
@@ -164,6 +167,15 @@ export function ClientListItem({ client, taskCount, onClick }: ClientListItemPro
           <span className="text-xs text-muted-foreground">+{client.custom_links.length - 2}</span>
         )}
       </div>
+
+      {/* Actions menu */}
+      {onArchiveToggle && onDelete && (
+        <ClientActionsMenu
+          archived={client.archived}
+          onArchiveToggle={onArchiveToggle}
+          onDelete={onDelete}
+        />
+      )}
 
       {/* Arrow */}
       <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />

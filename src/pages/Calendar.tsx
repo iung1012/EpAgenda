@@ -45,6 +45,8 @@ interface VisitData {
   status: string;
   notes: string | null;
   filmmaker_id: string;
+  assigned_to: string | null;
+  delivery_deadline: string | null;
 }
 
 type ViewType = 'month' | 'week' | 'day';
@@ -279,8 +281,8 @@ export default function Calendar() {
 
     setIsVisitSubmitting(true);
 
-    // Keep the datetime as local time string without timezone conversion
-    const visitDateTime = data.visit_date; // e.g., "2026-01-14T09:00"
+    // Converte o horário local para ISO com offset (consistente com as demais telas)
+    const visitDateTime = new Date(data.visit_date).toISOString();
 
     if (!editingVisit) {
       // Create new visit
@@ -295,6 +297,8 @@ export default function Calendar() {
           status: data.status,
           notes: data.notes || null,
           filmmaker_id: user.id,
+          assigned_to: data.assigned_to || null,
+          delivery_deadline: data.delivery_deadline || null,
         })
         .select()
         .single();
@@ -314,13 +318,14 @@ export default function Calendar() {
       if (data.assigned_to) {
         await supabase.from('tasks').insert({
           title: `Entrega: ${data.title}`,
-          description: `Tarefa gerada a partir da visita agendada (${visitDateTime}).${data.notes ? `\n\nNotas: ${data.notes}` : ''}`,
+          description: `Tarefa gerada a partir da visita agendada para ${format(new Date(data.visit_date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}.${data.notes ? `\n\nNotas: ${data.notes}` : ''}`,
           status: 'a_fazer',
           priority: 'media',
           due_date: data.delivery_deadline,
           client_id: data.client_id || null,
           assigned_to: data.assigned_to,
           created_by: user.id,
+          visit_id: created.id,
         });
       }
 
@@ -342,6 +347,8 @@ export default function Calendar() {
         client_id: data.client_id || null,
         status: data.status,
         notes: data.notes || null,
+        assigned_to: data.assigned_to || null,
+        delivery_deadline: data.delivery_deadline || null,
       })
       .eq('id', editingVisit.id);
 
@@ -391,6 +398,8 @@ export default function Calendar() {
       status: editingVisit.status as 'agendada' | 'realizada' | 'cancelada',
       notes: editingVisit.notes || '',
       equipment_ids: (editingVisit as VisitData & { equipment_ids?: string[] }).equipment_ids || [],
+      assigned_to: editingVisit.assigned_to || '',
+      delivery_deadline: editingVisit.delivery_deadline || '',
     };
   };
 
@@ -829,15 +838,15 @@ export default function Calendar() {
         clients={clients}
         equipment={equipment}
         profiles={profiles}
-        isEditing={true}
+        isEditing={!!editingVisit}
         isLoading={isVisitSubmitting}
       />
 
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Excluir Evento"
-        description={`Tem certeza que deseja excluir "${eventToDelete?.title}"? Esta ação não pode ser desfeita.`}
+        title={eventToDelete?.isVisit ? 'Excluir Visita' : 'Excluir Evento'}
+        description={`Tem certeza que deseja excluir "${eventToDelete?.title}"?${eventToDelete?.isVisit ? ' A tarefa de entrega vinculada também será removida.' : ''} Esta ação não pode ser desfeita.`}
         confirmText="Excluir"
         onConfirm={handleDelete}
         variant="destructive"
