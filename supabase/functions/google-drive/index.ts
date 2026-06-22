@@ -305,7 +305,14 @@ async function streamMedia(accessToken: string, fileId: string, rangeHeader: str
 
 // Search files
 async function searchFiles(accessToken: string, folderId: string, searchQuery: string): Promise<DriveFile[]> {
-  const query = `'${folderId}' in parents and trashed = false and name contains '${searchQuery}'`;
+  // Sanitize folderId: Google Drive IDs are URL-safe base64 (letters, digits, _, -)
+  const safeFolderId = folderId.replace(/[^a-zA-Z0-9_-]/g, '');
+  // Sanitize search input: escape single quotes and backslashes used by Drive's query language
+  const safeSearch = searchQuery
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .slice(0, 200);
+  const query = `'${safeFolderId}' in parents and trashed = false and name contains '${safeSearch}'`;
   const fields = 'files(id,name,mimeType,size,modifiedTime,thumbnailLink,webViewLink,webContentLink,iconLink)';
   
   const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent(fields)}&orderBy=folder,name&pageSize=50`;

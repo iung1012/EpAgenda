@@ -12,6 +12,16 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Require shared secret to prevent unauthenticated mass mutations
+    const expectedSecret = Deno.env.get('CRON_SECRET');
+    const callerSecret = req.headers.get('x-cron-secret');
+    if (!expectedSecret || callerSecret !== expectedSecret) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log('Starting process-visits function...');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
