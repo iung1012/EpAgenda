@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -5,8 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FileUpload } from '@/components/FileUpload';
+import { FilePreviewDialog } from '@/components/client-detail/FilePreviewDialog';
+import { getFileKind } from '@/lib/fileType';
 import { motion } from 'framer-motion';
-import { Plus, Trash2, ExternalLink, FileText, FolderOpen } from 'lucide-react';
+import { Plus, Trash2, ExternalLink, FileText, FileType, Film, Music, Eye, FolderOpen } from 'lucide-react';
 
 interface ClientFolder {
   id: string;
@@ -51,6 +54,15 @@ export function ClientFoldersTab({
   onDeleteFolder,
 }: ClientFoldersTabProps) {
   const getFoldersByType = (type: string) => folders.filter(f => f.folder_type === type);
+  const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
+
+  const renderFileIcon = (url: string | null) => {
+    const kind = getFileKind(url);
+    if (kind === 'pdf') return <FileType className="h-4 w-4 text-red-500 flex-shrink-0" />;
+    if (kind === 'video') return <Film className="h-4 w-4 text-purple-500 flex-shrink-0" />;
+    if (kind === 'audio') return <Music className="h-4 w-4 text-blue-500 flex-shrink-0" />;
+    return <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />;
+  };
 
   return (
     <motion.div
@@ -89,20 +101,44 @@ export function ClientFoldersTab({
                   <p className="text-xs text-muted-foreground py-3 text-center">Nenhum arquivo</p>
                 ) : (
                   <div className="space-y-1.5">
-                    {typeFolders.map((folder) => (
+                    {typeFolders.map((folder) => {
+                      const isImage = getFileKind(folder.file_url) === 'image';
+                      const canPreview = !!folder.file_url;
+                      return (
                       <div key={folder.id} className="flex items-center justify-between p-2.5 rounded-lg bg-secondary/40 group">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <button
+                          type="button"
+                          disabled={!canPreview}
+                          onClick={() => folder.file_url && setPreview({ url: folder.file_url, name: folder.name })}
+                          className="flex items-center gap-2.5 min-w-0 text-left disabled:cursor-default enabled:cursor-pointer"
+                        >
+                          {isImage && folder.file_url ? (
+                            <img
+                              src={folder.file_url}
+                              alt={folder.name}
+                              loading="lazy"
+                              className="h-10 w-10 rounded-md object-cover border flex-shrink-0 bg-background"
+                            />
+                          ) : (
+                            <span className="h-10 w-10 rounded-md border bg-background flex items-center justify-center flex-shrink-0">
+                              {renderFileIcon(folder.file_url)}
+                            </span>
+                          )}
                           <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">{folder.name}</p>
+                            <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">{folder.name}</p>
                             {folder.description && (
                               <p className="text-xs text-muted-foreground truncate">{folder.description}</p>
                             )}
                           </div>
-                        </div>
+                        </button>
                         <div className="flex items-center gap-1">
+                          {canPreview && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Pré-visualizar" onClick={() => setPreview({ url: folder.file_url!, name: folder.name })}>
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           {folder.file_url && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(folder.file_url!, '_blank')}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Abrir em nova aba" onClick={() => window.open(folder.file_url!, '_blank')}>
                               <ExternalLink className="h-3.5 w-3.5" />
                             </Button>
                           )}
@@ -113,7 +149,8 @@ export function ClientFoldersTab({
                           )}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -147,6 +184,13 @@ export function ClientFoldersTab({
           </form>
         </DialogContent>
       </Dialog>
+
+      <FilePreviewDialog
+        open={!!preview}
+        onOpenChange={(open) => { if (!open) setPreview(null); }}
+        url={preview?.url ?? null}
+        name={preview?.name ?? ''}
+      />
     </motion.div>
   );
 }
