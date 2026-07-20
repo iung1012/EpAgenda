@@ -42,6 +42,59 @@ function base64UrlEncode(data: Uint8Array): string {
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+// HMAC-SHA256 signed short-lived stream token: base64url(fileId).base64url(exp).base64url(sig)
+async function signStreamToken(fileId: string, userId: string, ttlSeconds = 300): Promise<string> {
+  const secret = Deno.env.get('DRIVE_STREAM_SECRET');
+  if (!secret) throw new Error('DRIVE_STREAM_SECRET not configured');
+  const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
+  const payload = `${fileId}.${userId}.${exp}`;
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = new Uint8Array(
+    await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload)),
+  );
+  return `${base64UrlEncode(new TextEncoder().encode(payload))}.${base64UrlEncode(sig)}`;
+}
+
+async function verifyStreamToken(token: string, fileId: string): Promise<boolean> {
+  try {
+    const secret = Deno.env.get('DRIVE_STREAM_SECRET');
+    if (!secret) return false;
+    const [payloadB64, sigB64] = token.split('.');
+    if (!payloadB64 || !sigB64) return false;
+    const pad = (s: string) => s + '==='.slice((s.length + 3) % 4);
+    const payload = atob(pad(payloadB64).replace(/-/g, '+').replace(/_/g, '/'));
+    const [tokFileId, _userId, expStr] = payload.split('.');
+    if (tokFileId !== fileId) return false;
+    const exp = parseInt(expStr, 10);
+    if (!exp || Date.now() / 1000 > exp) return false;
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify'],
+    );
+    const sigBytes = Uint8Array.from(
+      atob(pad(sigB64).replace(/-/g, '+').replace(/_/g, '/')),
+      (c) => c.charCodeAt(0),
+    );
+    return await crypto.subtle.verify(
+      'HMAC',
+      key,
+      sigBytes,
+      new TextEncoder().encode(payload),
+    );
+  } catch {
+    return false;
+  }
+}
+
 // Create JWT for Google API
 async function createJWT(serviceAccount: ServiceAccountKey): Promise<string> {
   const header = {
