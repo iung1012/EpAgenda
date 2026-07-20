@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { MessageCircle, Plus, RefreshCw, Trash2, Unplug } from 'lucide-react';
+import { MessageCircle, Plus, RefreshCw, Send, Trash2, Unplug } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -43,6 +43,7 @@ export function WhatsappSettings() {
   const [qr, setQr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [newRecipient, setNewRecipient] = useState({ label: '', phone: '' });
+  const [testingId, setTestingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [{ data: cfg }, { data: rec }] = await Promise.all([
@@ -139,6 +140,33 @@ export function WhatsappSettings() {
   const removeRecipient = async (r: Recipient) => {
     await supabase.from('whatsapp_recipients').delete().eq('id', r.id);
     load();
+  };
+
+  const sendTestMessage = async (r: Recipient) => {
+    if (config?.status !== 'connected') {
+      toast({ variant: 'destructive', title: 'Instância não conectada', description: 'Conecte o WhatsApp antes de enviar um teste.' });
+      return;
+    }
+    setTestingId(r.id);
+    const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    const message = `⏰ *Lembrete de teste*\nOlá, ${r.label}!\nEsta é uma mensagem de teste enviada pela EP Mídias em ${now}.\n\nSe você recebeu, o WhatsApp está funcionando corretamente.`;
+    const { data, error } = await supabase.functions.invoke('whatsapp-send', {
+      body: { message, phone: r.phone },
+    });
+    setTestingId(null);
+    if (error) {
+      toast({ variant: 'destructive', title: 'Falha ao enviar', description: error.message });
+      return;
+    }
+    if (data?.sent) {
+      toast({ title: 'Mensagem enviada', description: `Enviada para ${r.label}.` });
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Não enviou',
+        description: data?.skipped || (data?.failures?.[0]?.body ?? 'Verifique o número e a conexão.'),
+      });
+    }
   };
 
   return (
@@ -246,6 +274,16 @@ export function WhatsappSettings() {
                   <div className="text-xs text-muted-foreground">{r.phone}</div>
                 </div>
                 <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => sendTestMessage(r)}
+                    disabled={testingId === r.id || config?.status !== 'connected'}
+                  >
+                    <Send className="h-4 w-4" />
+                    {testingId === r.id ? 'Enviando…' : 'Testar mensagem'}
+                  </Button>
                   <Switch checked={r.active} onCheckedChange={(v) => toggleRecipient(r, v)} />
                   <Button variant="ghost" size="icon" onClick={() => removeRecipient(r)}>
                     <Trash2 className="h-4 w-4 text-destructive" />
