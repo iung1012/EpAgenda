@@ -48,14 +48,40 @@ Deno.serve(async (req) => {
 
   let sent = 0;
   const failures: unknown[] = [];
+  const accepted: { phone: string; messageId: string | null; remoteJid: string | null }[] = [];
   for (const r of recipients) {
     const res = await sendWhatsappMessage(cfg.instance_name, r.phone, message);
-    if (res.ok) sent++;
+    if (res.ok) {
+      const body = res.body as {
+        key?: { id?: string; remoteJid?: string };
+        messageId?: string;
+      } | null;
+      const messageId = body?.key?.id ?? body?.messageId ?? null;
+      const remoteJid = body?.key?.remoteJid ?? null;
+
+      if (!messageId) {
+        console.error("[whatsapp-send] provider accepted request without message id", {
+          phone: r.phone,
+          status: res.status,
+          body: res.body,
+        });
+        failures.push({
+          phone: r.phone,
+          status: 502,
+          body: "A Evolution aceitou a requisição, mas não confirmou o envio com um ID de mensagem",
+        });
+        continue;
+      }
+
+      sent++;
+      accepted.push({ phone: r.phone, messageId, remoteJid });
+      console.log("[whatsapp-send] message accepted", { phone: r.phone, messageId, remoteJid });
+    }
     else {
       console.error("[whatsapp-send] delivery rejected", { phone: r.phone, status: res.status, body: res.body });
       failures.push({ phone: r.phone, status: res.status, body: res.body });
     }
   }
 
-  return json({ sent, failures });
+  return json({ sent, accepted, failures });
 });
