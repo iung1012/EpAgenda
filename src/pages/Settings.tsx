@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { User, Lock, Building2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { WhatsappSettings } from '@/components/settings/WhatsappSettings';
+import { WhatsappMessageLogs } from '@/components/settings/WhatsappMessageLogs';
 
 export default function Settings() {
   const { profile, user, isAdminOrManager } = useAuth();
@@ -173,6 +174,7 @@ export default function Settings() {
       </Card>
 
       {isAdminOrManager && <WhatsappSettings />}
+      {isAdminOrManager && <WhatsappMessageLogs />}
 
       {/* About */}
       <Card>
