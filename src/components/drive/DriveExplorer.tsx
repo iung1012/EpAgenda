@@ -173,12 +173,36 @@ function VideoPlayer({
 }) {
   const [error, setError] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  
-  // Build streaming URL with token as query param
-  const streamUrl = useMemo(() => {
-    if (!authToken) return null;
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    return `https://${projectId}.supabase.co/functions/v1/google-drive?action=stream&fileId=${fileId}&token=${encodeURIComponent(authToken)}`;
+  const [streamUrl, setStreamUrl] = useState<string | null>(null);
+
+  // Fetch a short-lived signed stream token (bound to fileId, ~5min TTL),
+  // then build a streaming URL that never carries the raw user JWT.
+  useEffect(() => {
+    let cancelled = false;
+    if (!authToken) {
+      setStreamUrl(null);
+      return;
+    }
+    (async () => {
+      try {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/google-drive?action=streamToken&fileId=${fileId}`,
+          { headers: { Authorization: `Bearer ${authToken}` } },
+        );
+        if (!res.ok) throw new Error('token');
+        const { token } = await res.json();
+        if (cancelled) return;
+        setStreamUrl(
+          `https://${projectId}.supabase.co/functions/v1/google-drive?action=stream&fileId=${fileId}&st=${encodeURIComponent(token)}`,
+        );
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [fileId, authToken]);
 
   const handleError = () => {
