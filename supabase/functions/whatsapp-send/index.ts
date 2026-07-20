@@ -49,6 +49,38 @@ Deno.serve(async (req) => {
   let sent = 0;
   const failures: unknown[] = [];
   const accepted: { phone: string; messageId: string | null; remoteJid: string | null }[] = [];
+  const logEntry = async (row: {
+    phone: string;
+    provider_status: string | null;
+    provider_message_id: string | null;
+    remote_jid: string | null;
+    error: string | null;
+    recipient_label?: string | null;
+  }) => {
+    try {
+      let label = row.recipient_label ?? null;
+      if (!label) {
+        const { data } = await admin
+          .from("whatsapp_recipients")
+          .select("label")
+          .eq("phone", row.phone)
+          .maybeSingle();
+        label = data?.label ?? null;
+      }
+      await admin.from("whatsapp_message_logs").insert({
+        event: event ?? null,
+        phone: row.phone,
+        recipient_label: label,
+        message,
+        provider_status: row.provider_status,
+        provider_message_id: row.provider_message_id,
+        remote_jid: row.remote_jid,
+        error: row.error,
+      });
+    } catch (e) {
+      console.error("[whatsapp-send] failed to write log", e);
+    }
+  };
   for (const r of recipients) {
     const res = await sendWhatsappMessage(cfg.instance_name, r.phone, message);
     if (res.ok) {
@@ -71,6 +103,13 @@ Deno.serve(async (req) => {
           phone: r.phone,
           status: 502,
           body: "A Evolution aceitou a requisição, mas não confirmou o envio com um ID de mensagem",
+        });
+        await logEntry({
+          phone: r.phone,
+          provider_status: providerStatus,
+          provider_message_id: null,
+          remote_jid: remoteJid,
+          error: "no message id returned",
         });
         continue;
       }
@@ -107,6 +146,13 @@ Deno.serve(async (req) => {
             ? "A Evolution recebeu a mensagem, mas ela ficou pendente e não saiu do servidor. Verifique/atualize a instalação da Evolution API e reconecte a instância."
             : "A Evolution não conseguiu enviar a mensagem.",
         });
+        await logEntry({
+          phone: r.phone,
+          provider_status: providerStatus,
+          provider_message_id: messageId,
+          remote_jid: remoteJid,
+          error: providerStatus,
+        });
         continue;
       }
 
@@ -118,10 +164,24 @@ Deno.serve(async (req) => {
         remoteJid,
         providerStatus,
       });
+      await logEntry({
+        phone: r.phone,
+        provider_status: providerStatus ?? "SENT",
+        provider_message_id: messageId,
+        remote_jid: remoteJid,
+        error: null,
+      });
     }
     else {
       console.error("[whatsapp-send] delivery rejected", { phone: r.phone, status: res.status, body: res.body });
       failures.push({ phone: r.phone, status: res.status, body: res.body });
+      await logEntry({
+        phone: r.phone,
+        provider_status: "REJECTED",
+        provider_message_id: null,
+        remote_jid: null,
+        error: typeof res.body === "string" ? res.body : JSON.stringify(res.body).slice(0, 500),
+      });
     }
   }
 

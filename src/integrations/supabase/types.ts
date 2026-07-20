@@ -800,6 +800,45 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_message_logs: {
+        Row: {
+          created_at: string
+          error: string | null
+          event: string | null
+          id: string
+          message: string
+          phone: string
+          provider_message_id: string | null
+          provider_status: string | null
+          recipient_label: string | null
+          remote_jid: string | null
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event?: string | null
+          id?: string
+          message: string
+          phone: string
+          provider_message_id?: string | null
+          provider_status?: string | null
+          recipient_label?: string | null
+          remote_jid?: string | null
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event?: string | null
+          id?: string
+          message?: string
+          phone?: string
+          provider_message_id?: string | null
+          provider_status?: string | null
+          recipient_label?: string | null
+          remote_jid?: string | null
+        }
+        Relationships: []
+      }
       whatsapp_recipients: {
         Row: {
           active: boolean
