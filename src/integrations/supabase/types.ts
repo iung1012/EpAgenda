@@ -725,6 +725,39 @@ export type Database = {
           },
         ]
       }
+      whatsapp_ai_messages: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          name: string | null
+          phone: string
+          role: string
+          tool_call_id: string | null
+          tool_calls: Json | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          name?: string | null
+          phone: string
+          role: string
+          tool_call_id?: string | null
+          tool_calls?: Json | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          name?: string | null
+          phone?: string
+          role?: string
+          tool_call_id?: string | null
+          tool_calls?: Json | null
+        }
+        Relationships: []
+      }
       whatsapp_config: {
         Row: {
           created_at: string

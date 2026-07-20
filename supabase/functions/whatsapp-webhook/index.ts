@@ -33,5 +33,40 @@ Deno.serve(async (req) => {
     }).eq("singleton", true).eq("instance_name", instance ?? "");
   }
 
+  if (event === "messages.upsert" || event === "MESSAGES_UPSERT") {
+    const msg = p.data;
+    const fromMe = msg?.key?.fromMe;
+    const remoteJid: string | undefined = msg?.key?.remoteJid;
+    // Ignore group messages and our own sends
+    if (!fromMe && remoteJid && !remoteJid.includes("@g.us")) {
+      const text: string | undefined =
+        msg?.message?.conversation ??
+        msg?.message?.extendedTextMessage?.text ??
+        msg?.message?.imageMessage?.caption ??
+        undefined;
+      const phone = remoteJid.split("@")[0].replace(/\D/g, "");
+      if (text && phone) {
+        // Only respond to authorized recipients
+        const { data: allowed } = await admin
+          .from("whatsapp_recipients")
+          .select("phone")
+          .eq("active", true);
+        const ok = (allowed ?? []).some((r) => r.phone.replace(/\D/g, "") === phone);
+        if (ok) {
+          // Fire-and-forget the AI handler
+          const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-ai`;
+          fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-internal-secret": Deno.env.get("CRON_SECRET") ?? "",
+            },
+            body: JSON.stringify({ phone, text }),
+          }).catch(() => {});
+        }
+      }
+    }
+  }
+
   return json({ ok: true });
 });
