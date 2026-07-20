@@ -1,0 +1,58 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders, json, sendWhatsappMessage } from "../_shared/whatsapp.ts";
+
+// This function accepts either an authenticated admin/manager (from the UI)
+// OR a server-to-server call using the internal CRON_SECRET header (for the cron job).
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+  // Internal callers pass x-internal-secret. External callers must be admin/manager.
+  const internalOk = req.headers.get("x-internal-secret") === Deno.env.get("CRON_SECRET");
+  if (!internalOk) {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data, error } = await userClient.auth.getClaims(authHeader.replace("Bearer ", ""));
+    if (error || !data?.claims) return json({ error: "Unauthorized" }, 401);
+    const { data: role } = await admin.from("user_roles").select("role").eq("user_id", data.claims.sub).maybeSingle();
+    if (role?.role !== "admin" && role?.role !== "gerente") return json({ error: "Forbidden" }, 403);
+  }
+
+  const { event, message } = await req.json().catch(() => ({}));
+  if (!message || typeof message !== "string") return json({ error: "message obrigatório" }, 400);
+
+  const { data: cfg } = await admin.from("whatsapp_config").select("*").eq("singleton", true).maybeSingle();
+  if (!cfg?.instance_name || cfg.status !== "connected") {
+    return json({ sent: 0, skipped: "instância não conectada" });
+  }
+
+  // Respect event-level flags when provided by caller
+  const flagMap: Record<string, string> = {
+    create: "notify_on_create",
+    update: "notify_on_update",
+    cancel: "notify_on_cancel",
+    reminder: "notify_on_reminder",
+  };
+  const flag = event && flagMap[event];
+  if (flag && cfg[flag] === false) return json({ sent: 0, skipped: `${event} desativado` });
+
+  const { data: recipients } = await admin
+    .from("whatsapp_recipients")
+    .select("phone")
+    .eq("active", true);
+
+  let sent = 0;
+  const failures: unknown[] = [];
+  for (const r of recipients ?? []) {
+    const res = await sendWhatsappMessage(cfg.instance_name, r.phone, message);
+    if (res.ok) sent++;
+    else failures.push({ phone: r.phone, status: res.status, body: res.body });
+  }
+
+  return json({ sent, failures });
+});
