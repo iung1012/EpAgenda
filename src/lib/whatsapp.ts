@@ -10,6 +10,7 @@ interface VisitLike {
   location?: string | null;
   clientName?: string | null;
   assignedName?: string | null;
+  kindLabel?: string | null;
 }
 
 export function buildVisitMessage(event: WhatsappEvent, visit: VisitLike) {
@@ -19,11 +20,13 @@ export function buildVisitMessage(event: WhatsappEvent, visit: VisitLike) {
     return format(d, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
   })();
   const parts: string[] = [];
+  const label = visit.kindLabel || 'visita';
+  const cap = label.charAt(0).toUpperCase() + label.slice(1);
   const header =
-    event === 'create' ? '📅 *Nova visita agendada*'
-    : event === 'update' ? '✏️ *Visita atualizada*'
-    : event === 'cancel' ? '❌ *Visita cancelada*'
-    : '⏰ *Lembrete de visita*';
+    event === 'create' ? `📅 *${cap} agendad${label.endsWith('a') ? 'a' : 'o'}*`
+    : event === 'update' ? `✏️ *${cap} atualizad${label.endsWith('a') ? 'a' : 'o'}*`
+    : event === 'cancel' ? `❌ *${cap} cancelad${label.endsWith('a') ? 'a' : 'o'}*`
+    : `⏰ *Lembrete de ${label}*`;
   parts.push(header);
   parts.push(`*${visit.title}*`);
   parts.push(`🗓️ ${when}`);
