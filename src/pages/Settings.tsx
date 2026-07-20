@@ -8,9 +8,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { User, Lock, Building2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { WhatsappSettings } from '@/components/settings/WhatsappSettings';
 
 export default function Settings() {
-  const { profile, user } = useAuth();
+  const { profile, user, isAdminOrManager } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [profileData, setProfileData] = useState({
@@ -170,6 +171,8 @@ export default function Settings() {
           </form>
         </CardContent>
       </Card>
+
+      {isAdminOrManager && <WhatsappSettings />}
 
       {/* About */}
       <Card>

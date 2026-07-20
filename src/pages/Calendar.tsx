@@ -16,6 +16,7 @@ import { VisitFormDialog, VisitFormValues } from '@/components/forms/VisitFormDi
 import { useCalendarEvents, CalendarEvent } from '@/hooks/useCalendarEvents';
 import { useHolidays } from '@/hooks/useHolidays';
 import { useProfiles } from '@/hooks/useProfiles';
+import { sendWhatsappNotification } from '@/lib/whatsapp';
 import { DayEventsDialog } from '@/components/calendar/DayEventsDialog';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -181,6 +182,10 @@ export default function Calendar() {
 
     // Check if it's a visit event (id starts with 'visit-')
     if (eventToDelete.isVisit && eventToDelete.visitId) {
+      const visitInfo = {
+        title: eventToDelete.title?.replace('📹 ', '') || 'Visita',
+        visit_date: eventToDelete.start_date,
+      };
       const { error } = await supabase
         .from('filmmaker_visits')
         .delete()
@@ -194,6 +199,7 @@ export default function Calendar() {
         toast({ variant: 'destructive', title: 'Erro ao excluir visita', description: error.message });
       } else {
         toast({ title: 'Visita excluída com sucesso!' });
+        sendWhatsappNotification('cancel', visitInfo);
         setDayDialogOpen(false);
         refetch();
       }
@@ -329,6 +335,16 @@ export default function Calendar() {
         });
       }
 
+      const clientName = data.client_id ? clients.find(c => c.id === data.client_id)?.name ?? null : null;
+      const assignedName = data.assigned_to ? profiles.find(p => p.user_id === data.assigned_to)?.full_name ?? null : null;
+      sendWhatsappNotification('create', {
+        title: data.title,
+        visit_date: visitDateTime,
+        location: data.location,
+        clientName,
+        assignedName,
+      });
+
       setIsVisitSubmitting(false);
       setIsVisitDialogOpen(false);
       toast({ title: 'Visita agendada e tarefa atribuída!' });
@@ -374,6 +390,17 @@ export default function Calendar() {
     setEditingVisit(null);
     setDayDialogOpen(false);
     toast({ title: 'Visita atualizada com sucesso!' });
+    {
+      const clientName = data.client_id ? clients.find(c => c.id === data.client_id)?.name ?? null : null;
+      const assignedName = data.assigned_to ? profiles.find(p => p.user_id === data.assigned_to)?.full_name ?? null : null;
+      sendWhatsappNotification(data.status === 'cancelada' ? 'cancel' : 'update', {
+        title: data.title,
+        visit_date: visitDateTime,
+        location: data.location,
+        clientName,
+        assignedName,
+      });
+    }
     refetch();
   };
 
