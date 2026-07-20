@@ -55,9 +55,11 @@ Deno.serve(async (req) => {
       const body = res.body as {
         key?: { id?: string; remoteJid?: string };
         messageId?: string;
+        status?: string;
       } | null;
       const messageId = body?.key?.id ?? body?.messageId ?? null;
       const remoteJid = body?.key?.remoteJid ?? null;
+      const providerStatus = body?.status ?? null;
 
       if (!messageId) {
         console.error("[whatsapp-send] provider accepted request without message id", {
@@ -75,7 +77,12 @@ Deno.serve(async (req) => {
 
       sent++;
       accepted.push({ phone: r.phone, messageId, remoteJid });
-      console.log("[whatsapp-send] message accepted", { phone: r.phone, messageId, remoteJid });
+      console.log("[whatsapp-send] message accepted", {
+        phone: r.phone,
+        messageId,
+        remoteJid,
+        providerStatus,
+      });
     }
     else {
       console.error("[whatsapp-send] delivery rejected", { phone: r.phone, status: res.status, body: res.body });
