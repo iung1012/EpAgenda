@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders, json, sendWhatsappMessage } from "../_shared/whatsapp.ts";
+import { corsHeaders, json, requireAdmin, sendWhatsappMessage } from "../_shared/whatsapp.ts";
 
 // This function accepts either an authenticated admin/manager (from the UI)
 // OR a server-to-server call using the internal CRON_SECRET header (for the cron job).
@@ -7,20 +7,14 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  let admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   // Internal callers pass x-internal-secret. External callers must be admin/manager.
   const internalOk = req.headers.get("x-internal-secret") === Deno.env.get("CRON_SECRET");
   if (!internalOk) {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
-    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data, error } = await userClient.auth.getClaims(authHeader.replace("Bearer ", ""));
-    if (error || !data?.claims) return json({ error: "Unauthorized" }, 401);
-    const { data: role } = await admin.from("user_roles").select("role").eq("user_id", data.claims.sub).maybeSingle();
-    if (role?.role !== "admin" && role?.role !== "gerente") return json({ error: "Forbidden" }, 403);
+    const auth = await requireAdmin(req);
+    if ("error" in auth) return auth.error;
+    admin = auth.admin;
   }
 
   const { event, message, phone: overridePhone } = await req.json().catch(() => ({}));
@@ -57,7 +51,10 @@ Deno.serve(async (req) => {
   for (const r of recipients) {
     const res = await sendWhatsappMessage(cfg.instance_name, r.phone, message);
     if (res.ok) sent++;
-    else failures.push({ phone: r.phone, status: res.status, body: res.body });
+    else {
+      console.error("[whatsapp-send] delivery rejected", { phone: r.phone, status: res.status, body: res.body });
+      failures.push({ phone: r.phone, status: res.status, body: res.body });
+    }
   }
 
   return json({ sent, failures });

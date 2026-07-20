@@ -71,11 +71,32 @@ export function normalizePhone(phone: string) {
   return phone.replace(/\D/g, "");
 }
 
+export async function resolveWhatsappNumber(instance: string, phone: string) {
+  const normalized = normalizePhone(phone);
+  const result = await evoFetch(`/chat/whatsappNumbers/${encodeURIComponent(instance)}`, {
+    method: "POST",
+    body: JSON.stringify({ numbers: [normalized] }),
+  });
+
+  if (!result.ok || !Array.isArray(result.body)) {
+    return { number: normalized, exists: null, lookup: result };
+  }
+
+  const match = result.body[0] as { exists?: boolean; number?: string; jid?: string } | undefined;
+  const canonical = normalizePhone(match?.number ?? match?.jid?.split("@")[0] ?? normalized);
+  return { number: canonical, exists: match?.exists ?? null, lookup: result };
+}
+
 export async function sendWhatsappMessage(instance: string, phone: string, message: string) {
+  const resolved = await resolveWhatsappNumber(instance, phone);
+  if (resolved.exists === false) {
+    return { ok: false, status: 422, body: "Número não encontrado no WhatsApp" };
+  }
+
   return evoFetch(`/message/sendText/${encodeURIComponent(instance)}`, {
     method: "POST",
     body: JSON.stringify({
-      number: normalizePhone(phone),
+      number: resolved.number,
       text: message,
     }),
   });
