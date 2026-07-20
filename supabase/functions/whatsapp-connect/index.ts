@@ -39,7 +39,25 @@ Deno.serve(async (req) => {
     const body: any = create.body;
     qrcode = body?.qrcode?.base64 ?? null;
   } else {
-    // Reconnect existing instance
+    // Restart an existing Baileys session before requesting a new connection.
+    // An instance can report `open` while its outbound socket is stale and all
+    // accepted messages immediately change to ERROR.
+    let restarted = await evoFetch(`/instance/restart/${encodeURIComponent(instanceName)}`, {
+      method: "POST",
+    });
+    // Older Evolution releases expose the same endpoint as PUT.
+    if (!restarted.ok) {
+      restarted = await evoFetch(`/instance/restart/${encodeURIComponent(instanceName)}`, {
+        method: "PUT",
+      });
+    }
+    if (!restarted.ok && restarted.status !== 404) {
+      console.error("[whatsapp-connect] failed to restart existing instance", {
+        status: restarted.status,
+        body: restarted.body,
+      });
+    }
+
     const conn = await evoFetch(`/instance/connect/${encodeURIComponent(instanceName)}`);
     if (!conn.ok) {
       return json({ error: "Falha ao criar/conectar instância", detail: create.body ?? conn.body }, 500);
