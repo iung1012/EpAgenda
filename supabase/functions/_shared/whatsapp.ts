@@ -88,15 +88,20 @@ export async function resolveWhatsappNumber(instance: string, phone: string) {
 }
 
 export async function sendWhatsappMessage(instance: string, phone: string, message: string) {
+  const normalized = normalizePhone(phone);
   const resolved = await resolveWhatsappNumber(instance, phone);
   if (resolved.exists === false) {
     return { ok: false, status: 422, body: "Número não encontrado no WhatsApp" };
   }
 
+  // Always send the complete number entered by the user. For Brazilian mobile
+  // numbers, whatsappNumbers may return a legacy JID without the ninth digit;
+  // using that JID as the destination can create an accepted-but-never-sent
+  // message in some Baileys/Evolution versions.
   return evoFetch(`/message/sendText/${encodeURIComponent(instance)}`, {
     method: "POST",
     body: JSON.stringify({
-      number: resolved.number,
+      number: normalized,
       text: message,
     }),
   });
