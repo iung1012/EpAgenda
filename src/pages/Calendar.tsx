@@ -385,6 +385,17 @@ export default function Calendar() {
     setEditingVisit(null);
     setDayDialogOpen(false);
     toast({ title: 'Visita atualizada com sucesso!' });
+    {
+      const clientName = data.client_id ? clients.find(c => c.id === data.client_id)?.name ?? null : null;
+      const assignedName = data.assigned_to ? profiles.find(p => p.user_id === data.assigned_to)?.full_name ?? null : null;
+      sendWhatsappNotification(data.status === 'cancelada' ? 'cancel' : 'update', {
+        title: data.title,
+        visit_date: visitDateTime,
+        location: data.location,
+        clientName,
+        assignedName,
+      });
+    }
     refetch();
   };
 
