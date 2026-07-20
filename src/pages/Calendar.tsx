@@ -140,6 +140,18 @@ export default function Calendar() {
         toast({ variant: 'destructive', title: 'Erro ao atualizar evento', description: error.message });
       } else {
         toast({ title: 'Evento atualizado com sucesso!' });
+        {
+          const clientName = data.client_id ? clients.find(c => c.id === data.client_id)?.name ?? null : null;
+          const assignedName = data.assigned_to ? profiles.find(p => p.user_id === data.assigned_to)?.full_name ?? null : null;
+          sendWhatsappNotification('update', {
+            title: data.title,
+            visit_date: startDateTime.toISOString(),
+            location: data.location,
+            clientName,
+            assignedName,
+            kindLabel: 'evento',
+          });
+        }
         setIsDialogOpen(false);
         setEditingEvent(null);
         setDayDialogOpen(false);
@@ -166,6 +178,18 @@ export default function Calendar() {
         toast({ variant: 'destructive', title: 'Erro ao criar evento', description: error.message });
       } else {
         toast({ title: 'Evento criado com sucesso!' });
+        {
+          const clientName = data.client_id ? clients.find(c => c.id === data.client_id)?.name ?? null : null;
+          const assignedName = data.assigned_to ? profiles.find(p => p.user_id === data.assigned_to)?.full_name ?? null : null;
+          sendWhatsappNotification('create', {
+            title: data.title,
+            visit_date: startDateTime.toISOString(),
+            location: data.location,
+            clientName,
+            assignedName,
+            kindLabel: 'evento',
+          });
+        }
         setIsDialogOpen(false);
         setSelectedDate('');
         setSelectedTime('');
@@ -217,6 +241,12 @@ export default function Calendar() {
         toast({ variant: 'destructive', title: 'Erro ao excluir evento', description: error.message });
       } else {
         toast({ title: 'Evento excluído com sucesso!' });
+        sendWhatsappNotification('cancel', {
+          title: eventToDelete.title || 'Evento',
+          visit_date: eventToDelete.start_date,
+          location: (eventToDelete as any).location ?? null,
+          kindLabel: 'evento',
+        });
         setDayDialogOpen(false);
         refetch();
       }
