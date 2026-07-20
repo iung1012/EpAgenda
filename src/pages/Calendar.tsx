@@ -182,6 +182,10 @@ export default function Calendar() {
 
     // Check if it's a visit event (id starts with 'visit-')
     if (eventToDelete.isVisit && eventToDelete.visitId) {
+      const visitInfo = {
+        title: eventToDelete.title?.replace('📹 ', '') || 'Visita',
+        visit_date: eventToDelete.start_date,
+      };
       const { error } = await supabase
         .from('filmmaker_visits')
         .delete()
@@ -195,6 +199,7 @@ export default function Calendar() {
         toast({ variant: 'destructive', title: 'Erro ao excluir visita', description: error.message });
       } else {
         toast({ title: 'Visita excluída com sucesso!' });
+        sendWhatsappNotification('cancel', visitInfo);
         setDayDialogOpen(false);
         refetch();
       }
