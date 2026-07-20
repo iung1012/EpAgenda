@@ -415,39 +415,66 @@ serve(async (req) => {
     // Parse URL early to check for token query param (for streaming)
     const url = new URL(req.url);
     const action = url.searchParams.get('action');
-    const tokenParam = url.searchParams.get('token');
-    
-    // Validate authorization - accept header or query param token for streaming
-    let authToken: string | null = null;
-    const authHeader = req.headers.get('Authorization');
-    
-    if (authHeader?.startsWith('Bearer ')) {
-      authToken = authHeader.replace('Bearer ', '');
-    } else if (tokenParam && action === 'stream') {
-      // Allow token via query param only for streaming (video src can't send headers)
-      authToken = tokenParam;
-    }
-    
-    if (!authToken) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
-        status: 401, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
-    }
+    const streamFileIdParam = url.searchParams.get('fileId');
+    const streamTokenParam = url.searchParams.get('st');
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: `Bearer ${authToken}` } } }
-    );
+    // The stream endpoint is called from <video src> tags that cannot set headers.
+    // It authenticates via a short-lived HMAC-signed token bound to the fileId,
+    // never via the raw user JWT.
+    if (action === 'stream') {
+      if (!streamFileIdParam || !streamTokenParam) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const ok = await verifyStreamToken(streamTokenParam, streamFileIdParam);
+      if (!ok) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    } else {
+      // All other actions require a valid Supabase JWT in the Authorization header.
+      const authHeader = req.headers.get('Authorization');
+      const authToken = authHeader?.startsWith('Bearer ')
+        ? authHeader.replace('Bearer ', '')
+        : null;
+      if (!authToken) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        { global: { headers: { Authorization: `Bearer ${authToken}` } } },
+      );
+      const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(authToken);
+      if (claimsError || !claimsData?.claims) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(authToken);
-    
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
-        status: 401, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
+      // Short-lived stream token issuance (called from the app before playing a video).
+      if (action === 'streamToken') {
+        const fid = url.searchParams.get('fileId');
+        if (!fid) {
+          return new Response(JSON.stringify({ error: 'fileId required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const userId = (claimsData.claims as { sub?: string }).sub ?? 'anon';
+        const token = await signStreamToken(fid, userId, 300);
+        return new Response(JSON.stringify({ token, expiresIn: 300 }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     // Get service account key
