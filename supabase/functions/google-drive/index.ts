@@ -42,6 +42,59 @@ function base64UrlEncode(data: Uint8Array): string {
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+// HMAC-SHA256 signed short-lived stream token: base64url(fileId).base64url(exp).base64url(sig)
+async function signStreamToken(fileId: string, userId: string, ttlSeconds = 300): Promise<string> {
+  const secret = Deno.env.get('DRIVE_STREAM_SECRET');
+  if (!secret) throw new Error('DRIVE_STREAM_SECRET not configured');
+  const exp = Math.floor(Date.now() / 1000) + ttlSeconds;
+  const payload = `${fileId}.${userId}.${exp}`;
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = new Uint8Array(
+    await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload)),
+  );
+  return `${base64UrlEncode(new TextEncoder().encode(payload))}.${base64UrlEncode(sig)}`;
+}
+
+async function verifyStreamToken(token: string, fileId: string): Promise<boolean> {
+  try {
+    const secret = Deno.env.get('DRIVE_STREAM_SECRET');
+    if (!secret) return false;
+    const [payloadB64, sigB64] = token.split('.');
+    if (!payloadB64 || !sigB64) return false;
+    const pad = (s: string) => s + '==='.slice((s.length + 3) % 4);
+    const payload = atob(pad(payloadB64).replace(/-/g, '+').replace(/_/g, '/'));
+    const [tokFileId, _userId, expStr] = payload.split('.');
+    if (tokFileId !== fileId) return false;
+    const exp = parseInt(expStr, 10);
+    if (!exp || Date.now() / 1000 > exp) return false;
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify'],
+    );
+    const sigBytes = Uint8Array.from(
+      atob(pad(sigB64).replace(/-/g, '+').replace(/_/g, '/')),
+      (c) => c.charCodeAt(0),
+    );
+    return await crypto.subtle.verify(
+      'HMAC',
+      key,
+      sigBytes,
+      new TextEncoder().encode(payload),
+    );
+  } catch {
+    return false;
+  }
+}
+
 // Create JWT for Google API
 async function createJWT(serviceAccount: ServiceAccountKey): Promise<string> {
   const header = {
@@ -362,39 +415,66 @@ serve(async (req) => {
     // Parse URL early to check for token query param (for streaming)
     const url = new URL(req.url);
     const action = url.searchParams.get('action');
-    const tokenParam = url.searchParams.get('token');
-    
-    // Validate authorization - accept header or query param token for streaming
-    let authToken: string | null = null;
-    const authHeader = req.headers.get('Authorization');
-    
-    if (authHeader?.startsWith('Bearer ')) {
-      authToken = authHeader.replace('Bearer ', '');
-    } else if (tokenParam && action === 'stream') {
-      // Allow token via query param only for streaming (video src can't send headers)
-      authToken = tokenParam;
-    }
-    
-    if (!authToken) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
-        status: 401, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
-    }
+    const streamFileIdParam = url.searchParams.get('fileId');
+    const streamTokenParam = url.searchParams.get('st');
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: `Bearer ${authToken}` } } }
-    );
+    // The stream endpoint is called from <video src> tags that cannot set headers.
+    // It authenticates via a short-lived HMAC-signed token bound to the fileId,
+    // never via the raw user JWT.
+    if (action === 'stream') {
+      if (!streamFileIdParam || !streamTokenParam) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const ok = await verifyStreamToken(streamTokenParam, streamFileIdParam);
+      if (!ok) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    } else {
+      // All other actions require a valid Supabase JWT in the Authorization header.
+      const authHeader = req.headers.get('Authorization');
+      const authToken = authHeader?.startsWith('Bearer ')
+        ? authHeader.replace('Bearer ', '')
+        : null;
+      if (!authToken) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        { global: { headers: { Authorization: `Bearer ${authToken}` } } },
+      );
+      const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(authToken);
+      if (claimsError || !claimsData?.claims) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(authToken);
-    
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
-        status: 401, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
+      // Short-lived stream token issuance (called from the app before playing a video).
+      if (action === 'streamToken') {
+        const fid = url.searchParams.get('fileId');
+        if (!fid) {
+          return new Response(JSON.stringify({ error: 'fileId required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const userId = (claimsData.claims as { sub?: string }).sub ?? 'anon';
+        const token = await signStreamToken(fid, userId, 300);
+        return new Response(JSON.stringify({ token, expiresIn: 300 }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     // Get service account key
