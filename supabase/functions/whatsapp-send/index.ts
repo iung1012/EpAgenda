@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders, json, requireAdmin, sendWhatsappMessage } from "../_shared/whatsapp.ts";
+import { corsHeaders, evoFetch, json, requireAdmin, sendWhatsappMessage } from "../_shared/whatsapp.ts";
 
 // This function accepts either an authenticated admin/manager (from the UI)
 // OR a server-to-server call using the internal CRON_SECRET header (for the cron job).
@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       } | null;
       const messageId = body?.key?.id ?? body?.messageId ?? null;
       const remoteJid = body?.key?.remoteJid ?? null;
-      const providerStatus = body?.status ?? null;
+      let providerStatus = body?.status ?? null;
 
       if (!messageId) {
         console.error("[whatsapp-send] provider accepted request without message id", {
@@ -71,6 +71,41 @@ Deno.serve(async (req) => {
           phone: r.phone,
           status: 502,
           body: "A Evolution aceitou a requisição, mas não confirmou o envio com um ID de mensagem",
+        });
+        continue;
+      }
+
+      if (providerStatus === "PENDING") {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const confirmation = await evoFetch(`/chat/findStatusMessage/${encodeURIComponent(cfg.instance_name)}`, {
+          method: "POST",
+          body: JSON.stringify({
+            where: { id: messageId, remoteJid, fromMe: true },
+            limit: 1,
+          }),
+        });
+        const confirmationBody = confirmation.body as
+          | { status?: string; messages?: Array<{ status?: string }> }
+          | Array<{ status?: string }>
+          | null;
+        providerStatus = Array.isArray(confirmationBody)
+          ? confirmationBody[0]?.status ?? providerStatus
+          : confirmationBody?.messages?.[0]?.status ?? confirmationBody?.status ?? providerStatus;
+      }
+
+      if (providerStatus === "PENDING" || providerStatus === "ERROR") {
+        console.error("[whatsapp-send] message did not leave provider", {
+          phone: r.phone,
+          messageId,
+          remoteJid,
+          providerStatus,
+        });
+        failures.push({
+          phone: r.phone,
+          status: 502,
+          body: providerStatus === "PENDING"
+            ? "A Evolution recebeu a mensagem, mas ela ficou pendente e não saiu do servidor. Verifique/atualize a instalação da Evolution API e reconecte a instância."
+            : "A Evolution não conseguiu enviar a mensagem.",
         });
         continue;
       }
