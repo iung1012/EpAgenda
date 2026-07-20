@@ -329,6 +329,16 @@ export default function Calendar() {
         });
       }
 
+      const clientName = data.client_id ? clients.find(c => c.id === data.client_id)?.name ?? null : null;
+      const assignedName = data.assigned_to ? profiles.find(p => p.user_id === data.assigned_to)?.full_name ?? null : null;
+      sendWhatsappNotification('create', {
+        title: data.title,
+        visit_date: visitDateTime,
+        location: data.location,
+        clientName,
+        assignedName,
+      });
+
       setIsVisitSubmitting(false);
       setIsVisitDialogOpen(false);
       toast({ title: 'Visita agendada e tarefa atribuída!' });
