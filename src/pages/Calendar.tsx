@@ -16,6 +16,7 @@ import { VisitFormDialog, VisitFormValues } from '@/components/forms/VisitFormDi
 import { useCalendarEvents, CalendarEvent } from '@/hooks/useCalendarEvents';
 import { useHolidays } from '@/hooks/useHolidays';
 import { useProfiles } from '@/hooks/useProfiles';
+import { sendWhatsappNotification } from '@/lib/whatsapp';
 import { DayEventsDialog } from '@/components/calendar/DayEventsDialog';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
