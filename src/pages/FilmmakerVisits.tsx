@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, MapPin, Calendar, Video, Package, Clock, CheckCircle, XCircle, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { sendWhatsappNotification } from '@/lib/whatsapp';
 
 interface Client {
   id: string;
@@ -137,6 +138,17 @@ export default function FilmmakerVisits() {
         }
 
         toast({ title: 'Visita atualizada com sucesso!' });
+        {
+          const clientName = data.client_id ? clients.find(c => c.id === data.client_id)?.name ?? null : null;
+          const assignedName = data.assigned_to ? profiles.find(p => p.user_id === data.assigned_to)?.full_name ?? null : null;
+          sendWhatsappNotification(data.status === 'cancelada' ? 'cancel' : 'update', {
+            title: data.title,
+            visit_date: visitDateTime,
+            location: data.location,
+            clientName,
+            assignedName,
+          });
+        }
       } else {
         const { data: newVisit, error } = await supabase
           .from('filmmaker_visits')
@@ -182,6 +194,17 @@ export default function FilmmakerVisits() {
         }
 
         toast({ title: 'Visita criada e tarefa atribuída!' });
+        {
+          const clientName = data.client_id ? clients.find(c => c.id === data.client_id)?.name ?? null : null;
+          const assignedName = data.assigned_to ? profiles.find(p => p.user_id === data.assigned_to)?.full_name ?? null : null;
+          sendWhatsappNotification('create', {
+            title: data.title,
+            visit_date: visitDateTime,
+            location: data.location,
+            clientName,
+            assignedName,
+          });
+        }
         setIsDialogOpen(false);
         setEditingVisit(null);
         fetchData();
