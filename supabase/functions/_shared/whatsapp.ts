@@ -24,11 +24,11 @@ export async function requireAdmin(req: Request) {
     { global: { headers: { Authorization: authHeader } } },
   );
   const token = authHeader.replace("Bearer ", "");
-  const { data, error } = await supabase.auth.getClaims(token);
-  if (error || !data?.claims) {
+  const { data: userData, error } = await supabase.auth.getUser(token);
+  if (error || !userData?.user) {
     return { error: json({ error: "Unauthorized" }, 401) };
   }
-  const userId = data.claims.sub;
+  const userId = userData.user.id;
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
