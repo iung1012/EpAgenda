@@ -228,12 +228,21 @@ export default function FilmmakerVisits() {
   };
 
   const handleDelete = async () => {
+    const visit = visits.find(v => v.id === confirmDialog.id);
     const { error } = await supabase.from('filmmaker_visits').delete().eq('id', confirmDialog.id);
 
     if (error) {
       toast({ variant: 'destructive', title: 'Erro ao excluir visita', description: error.message });
     } else {
       toast({ title: 'Visita excluída com sucesso!' });
+      if (visit) {
+        sendWhatsappNotification('cancel', {
+          title: visit.title,
+          visit_date: visit.visit_date,
+          location: visit.location,
+          clientName: visit.client?.name ?? null,
+        });
+      }
       fetchData();
     }
     setConfirmDialog({ open: false, id: '', title: '' });

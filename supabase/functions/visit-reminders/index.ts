@@ -91,6 +91,23 @@ Deno.serve(async (req) => {
 
       sent++;
       console.log(`Reminder sent for visit ${visit.id} to user ${targetUser}`);
+
+      // Fire WhatsApp reminder in parallel (non-blocking failure)
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/whatsapp-send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-internal-secret': expectedSecret,
+          },
+          body: JSON.stringify({
+            event: 'reminder',
+            message: `⏰ *Lembrete de visita*\n*${visit.title}*\n🗓️ Hoje às ${hora}${visit.location ? `\n📍 ${visit.location}` : ''}\n\nPrepare os equipamentos antes de sair.`,
+          }),
+        });
+      } catch (e) {
+        console.error('WhatsApp reminder failed:', e);
+      }
     }
 
     return new Response(
