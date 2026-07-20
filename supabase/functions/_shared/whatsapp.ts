@@ -94,14 +94,19 @@ export async function sendWhatsappMessage(instance: string, phone: string, messa
     return { ok: false, status: 422, body: "Número não encontrado no WhatsApp" };
   }
 
-  // Always send the complete number entered by the user. For Brazilian mobile
-  // numbers, whatsappNumbers may return a legacy JID without the ninth digit;
-  // using that JID as the destination can create an accepted-but-never-sent
-  // message in some Baileys/Evolution versions.
+  // Evolution/Baileys may resolve Brazilian mobile numbers to their canonical
+  // WhatsApp JID without the ninth digit. Sending the originally typed number
+  // in that case can return a message ID that immediately changes to ERROR.
+  // Prefer the address confirmed by whatsappNumbers, falling back only when
+  // the provider could not resolve it.
+  const destination = resolved.exists === true && resolved.number
+    ? resolved.number
+    : normalized;
+
   return evoFetch(`/message/sendText/${encodeURIComponent(instance)}`, {
     method: "POST",
     body: JSON.stringify({
-      number: normalized,
+      number: destination,
       text: message,
     }),
   });
