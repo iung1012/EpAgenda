@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
     if (role?.role !== "admin" && role?.role !== "gerente") return json({ error: "Forbidden" }, 403);
   }
 
-  const { event, message } = await req.json().catch(() => ({}));
+  const { event, message, phone: overridePhone } = await req.json().catch(() => ({}));
   if (!message || typeof message !== "string") return json({ error: "message obrigatório" }, 400);
 
   const { data: cfg } = await admin.from("whatsapp_config").select("*").eq("singleton", true).maybeSingle();
@@ -41,14 +41,20 @@ Deno.serve(async (req) => {
   const flag = event && flagMap[event];
   if (flag && cfg[flag] === false) return json({ sent: 0, skipped: `${event} desativado` });
 
-  const { data: recipients } = await admin
-    .from("whatsapp_recipients")
-    .select("phone")
-    .eq("active", true);
+  let recipients: { phone: string }[] = [];
+  if (typeof overridePhone === "string" && overridePhone.trim()) {
+    recipients = [{ phone: overridePhone.replace(/\D/g, "") }];
+  } else {
+    const { data } = await admin
+      .from("whatsapp_recipients")
+      .select("phone")
+      .eq("active", true);
+    recipients = data ?? [];
+  }
 
   let sent = 0;
   const failures: unknown[] = [];
-  for (const r of recipients ?? []) {
+  for (const r of recipients) {
     const res = await sendWhatsappMessage(cfg.instance_name, r.phone, message);
     if (res.ok) sent++;
     else failures.push({ phone: r.phone, status: res.status, body: res.body });
