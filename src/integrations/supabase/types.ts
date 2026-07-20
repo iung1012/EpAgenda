@@ -725,6 +725,75 @@ export type Database = {
           },
         ]
       }
+      whatsapp_config: {
+        Row: {
+          created_at: string
+          id: string
+          instance_name: string | null
+          notify_on_cancel: boolean
+          notify_on_create: boolean
+          notify_on_reminder: boolean
+          notify_on_update: boolean
+          phone_connected: string | null
+          singleton: boolean
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instance_name?: string | null
+          notify_on_cancel?: boolean
+          notify_on_create?: boolean
+          notify_on_reminder?: boolean
+          notify_on_update?: boolean
+          phone_connected?: string | null
+          singleton?: boolean
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instance_name?: string | null
+          notify_on_cancel?: boolean
+          notify_on_create?: boolean
+          notify_on_reminder?: boolean
+          notify_on_update?: boolean
+          phone_connected?: string | null
+          singleton?: boolean
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      whatsapp_recipients: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          label: string
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label: string
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label?: string
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
