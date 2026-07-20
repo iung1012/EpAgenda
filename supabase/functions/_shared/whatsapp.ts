@@ -107,7 +107,7 @@ export async function sendWhatsappMessage(instance: string, phone: string, messa
     method: "POST",
     body: JSON.stringify({
       number: destination,
-      text: message,
+      textMessage: { text: message },
     }),
   });
 }
