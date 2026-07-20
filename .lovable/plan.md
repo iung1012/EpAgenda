@@ -1,41 +1,62 @@
-## Entrega: 3 features novas
+## Integração WhatsApp via Evolution API para visitas
 
-### 1. Página de Postagens (Calendário)
-- Nova rota `/postagens` no menu lateral (ícone Instagram).
-- Nova tabela `posts`: `client_id`, `title`, `caption`, `scheduled_date`, `posted_at`, `status` (`agendado`/`postado`/`atrasado`), `platform` (instagram/facebook/tiktok/etc), `media_url`, `link`, `created_by`.
-- Visão calendário mensal (reaproveitando o padrão de `MonthView`) com:
-  - Pontos coloridos por status (verde = postado, amarelo = agendado, vermelho = atrasado).
-  - Filtro por cliente e plataforma.
-  - Clique no dia abre dialog listando posts daquele dia, com botão "Marcar como postado" (preenche `posted_at`).
-- Formulário de criação/edição de post (dialog).
-- RLS: todos autenticados veem; criador ou admin/gerente edita/exclui.
+Vamos disparar mensagens no WhatsApp em 4 momentos da vida de uma visita: **agendamento, edição, cancelamento e lembrete de 20min**. Os destinatários são uma lista fixa de números configurada dentro do sistema, e teremos uma tela em Configurações para conectar a instância via QR code.
 
-### 2. Wizard de criação de Visita (com Equipamentos)
-- Refatorar `VisitFormDialog.tsx` em wizard de 3 passos:
-  1. **Dados da visita** — título, cliente, data, local, descrição.
-  2. **Equipamentos** — seleção múltipla a partir da tabela `equipment` (cria registros em `visit_equipment`).
-  3. **Concluir** — resumo + botão "Criar visita".
-- Indicador de progresso no topo (Steps), botões Voltar/Avançar.
-- Página de Demandas continua intacta.
+### O que será construído
 
-### 3. Página global de Pautas
-- Nova rota `/pautas` no menu lateral (ícone FileText).
-- Nova tabela `pautas`: `title`, `description`, `client_id`, `created_by`.
-- Nova coluna `pauta_id` (nullable) em `tasks` para agrupar tarefas dentro de uma pauta.
-- UI: lista de pautas em accordion/cards expansíveis; ao expandir mostra as tarefas vinculadas, com botão para criar tarefa já associada à pauta.
-- Filtro por cliente.
-- RLS: todos autenticados veem; criador ou admin/gerente edita/exclui.
+**1. Configuração (nova aba em Configurações)**
+- Campo para nome da instância Evolution + botão "Conectar" que abre modal com QR code (base64) e faz polling do status a cada 4s até ficar `open`.
+- Botão "Reconectar" para gerar novo QR quando expirar.
+- Botão "Desconectar / Excluir instância".
+- Lista de números que recebem lembretes (adicionar/remover com validação de formato E.164, ex: `5511999999999`).
+- Toggle para habilitar/desabilitar cada tipo de evento (agendada / editada / cancelada / lembrete).
 
-### Detalhes técnicos
-- Migration cria `posts`, `pautas`, adiciona `pauta_id` em `tasks`, RLS completas.
-- Sidebar: adicionar links "Postagens" e "Pautas".
-- Hooks novos: `usePosts`, `usePautas`. `useTasks` ganha suporte opcional a `pauta_id`.
-- Componentes novos:
-  - `src/pages/Posts.tsx`, `src/components/posts/PostsCalendar.tsx`, `src/components/forms/PostFormDialog.tsx`, `src/components/posts/DayPostsDialog.tsx`.
-  - `src/pages/Pautas.tsx`, `src/components/forms/PautaFormDialog.tsx`.
-  - `VisitFormDialog` reescrito como wizard (mantém mesma API de props).
-- Sem mudanças em RLS de tabelas existentes.
+**2. Banco de dados**
+- `whatsapp_config` (singleton, admin-only): `instance_name`, `status`, `phone_connected`, flags de eventos ativos.
+- `whatsapp_recipients`: números autorizados a receber (label + phone).
+- Só admin/gerente pode ler/editar (RLS estrita).
 
-### Fora de escopo
-- Integração automática com APIs do Instagram/Meta (postagem real).
-- Notificações de pauta atrasada (pode vir depois).
+**3. Edge functions (verify_jwt = false, protegidas por role interno)**
+- `whatsapp-connect` — cria/reconecta instância (usa `EVOLUTION_API_KEY`), retorna QR base64.
+- `whatsapp-status` — consulta `connectionState` da instância (polling do modal).
+- `whatsapp-disconnect` — logout + delete na Evolution.
+- `whatsapp-send` — helper interno chamado pelas outras funções, envia texto formatado para todos os recipients ativos.
+- Webhook `whatsapp-webhook` — recebe `CONNECTION_UPDATE` da Evolution e atualiza `status` + `phone_connected` no banco.
+
+**4. Disparos automáticos**
+- **Nova visita / editada / cancelada**: hook no frontend (`FilmmakerVisits.tsx` e `Calendar.tsx`) chama `whatsapp-send` após salvar, com template do evento.
+- **Lembrete 20min antes**: adicionar chamada ao `whatsapp-send` dentro do cron `visit-reminders` já existente (ao lado da notificação in-app).
+
+**5. Templates de mensagem**
+
+```text
+🎬 Nova visita agendada
+Cliente: {cliente}
+Local: {local}
+Data: {dd/MM/yyyy HH:mm}
+Responsável: {nome}
+```
+
+```text
+⏰ Lembrete: sua visita começa em 20 min
+{título} — {HH:mm}
+Local: {local}
+```
+
+```text
+✏️ Visita atualizada / ❌ Visita cancelada
+{título} — {dd/MM HH:mm}
+```
+
+### Secrets necessários
+- `EVOLUTION_API_URL` = `https://evo.comunidadecode.com.br`
+- `EVOLUTION_API_KEY` = `429683C4C977415CAAFCCE10F7D57E11` (vou pedir via `add_secret` para ficar seguro, não hardcoded)
+- `EVOLUTION_WEBHOOK_SECRET` = gerado automaticamente
+
+### Observação de segurança
+A chave global da Evolution que você colou tem poder total sobre o servidor. Ela será armazenada como secret backend (nunca exposta no bundle do navegador) e todas as chamadas à Evolution passarão pelas edge functions com validação de role admin. O webhook público valida um secret no path para impedir chamadas forjadas.
+
+### Fluxo do usuário
+1. Admin abre **Configurações → WhatsApp** → clica "Conectar instância" → escaneia QR → status vira "Conectado".
+2. Adiciona os números que devem receber (ex: gerente, coordenador de produção).
+3. A partir daí, qualquer visita criada/editada/cancelada + lembrete de 20min dispara mensagem para todos os números ativos.
