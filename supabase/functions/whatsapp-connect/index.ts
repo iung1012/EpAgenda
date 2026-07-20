@@ -49,6 +49,21 @@ Deno.serve(async (req) => {
     qrcode = body?.base64 ?? body?.qrcode?.base64 ?? null;
   }
 
+  // Ensure the webhook config includes MESSAGES_UPSERT (needed for the AI chat).
+  // Safe to call every connect; Evolution upserts the webhook config.
+  await evoFetch(`/webhook/set/${encodeURIComponent(instanceName)}`, {
+    method: "POST",
+    body: JSON.stringify({
+      webhook: {
+        enabled: true,
+        url: webhookUrl,
+        byEvents: false,
+        base64: false,
+        events: ["CONNECTION_UPDATE", "QRCODE_UPDATED", "MESSAGES_UPSERT"],
+      },
+    }),
+  });
+
   const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   await admin.from("whatsapp_config").update({
     instance_name: instanceName,
