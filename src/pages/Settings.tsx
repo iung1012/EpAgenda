@@ -10,9 +10,10 @@ import { User, Lock, Building2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { WhatsappSettings } from '@/components/settings/WhatsappSettings';
 import { WhatsappMessageLogs } from '@/components/settings/WhatsappMessageLogs';
+import { BackupSettings } from '@/components/settings/BackupSettings';
 
 export default function Settings() {
-  const { profile, user, isAdminOrManager } = useAuth();
+  const { profile, user, isAdminOrManager, isAdmin } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [profileData, setProfileData] = useState({
@@ -173,6 +174,7 @@ export default function Settings() {
         </CardContent>
       </Card>
 
+      {isAdmin && <BackupSettings />}
       {isAdminOrManager && <WhatsappSettings />}
       {isAdminOrManager && <WhatsappMessageLogs />}
 
