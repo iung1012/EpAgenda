@@ -871,6 +871,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      export_application_backup: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -878,6 +879,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      import_application_backup: { Args: { payload: Json }; Returns: Json }
       is_admin_or_manager: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
