@@ -19,6 +19,11 @@ export default function Auth() {
   const { signIn, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  useEffect(() => {
+    const syncActivation = () => setActivation(new URLSearchParams(window.location.hash.slice(1)).get('activate'));
+    window.addEventListener('hashchange', syncActivation);
+    return () => window.removeEventListener('hashchange', syncActivation);
+  }, []);
   useEffect(() => { if (user && !activation) navigate('/', { replace: true }); }, [user, navigate, activation]);
   const login = async (event: React.FormEvent) => {
     event.preventDefault(); setBusy(true);
