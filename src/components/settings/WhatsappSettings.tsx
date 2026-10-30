@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { MessageCircle, Plus, RefreshCw, Send, Trash2, Unplug } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface WhatsappConfig {
@@ -47,8 +47,8 @@ export function WhatsappSettings() {
 
   const load = useCallback(async () => {
     const [{ data: cfg }, { data: rec }] = await Promise.all([
-      supabase.from('whatsapp_config').select('*').eq('singleton', true).maybeSingle(),
-      supabase.from('whatsapp_recipients').select('*').order('created_at'),
+      api.from('whatsapp_config').select('*').eq('singleton', true).maybeSingle(),
+      api.from('whatsapp_recipients').select('*').order('created_at'),
     ]);
     if (cfg) {
       setConfig(cfg as WhatsappConfig);
@@ -64,7 +64,7 @@ export function WhatsappSettings() {
     if (!qrOpen && config?.status === 'connected') return;
     if (!config?.instance_name) return;
     const interval = setInterval(async () => {
-      const { data } = await supabase.functions.invoke('whatsapp-status');
+      const { data } = await api.functions.invoke('whatsapp-status');
       if (data?.status) {
         setConfig((c) => (c ? { ...c, status: data.status } : c));
         if (data.status === 'connected') {
@@ -82,7 +82,7 @@ export function WhatsappSettings() {
       return;
     }
     setBusy(true);
-    const { data, error } = await supabase.functions.invoke('whatsapp-connect', {
+    const { data, error } = await api.functions.invoke('whatsapp-connect', {
       body: { instanceName: instanceName.trim() },
     });
     setBusy(false);
@@ -97,7 +97,7 @@ export function WhatsappSettings() {
 
   const handleDisconnect = async () => {
     setBusy(true);
-    const { error } = await supabase.functions.invoke('whatsapp-disconnect');
+    const { error } = await api.functions.invoke('whatsapp-disconnect');
     setBusy(false);
     if (error) {
       toast({ variant: 'destructive', title: 'Erro ao desconectar', description: error.message });
@@ -110,7 +110,7 @@ export function WhatsappSettings() {
   const updateFlag = async (field: keyof WhatsappConfig, value: boolean) => {
     if (!config) return;
     setConfig({ ...config, [field]: value });
-    await supabase.from('whatsapp_config').update({ [field]: value }).eq('id', config.id);
+    await api.from('whatsapp_config').update({ [field]: value }).eq('id', config.id);
   };
 
   const addRecipient = async () => {
@@ -119,7 +119,7 @@ export function WhatsappSettings() {
       toast({ variant: 'destructive', title: 'Preencha um nome e telefone válido' });
       return;
     }
-    const { error } = await supabase.from('whatsapp_recipients').insert({
+    const { error } = await api.from('whatsapp_recipients').insert({
       label: newRecipient.label.trim(),
       phone,
       active: true,
@@ -134,11 +134,11 @@ export function WhatsappSettings() {
 
   const toggleRecipient = async (r: Recipient, active: boolean) => {
     setRecipients((prev) => prev.map((x) => (x.id === r.id ? { ...x, active } : x)));
-    await supabase.from('whatsapp_recipients').update({ active }).eq('id', r.id);
+    await api.from('whatsapp_recipients').update({ active }).eq('id', r.id);
   };
 
   const removeRecipient = async (r: Recipient) => {
-    await supabase.from('whatsapp_recipients').delete().eq('id', r.id);
+    await api.from('whatsapp_recipients').delete().eq('id', r.id);
     load();
   };
 
@@ -150,7 +150,7 @@ export function WhatsappSettings() {
     setTestingId(r.id);
     const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
     const message = `⏰ *Lembrete de teste*\nOlá, ${r.label}!\nEsta é uma mensagem de teste enviada pela EP Mídias em ${now}.\n\nSe você recebeu, o WhatsApp está funcionando corretamente.`;
-    const { data, error } = await supabase.functions.invoke('whatsapp-send', {
+    const { data, error } = await api.functions.invoke('whatsapp-send', {
       body: { message, phone: r.phone },
     });
     setTestingId(null);

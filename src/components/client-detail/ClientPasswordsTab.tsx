@@ -1,3 +1,4 @@
+import { decodeCredential } from '@/lib/api/credentials';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,7 +23,7 @@ interface ClientPasswordsTabProps {
   setIsPasswordDialogOpen: (open: boolean) => void;
   editingPassword: ClientPassword | null;
   passwordForm: { service_name: string; username: string; password: string; notes: string };
-  setPasswordForm: (form: any) => void;
+  setPasswordForm: (form: ClientPasswordsTabProps['passwordForm']) => void;
   onToggleVisibility: (id: string) => void;
   onCopyToClipboard: (text: string) => void;
   onAddPassword: (e: React.FormEvent) => void;
@@ -114,13 +115,13 @@ export function ClientPasswordsTab({
                   <div className="flex items-center gap-1">
                     <div className="flex items-center gap-1 bg-background rounded-lg px-2.5 py-1">
                       <span className="text-xs font-mono">
-                        {visiblePasswords.has(pwd.id) ? atob(pwd.encrypted_password) : '••••••••'}
+                        {visiblePasswords.has(pwd.id) ? decodeCredential(pwd.encrypted_password) : '••••••••'}
                       </span>
                     </div>
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onToggleVisibility(pwd.id)}>
                       {visiblePasswords.has(pwd.id) ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onCopyToClipboard(atob(pwd.encrypted_password))}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onCopyToClipboard(decodeCredential(pwd.encrypted_password))}>
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEditPassword(pwd)}>

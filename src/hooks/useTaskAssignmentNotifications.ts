@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { useProfiles } from './useProfiles';
@@ -23,7 +23,7 @@ export function useTaskAssignmentNotifications() {
     if (!user) return;
 
     const initializeTasks = async () => {
-      const { data } = await supabase
+      const { data } = await api
         .from('tasks')
         .select('id, assigned_to, status');
       
@@ -39,7 +39,7 @@ export function useTaskAssignmentNotifications() {
 
     initializeTasks();
 
-    const channel = supabase
+    const channel = api
       .channel(`task-global-notifications-${user.id}-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
@@ -51,8 +51,8 @@ export function useTaskAssignmentNotifications() {
         (payload) => {
           if (!isInitializedRef.current) return;
 
-          const newTask = payload.new as TaskPayload;
-          const oldTask = payload.old as TaskPayload;
+          const newTask = payload.new as unknown as TaskPayload;
+          const oldTask = payload.old as unknown as TaskPayload;
           const previous = previousTasksRef.current.get(newTask.id);
           const oldStatus = previous?.status || oldTask.status;
 
@@ -117,7 +117,7 @@ export function useTaskAssignmentNotifications() {
           table: 'tasks',
         },
         (payload) => {
-          const newTask = payload.new as TaskPayload;
+          const newTask = payload.new as unknown as TaskPayload;
 
           // Notify everyone about new task
           toast.info('📌 Nova tarefa adicionada', {
@@ -148,7 +148,7 @@ export function useTaskAssignmentNotifications() {
     }
 
     return () => {
-      supabase.removeChannel(channel);
+      api.removeChannel(channel);
     };
   }, [user, profiles]);
 }

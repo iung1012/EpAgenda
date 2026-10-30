@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -181,7 +181,7 @@ export default function Tasks() {
     setIsSubmitting(true);
     
     if (editingTask) {
-      const { error } = await supabase.from('tasks').update({
+      const { error } = await api.from('tasks').update({
         title: data.title,
         description: data.description || null,
         priority: data.priority,
@@ -200,7 +200,7 @@ export default function Tasks() {
         refetch();
       }
     } else {
-      const { error } = await supabase.from('tasks').insert({
+      const { error } = await api.from('tasks').insert({
         title: data.title,
         description: data.description || null,
         priority: data.priority,
@@ -248,7 +248,7 @@ export default function Tasks() {
     // Check if it's a demand
     if (deleteDialog.taskId.startsWith('demand-')) {
       const demandId = deleteDialog.taskId.replace('demand-', '');
-      const { error } = await supabase.from('filmmaker_demands').delete().eq('id', demandId);
+      const { error } = await api.from('filmmaker_demands').delete().eq('id', demandId);
       setIsDeleting(false);
 
       if (error) {
@@ -259,7 +259,7 @@ export default function Tasks() {
         refetch();
       }
     } else {
-      const { error } = await supabase.from('tasks').delete().eq('id', deleteDialog.taskId);
+      const { error } = await api.from('tasks').delete().eq('id', deleteDialog.taskId);
       setIsDeleting(false);
 
       if (error) {
@@ -278,12 +278,12 @@ export default function Tasks() {
 
   const handleDeleteAllCompleted = async () => {
     setIsDeletingAll(true);
-    const promises: Promise<any>[] = [];
+    const promises: Promise<{ error: Error | null }>[] = [];
     if (regularCompletedIds.length > 0) {
-      promises.push(Promise.resolve(supabase.from('tasks').delete().in('id', regularCompletedIds)));
+      promises.push(Promise.resolve(api.from('tasks').delete().in('id', regularCompletedIds)));
     }
     if (demandCompletedIds.length > 0) {
-      promises.push(Promise.resolve(supabase.from('filmmaker_demands').delete().in('id', demandCompletedIds)));
+      promises.push(Promise.resolve(api.from('filmmaker_demands').delete().in('id', demandCompletedIds)));
     }
     const results = await Promise.all(promises);
     const hasError = results.some(r => r.error);

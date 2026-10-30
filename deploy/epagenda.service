@@ -1,0 +1,23 @@
+[Unit]
+Description=EpAgenda API and frontend (Prisma SQLite)
+After=network.target
+
+[Service]
+Type=simple
+User=epagenda
+Group=epagenda
+WorkingDirectory=/opt/epagenda/current/server
+EnvironmentFile=/opt/epagenda/shared/epagenda.env
+ExecStart=/usr/bin/node --import tsx src/index.ts
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/epagenda/shared/data
+
+[Install]
+WantedBy=multi-user.target

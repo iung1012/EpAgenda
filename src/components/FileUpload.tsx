@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, Loader2, X, Image as ImageIcon } from 'lucide-react';
 
@@ -14,10 +14,10 @@ interface FileUploadProps {
   isLogo?: boolean;
 }
 
-export function FileUpload({ 
-  clientId, 
-  folder, 
-  accept = "image/*", 
+export function FileUpload({
+  clientId,
+  folder,
+  accept = "image/*",
   onUploadComplete,
   currentUrl,
   label = "Upload",
@@ -44,29 +44,29 @@ export function FileUpload({
       const fileExt = file.name.split('.').pop();
       const fileName = `${clientId}/${folder}/${Date.now()}.${fileExt}`;
 
-      const { error: uploadError, data } = await supabase.storage
+      const { error: uploadError, data } = await api.storage
         .from('client-files')
-        .upload(fileName, file, { 
+        .upload(fileName, file, {
           cacheControl: '3600',
-          upsert: false 
+          upsert: false
         });
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      const { data: { publicUrl } } = api.storage
         .from('client-files')
         .getPublicUrl(fileName);
 
       setPreviewUrl(publicUrl);
       onUploadComplete?.(publicUrl);
-      
+
       toast({ title: 'Arquivo enviado com sucesso!' });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Upload error:', error);
-      toast({ 
-        variant: 'destructive', 
-        title: 'Erro ao enviar arquivo', 
-        description: error.message 
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao enviar arquivo',
+        description: (error instanceof Error ? error.message : 'Não foi possível concluir a operação')
       });
     } finally {
       setIsUploading(false);
@@ -93,9 +93,9 @@ export function FileUpload({
 
       {isLogo && previewUrl ? (
         <div className="relative inline-block">
-          <img 
-            src={previewUrl} 
-            alt="Logo" 
+          <img
+            src={previewUrl}
+            alt="Logo"
             className="h-20 w-20 rounded-xl object-cover border"
           />
           <button
@@ -138,9 +138,9 @@ export function FileUpload({
 
       {!isLogo && previewUrl && (
         <div className="flex items-center gap-2 text-sm">
-          <a 
-            href={previewUrl} 
-            target="_blank" 
+          <a
+            href={previewUrl}
+            target="_blank"
             rel="noopener noreferrer"
             className="text-primary hover:underline truncate max-w-[200px]"
           >

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 export interface Notification {
@@ -21,14 +21,14 @@ export function useNotifications() {
   const fetchNotifications = async () => {
     setIsLoading(true);
     if (!user) { setIsLoading(false); return; }
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from('notifications')
       .select('*')
       .or(`target_user_id.is.null,target_user_id.eq.${user.id}`)
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      const parsed: Notification[] = data.map((n: any) => ({
+      const parsed: Notification[] = data.map((n) => ({
         ...n,
         read_by: Array.isArray(n.read_by) ? (n.read_by as string[]) : [],
         target_user_id: n.target_user_id ?? null,
@@ -48,7 +48,7 @@ export function useNotifications() {
     if (!notification || notification.read_by.includes(user.id)) return;
 
     const updatedReadBy = [...notification.read_by, user.id];
-    const { error } = await supabase
+    const { error } = await api
       .from('notifications')
       .update({ read_by: updatedReadBy })
       .eq('id', notificationId);
@@ -68,7 +68,7 @@ export function useNotifications() {
 
     const unread = notifications.filter((n) => !n.read_by.includes(user.id));
     for (const notification of unread) {
-      await supabase
+      await api
         .from('notifications')
         .update({ read_by: [...notification.read_by, user.id] })
         .eq('id', notification.id);
@@ -86,7 +86,7 @@ export function useNotifications() {
   const createNotification = async (title: string, message: string) => {
     if (!user) return { error: 'Not authenticated' };
 
-    const { error } = await supabase.from('notifications').insert({
+    const { error } = await api.from('notifications').insert({
       title,
       message,
       created_by: user.id,
@@ -106,14 +106,14 @@ export function useNotifications() {
       Notification.requestPermission();
     }
 
-    const channel = supabase
+    const channel = api
       .channel(`notifications-changes-${user?.id ?? 'anon'}-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'notifications' },
         (payload) => {
           fetchNotifications();
-          const newNotif = payload.new as any;
+          const newNotif = payload.new as unknown as Notification;
           // Trigger Chrome push notification only if targeted to this user (or global)
           if (
             user &&
@@ -139,7 +139,7 @@ export function useNotifications() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      api.removeChannel(channel);
     };
   }, [user]);
 

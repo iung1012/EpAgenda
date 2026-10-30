@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { toast } from '@/hooks/use-toast';
 
 export interface DriveFile {
@@ -40,16 +40,14 @@ export function useDriveFiles(rootFolderId?: string) {
         return;
       }
 
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await api.auth.getSession();
       const token = sessionData?.session?.access_token;
       
       if (!token) {
         throw new Error('Não autenticado');
       }
-
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/google-drive?action=list&folderId=${encodeURIComponent(targetFolderId)}`,
+        `/api/functions/google-drive?action=list&folderId=${encodeURIComponent(targetFolderId)}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -66,13 +64,13 @@ export function useDriveFiles(rootFolderId?: string) {
       const filesData = await response.json();
       setFiles(filesData);
       setCurrentFolderId(targetFolderId);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching drive files:', err);
-      setError(err.message);
+      setError((err instanceof Error ? err.message : 'Não foi possível concluir a operação'));
       toast({
         variant: 'destructive',
         title: 'Erro ao carregar arquivos',
-        description: err.message,
+        description: (err instanceof Error ? err.message : 'Não foi possível concluir a operação'),
       });
     } finally {
       setLoading(false);
@@ -126,7 +124,7 @@ export function useDriveFiles(rootFolderId?: string) {
     setSearchQuery(query);
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await api.auth.getSession();
       const token = sessionData?.session?.access_token;
       
       if (!token) {
@@ -137,10 +135,8 @@ export function useDriveFiles(rootFolderId?: string) {
       if (!targetFolderId) {
         throw new Error('Nenhuma pasta selecionada');
       }
-
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/google-drive?action=search&folderId=${encodeURIComponent(targetFolderId)}&search=${encodeURIComponent(query)}`,
+        `/api/functions/google-drive?action=search&folderId=${encodeURIComponent(targetFolderId)}&search=${encodeURIComponent(query)}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -156,13 +152,13 @@ export function useDriveFiles(rootFolderId?: string) {
 
       const filesData = await response.json();
       setFiles(filesData);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error searching drive files:', err);
-      setError(err.message);
+      setError((err instanceof Error ? err.message : 'Não foi possível concluir a operação'));
       toast({
         variant: 'destructive',
         title: 'Erro na busca',
-        description: err.message,
+        description: (err instanceof Error ? err.message : 'Não foi possível concluir a operação'),
       });
     } finally {
       setLoading(false);

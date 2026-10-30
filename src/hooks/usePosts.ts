@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 
 export type PostStatus = 'agendado' | 'postado' | 'atrasado';
 
@@ -25,7 +25,7 @@ export function usePosts() {
 
   const fetchPosts = useCallback(async () => {
     setIsLoading(true);
-    const { data } = await supabase
+    const { data } = await api
       .from('posts')
       .select('*')
       .order('scheduled_date', { ascending: true });

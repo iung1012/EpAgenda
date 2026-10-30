@@ -1,7 +1,8 @@
+import { encodeCredential, decodeCredential } from '@/lib/api/credentials';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
@@ -104,7 +105,7 @@ export default function ClientDetail() {
   }, [id]);
 
   const fetchClient = async () => {
-    const { data } = await supabase.from('clients').select('*').eq('id', id).single();
+    const { data } = await api.from('clients').select('*').eq('id', id).single();
     if (data) {
       setClient({
         ...data,
@@ -115,17 +116,17 @@ export default function ClientDetail() {
   };
 
   const fetchPasswords = async () => {
-    const { data } = await supabase.from('client_passwords').select('*').eq('client_id', id).order('service_name');
+    const { data } = await api.from('client_passwords').select('*').eq('client_id', id).order('service_name');
     if (data) setPasswords(data);
   };
 
   const fetchFolders = async () => {
-    const { data } = await supabase.from('client_folders').select('*').eq('client_id', id).order('folder_type, name');
+    const { data } = await api.from('client_folders').select('*').eq('client_id', id).order('folder_type, name');
     if (data) setFolders(data);
   };
 
   const fetchDriveFolder = async () => {
-    const { data } = await supabase.from('client_drive_folders').select('*').eq('client_id', id).limit(1).maybeSingle();
+    const { data } = await api.from('client_drive_folders').select('*').eq('client_id', id).limit(1).maybeSingle();
     if (data) setDriveFolder(data);
   };
 
@@ -138,18 +139,18 @@ export default function ClientDetail() {
     const folderId = extractFolderIdFromUrl(driveLinkInput) || driveLinkInput.trim();
     if (!folderId) { toast({ variant: 'destructive', title: 'ID da pasta inválido' }); return; }
     if (driveFolder) {
-      const { error } = await supabase.from('client_drive_folders').update({ folder_id: folderId, folder_name: 'Pasta Principal' }).eq('id', driveFolder.id);
+      const { error } = await api.from('client_drive_folders').update({ folder_id: folderId, folder_name: 'Pasta Principal' }).eq('id', driveFolder.id);
       if (error) { toast({ variant: 'destructive', title: 'Erro ao atualizar pasta', description: error.message }); }
       else { setDriveFolder({ ...driveFolder, folder_id: folderId }); setIsDriveLinkDialogOpen(false); setDriveLinkInput(''); toast({ title: 'Pasta do Drive atualizada!' }); }
     } else {
-      const { data, error } = await supabase.from('client_drive_folders').insert({ client_id: id, folder_id: folderId, folder_name: 'Pasta Principal', created_by: user?.id }).select().single();
+      const { data, error } = await api.from('client_drive_folders').insert({ client_id: id, folder_id: folderId, folder_name: 'Pasta Principal', created_by: user?.id }).select().single();
       if (error) { toast({ variant: 'destructive', title: 'Erro ao vincular pasta', description: error.message }); }
       else { setDriveFolder(data); setIsDriveLinkDialogOpen(false); setDriveLinkInput(''); toast({ title: 'Pasta do Drive vinculada!' }); }
     }
   };
 
   const togglePasswordVisibility = (passwordId: string) => {
-    setVisiblePasswords(prev => { const s = new Set(prev); s.has(passwordId) ? s.delete(passwordId) : s.add(passwordId); return s; });
+    setVisiblePasswords(prev => { const s = new Set(prev); if (s.has(passwordId)) s.delete(passwordId); else s.add(passwordId); return s; });
   };
 
   const copyToClipboard = (text: string) => { navigator.clipboard.writeText(text); toast({ title: 'Copiado!' }); };
@@ -158,11 +159,11 @@ export default function ClientDetail() {
     e.preventDefault();
     if (!passwordForm.service_name || !passwordForm.password) { toast({ variant: 'destructive', title: 'Preencha os campos obrigatórios' }); return; }
     if (editingPassword) {
-      const { error } = await supabase.from('client_passwords').update({ service_name: passwordForm.service_name, username: passwordForm.username || null, encrypted_password: btoa(passwordForm.password), notes: passwordForm.notes || null }).eq('id', editingPassword.id);
+      const { error } = await api.from('client_passwords').update({ service_name: passwordForm.service_name, username: passwordForm.username || null, encrypted_password: encodeCredential(passwordForm.password), notes: passwordForm.notes || null }).eq('id', editingPassword.id);
       if (error) { toast({ variant: 'destructive', title: 'Erro ao atualizar senha', description: error.message }); }
       else { toast({ title: 'Senha atualizada!' }); setIsPasswordDialogOpen(false); setEditingPassword(null); setPasswordForm({ service_name: '', username: '', password: '', notes: '' }); fetchPasswords(); }
     } else {
-      const { error } = await supabase.from('client_passwords').insert({ client_id: id, service_name: passwordForm.service_name, username: passwordForm.username || null, encrypted_password: btoa(passwordForm.password), notes: passwordForm.notes || null, created_by: user?.id });
+      const { error } = await api.from('client_passwords').insert({ client_id: id, service_name: passwordForm.service_name, username: passwordForm.username || null, encrypted_password: encodeCredential(passwordForm.password), notes: passwordForm.notes || null, created_by: user?.id });
       if (error) { toast({ variant: 'destructive', title: 'Erro ao salvar senha', description: error.message }); }
       else { toast({ title: 'Senha salva!' }); setIsPasswordDialogOpen(false); setPasswordForm({ service_name: '', username: '', password: '', notes: '' }); fetchPasswords(); }
     }
@@ -170,12 +171,12 @@ export default function ClientDetail() {
 
   const handleEditPassword = (pwd: ClientPassword) => {
     setEditingPassword(pwd);
-    setPasswordForm({ service_name: pwd.service_name, username: pwd.username || '', password: atob(pwd.encrypted_password), notes: pwd.notes || '' });
+    setPasswordForm({ service_name: pwd.service_name, username: pwd.username || '', password: decodeCredential(pwd.encrypted_password), notes: pwd.notes || '' });
     setIsPasswordDialogOpen(true);
   };
 
   const handleDeletePassword = async (passwordId: string) => {
-    const { error } = await supabase.from('client_passwords').delete().eq('id', passwordId);
+    const { error } = await api.from('client_passwords').delete().eq('id', passwordId);
     if (!error) { toast({ title: 'Senha removida!' }); fetchPasswords(); }
     else { toast({ variant: 'destructive', title: 'Erro', description: error.message }); }
     setConfirmDialog({ open: false, type: 'folder', id: '', name: '' });
@@ -184,7 +185,7 @@ export default function ClientDetail() {
   const handleAddColor = async () => {
     if (!client) return;
     const newPalette = [...client.color_palette, newColor];
-    const { error } = await supabase.from('clients').update({ color_palette: newPalette }).eq('id', id);
+    const { error } = await api.from('clients').update({ color_palette: newPalette }).eq('id', id);
     if (!error) { setClient({ ...client, color_palette: newPalette }); setIsColorDialogOpen(false); toast({ title: 'Cor adicionada!' }); }
     else { toast({ variant: 'destructive', title: 'Erro ao adicionar cor' }); }
   };
@@ -192,14 +193,14 @@ export default function ClientDetail() {
   const handleRemoveColor = async (index: number) => {
     if (!client) return;
     const newPalette = client.color_palette.filter((_, i) => i !== index);
-    const { error } = await supabase.from('clients').update({ color_palette: newPalette }).eq('id', id);
+    const { error } = await api.from('clients').update({ color_palette: newPalette }).eq('id', id);
     if (!error) { setClient({ ...client, color_palette: newPalette }); toast({ title: 'Cor removida!' }); }
     setConfirmDialog({ open: false, type: 'folder', id: '', name: '' });
   };
 
   const handleLogoUpload = async (url: string) => {
     if (!client) return;
-    const { error } = await supabase.from('clients').update({ logo_url: url || null }).eq('id', id);
+    const { error } = await api.from('clients').update({ logo_url: url || null }).eq('id', id);
     if (!error) { setClient({ ...client, logo_url: url || null }); toast({ title: url ? 'Logo atualizado!' : 'Logo removido!' }); }
     else { toast({ variant: 'destructive', title: 'Erro ao salvar logo', description: error.message }); }
   };
@@ -224,13 +225,13 @@ export default function ClientDetail() {
   const handleAddFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!folderForm.name) { toast({ variant: 'destructive', title: 'Nome é obrigatório' }); return; }
-    const { error } = await supabase.from('client_folders').insert({ client_id: id, folder_type: currentFolderType, name: folderForm.name, description: folderForm.description || null, file_url: folderForm.file_url || null, created_by: user?.id });
+    const { error } = await api.from('client_folders').insert({ client_id: id, folder_type: currentFolderType, name: folderForm.name, description: folderForm.description || null, file_url: folderForm.file_url || null, created_by: user?.id });
     if (!error) { toast({ title: 'Arquivo adicionado!' }); setIsFolderDialogOpen(false); setFolderForm({ name: '', description: '', file_url: '' }); fetchFolders(); }
     else { toast({ variant: 'destructive', title: 'Erro', description: error.message }); }
   };
 
   const handleDeleteFolder = async (folderId: string) => {
-    const { error } = await supabase.from('client_folders').delete().eq('id', folderId);
+    const { error } = await api.from('client_folders').delete().eq('id', folderId);
     if (!error) { toast({ title: 'Arquivo removido!' }); fetchFolders(); }
     setConfirmDialog({ open: false, type: 'folder', id: '', name: '' });
   };
@@ -240,7 +241,7 @@ export default function ClientDetail() {
     if (!client || !socialForm.url.trim()) { toast({ variant: 'destructive', title: 'URL é obrigatória' }); return; }
     try { new URL(socialForm.url); } catch { toast({ variant: 'destructive', title: 'URL inválida' }); return; }
     const newLinks = { ...client.social_links, [socialForm.platform]: socialForm.url };
-    const { error } = await supabase.from('clients').update({ social_links: newLinks }).eq('id', id);
+    const { error } = await api.from('clients').update({ social_links: newLinks }).eq('id', id);
     if (!error) { setClient({ ...client, social_links: newLinks }); setIsSocialDialogOpen(false); setSocialForm({ platform: 'instagram', url: '' }); toast({ title: 'Link adicionado!' }); }
     else { toast({ variant: 'destructive', title: 'Erro ao adicionar link' }); }
   };
@@ -248,7 +249,7 @@ export default function ClientDetail() {
   const handleRemoveSocialLink = async (platform: string) => {
     if (!client) return;
     const newLinks = { ...client.social_links }; delete newLinks[platform];
-    const { error } = await supabase.from('clients').update({ social_links: newLinks }).eq('id', id);
+    const { error } = await api.from('clients').update({ social_links: newLinks }).eq('id', id);
     if (!error) { setClient({ ...client, social_links: newLinks }); toast({ title: 'Link removido!' }); }
     setConfirmDialog({ open: false, type: 'folder', id: '', name: '' });
   };
@@ -262,7 +263,7 @@ export default function ClientDetail() {
   const handleEditClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editForm.name.trim()) { toast({ variant: 'destructive', title: 'Nome é obrigatório' }); return; }
-    const { error } = await supabase.from('clients').update({ name: editForm.name.trim(), segment: editForm.segment || null, contact_name: editForm.contact_name || null, contact_email: editForm.contact_email || null, contact_phone: editForm.contact_phone || null, google_drive_link: editForm.google_drive_link || null, canva_link: editForm.canva_link || null, notes: editForm.notes || null }).eq('id', id);
+    const { error } = await api.from('clients').update({ name: editForm.name.trim(), segment: editForm.segment || null, contact_name: editForm.contact_name || null, contact_email: editForm.contact_email || null, contact_phone: editForm.contact_phone || null, google_drive_link: editForm.google_drive_link || null, canva_link: editForm.canva_link || null, notes: editForm.notes || null }).eq('id', id);
     if (!error) {
       setClient({ ...client!, name: editForm.name.trim(), segment: editForm.segment || null, contact_name: editForm.contact_name || null, contact_email: editForm.contact_email || null, contact_phone: editForm.contact_phone || null, google_drive_link: editForm.google_drive_link || null, canva_link: editForm.canva_link || null, notes: editForm.notes || null });
       setIsEditDialogOpen(false); toast({ title: 'Cliente atualizado!' });
@@ -273,14 +274,14 @@ export default function ClientDetail() {
     if (!id || !isAdminOrManager) return;
     setIsDeletingClient(true);
     try {
-      await supabase.from('client_passwords').delete().eq('client_id', id);
-      await supabase.from('client_folders').delete().eq('client_id', id);
-      await supabase.from('client_drive_folders').delete().eq('client_id', id);
-      await supabase.from('tasks').delete().eq('client_id', id);
-      await supabase.from('calendar_events').delete().eq('client_id', id);
-      await supabase.from('filmmaker_demands').delete().eq('client_id', id);
-      await supabase.from('filmmaker_visits').delete().eq('client_id', id);
-      const { error } = await supabase.from('clients').delete().eq('id', id);
+      await api.from('client_passwords').delete().eq('client_id', id);
+      await api.from('client_folders').delete().eq('client_id', id);
+      await api.from('client_drive_folders').delete().eq('client_id', id);
+      await api.from('tasks').delete().eq('client_id', id);
+      await api.from('calendar_events').delete().eq('client_id', id);
+      await api.from('filmmaker_demands').delete().eq('client_id', id);
+      await api.from('filmmaker_visits').delete().eq('client_id', id);
+      const { error } = await api.from('clients').delete().eq('id', id);
       if (!error) { toast({ title: 'Cliente excluído!' }); navigate('/clients'); }
       else { toast({ variant: 'destructive', title: 'Erro', description: error.message }); }
     } catch { toast({ variant: 'destructive', title: 'Erro ao excluir cliente' }); }

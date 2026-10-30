@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Plus, Building2, Users, Palette, Link2, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -57,7 +57,7 @@ export default function Clients() {
   const { toast } = useToast();
 
   const handleArchiveToggle = async (id: string, archived: boolean) => {
-    const { error } = await supabase.from('clients').update({ archived: !archived }).eq('id', id);
+    const { error } = await api.from('clients').update({ archived: !archived }).eq('id', id);
     if (error) {
       toast({ variant: 'destructive', title: 'Erro', description: error.message });
     } else {
@@ -69,7 +69,7 @@ export default function Clients() {
   const handleDeleteClient = async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
-    const { error } = await supabase.from('clients').delete().eq('id', deleteTarget.id);
+    const { error } = await api.from('clients').delete().eq('id', deleteTarget.id);
     setIsDeleting(false);
     if (error) {
       toast({ variant: 'destructive', title: 'Erro ao excluir cliente', description: error.message });
@@ -82,7 +82,7 @@ export default function Clients() {
 
   useEffect(() => {
     const fetchTaskCounts = async () => {
-      const { data: tasks } = await supabase
+      const { data: tasks } = await api
         .from('tasks')
         .select('client_id, status')
         .not('client_id', 'is', null);
@@ -126,7 +126,7 @@ export default function Clients() {
 
   const handleSubmit = async (data: ClientFormValues) => {
     setIsSubmitting(true);
-    const { error } = await supabase.from('clients').insert({
+    const { error } = await api.from('clients').insert({
       name: data.name,
       segment: data.segment || null,
       contact_name: data.contact_name || null,

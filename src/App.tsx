@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,20 +7,20 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
-import Clients from "./pages/Clients";
-import ClientDetail from "./pages/ClientDetail";
-import Calendar from "./pages/Calendar";
-import Tasks from "./pages/Tasks";
-import Templates from "./pages/Templates";
-import Team from "./pages/Team";
-import Settings from "./pages/Settings";
-import Profile from "./pages/Profile";
-import FilmmakerVisits from "./pages/FilmmakerVisits";
-import FilmmakerDemands from "./pages/FilmmakerDemands";
-import Equipment from "./pages/Equipment";
-import Posts from "./pages/Posts";
-import Pautas from "./pages/Pautas";
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Clients = lazy(() => import('./pages/Clients'));
+const ClientDetail = lazy(() => import('./pages/ClientDetail'));
+const Calendar = lazy(() => import('./pages/Calendar'));
+const Tasks = lazy(() => import('./pages/Tasks'));
+const Templates = lazy(() => import('./pages/Templates'));
+const Team = lazy(() => import('./pages/Team'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Profile = lazy(() => import('./pages/Profile'));
+const FilmmakerVisits = lazy(() => import('./pages/FilmmakerVisits'));
+const FilmmakerDemands = lazy(() => import('./pages/FilmmakerDemands'));
+const Equipment = lazy(() => import('./pages/Equipment'));
+const Posts = lazy(() => import('./pages/Posts'));
+const Pautas = lazy(() => import('./pages/Pautas'));
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -28,6 +29,7 @@ const queryClient = new QueryClient();
 function AppRoutes() {
   return (
     <AuthProvider>
+      <Suspense fallback={<div role="status" className="min-h-screen flex items-center justify-center">Carregando...</div>}>
       <Routes>
         <Route path="/auth" element={<Auth />} />
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -46,6 +48,7 @@ function AppRoutes() {
         <Route path="/pautas" element={<ProtectedRoute><Pautas /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
     </AuthProvider>
   );
 }

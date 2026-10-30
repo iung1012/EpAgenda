@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 
 export interface CustomLink {
   name: string;
@@ -39,7 +39,7 @@ export function useClients(options: UseClientsOptions = {}) {
     setError(null);
 
     if (options.minimal) {
-      let query = supabase
+      let query = api
         .from('clients')
         .select('id, name, archived')
         .order('name');
@@ -71,7 +71,7 @@ export function useClients(options: UseClientsOptions = {}) {
         setClients(mappedClients);
       }
     } else {
-      let query = supabase
+      let query = api
         .from('clients')
         .select('*')
         .order('name');

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 
 export interface Equipment {
   id: string;
@@ -17,7 +17,7 @@ export function useEquipment() {
     setIsLoading(true);
     setError(null);
 
-    const { data, error: fetchError } = await supabase
+    const { data, error: fetchError } = await api
       .from('equipment')
       .select('*')
       .order('name');

@@ -1,0 +1,448 @@
+generator client {
+  provider = "prisma-client"
+  output = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model auth_users {
+  id String @id @default(uuid())
+  email String @unique
+  password_hash String?
+  confirmed Boolean @default(true)
+  disabled Boolean @default(false)
+  created_at String
+  updated_at String
+  sessions auth_sessions[]
+  activation_tokens auth_activation_tokens[]
+  calendar_events_assigned_to calendar_events[] @relation("calendar_events_assigned_to")
+  calendar_events_created_by calendar_events[] @relation("calendar_events_created_by")
+  client_drive_folders_created_by client_drive_folders[] @relation("client_drive_folders_created_by")
+  client_folders_created_by client_folders[] @relation("client_folders_created_by")
+  client_passwords_created_by client_passwords[] @relation("client_passwords_created_by")
+  clients_created_by clients[] @relation("clients_created_by")
+  filmmaker_demands_assigned_to filmmaker_demands[] @relation("filmmaker_demands_assigned_to")
+  filmmaker_demands_filmmaker_id filmmaker_demands[] @relation("filmmaker_demands_filmmaker_id")
+  filmmaker_visits_assigned_to filmmaker_visits[] @relation("filmmaker_visits_assigned_to")
+  filmmaker_visits_filmmaker_id filmmaker_visits[] @relation("filmmaker_visits_filmmaker_id")
+  notifications_created_by notifications[] @relation("notifications_created_by")
+  notifications_target_user_id notifications[] @relation("notifications_target_user_id")
+  pautas_created_by pautas[] @relation("pautas_created_by")
+  posts_created_by posts[] @relation("posts_created_by")
+  profiles_user_id profiles[] @relation("profiles_user_id")
+  task_comments_user_id task_comments[] @relation("task_comments_user_id")
+  task_templates_created_by task_templates[] @relation("task_templates_created_by")
+  tasks_assigned_to tasks[] @relation("tasks_assigned_to")
+  tasks_created_by tasks[] @relation("tasks_created_by")
+  user_roles_user_id user_roles[] @relation("user_roles_user_id")
+}
+
+model auth_sessions {
+  id String @id @default(uuid())
+  token_hash String @unique
+  user_id String
+  expires_at DateTime
+  created_at DateTime @default(now())
+  user auth_users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  @@index([user_id])
+}
+
+model auth_activation_tokens {
+  id String @id @default(uuid())
+  token_hash String @unique
+  user_id String
+  expires_at DateTime
+  created_at DateTime @default(now())
+  user auth_users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  @@index([user_id])
+}
+
+model calendar_events {
+  all_day Boolean? @default(false)
+  assigned_to String?
+  client_id String?
+  color String?
+  created_at String @default("")
+  created_by String?
+  description String?
+  end_date String?
+  event_type String
+  id String @id @default(uuid())
+  location String?
+  start_date String
+  title String
+  updated_at String @default("")
+  assigned_toRelation auth_users? @relation("calendar_events_assigned_to", fields: [assigned_to], references: [id], onDelete: SetNull)
+  @@index([assigned_to])
+  client_idRelation clients? @relation("calendar_events_client_id", fields: [client_id], references: [id], onDelete: SetNull)
+  @@index([client_id])
+  created_byRelation auth_users? @relation("calendar_events_created_by", fields: [created_by], references: [id], onDelete: SetNull)
+  @@index([created_by])
+  @@index([created_at])
+}
+
+model client_drive_folders {
+  client_id String
+  created_at String @default("")
+  created_by String?
+  folder_id String
+  folder_name String
+  folder_type String?
+  id String @id @default(uuid())
+  client_idRelation clients @relation("client_drive_folders_client_id", fields: [client_id], references: [id], onDelete: Cascade)
+  @@index([client_id])
+  created_byRelation auth_users? @relation("client_drive_folders_created_by", fields: [created_by], references: [id], onDelete: SetNull)
+  @@index([created_by])
+  @@index([created_at])
+}
+
+model client_folders {
+  client_id String
+  created_at String @default("")
+  created_by String?
+  description String?
+  file_url String?
+  folder_type String
+  id String @id @default(uuid())
+  name String
+  client_idRelation clients @relation("client_folders_client_id", fields: [client_id], references: [id], onDelete: Cascade)
+  @@index([client_id])
+  created_byRelation auth_users? @relation("client_folders_created_by", fields: [created_by], references: [id], onDelete: SetNull)
+  @@index([created_by])
+  @@index([created_at])
+}
+
+model client_passwords {
+  client_id String
+  created_at String @default("")
+  created_by String?
+  encrypted_password String
+  id String @id @default(uuid())
+  notes String?
+  service_name String
+  updated_at String @default("")
+  username String?
+  client_idRelation clients @relation("client_passwords_client_id", fields: [client_id], references: [id], onDelete: Cascade)
+  @@index([client_id])
+  created_byRelation auth_users? @relation("client_passwords_created_by", fields: [created_by], references: [id], onDelete: SetNull)
+  @@index([created_by])
+  @@index([created_at])
+}
+
+model clients {
+  archived Boolean @default(false)
+  canva_link String?
+  color_palette Json? @default(dbgenerated("'[]'"))
+  contact_email String?
+  contact_name String?
+  contact_phone String?
+  created_at String @default("")
+  created_by String?
+  custom_links Json? @default(dbgenerated("'[]'"))
+  google_drive_link String?
+  id String @id @default(uuid())
+  is_fixed_posting Boolean @default(false)
+  logo_url String?
+  name String
+  notes String?
+  segment String?
+  social_links Json? @default(dbgenerated("'{}'"))
+  trello_link String?
+  updated_at String @default("")
+  created_byRelation auth_users? @relation("clients_created_by", fields: [created_by], references: [id], onDelete: SetNull)
+  @@index([created_by])
+  calendar_events_client_id calendar_events[] @relation("calendar_events_client_id")
+  client_drive_folders_client_id client_drive_folders[] @relation("client_drive_folders_client_id")
+  client_folders_client_id client_folders[] @relation("client_folders_client_id")
+  client_passwords_client_id client_passwords[] @relation("client_passwords_client_id")
+  filmmaker_demands_client_id filmmaker_demands[] @relation("filmmaker_demands_client_id")
+  filmmaker_visits_client_id filmmaker_visits[] @relation("filmmaker_visits_client_id")
+  pautas_client_id pautas[] @relation("pautas_client_id")
+  posts_client_id posts[] @relation("posts_client_id")
+  tasks_client_id tasks[] @relation("tasks_client_id")
+  @@index([created_at])
+}
+
+model equipment {
+  created_at String @default("")
+  description String?
+  id String @id @default(uuid())
+  name String
+  visit_equipment_equipment_id visit_equipment[] @relation("visit_equipment_equipment_id")
+  @@index([created_at])
+}
+
+model filmmaker_demands {
+  assigned_to String?
+  client_id String?
+  created_at String @default("")
+  delivery_link String?
+  description String?
+  due_date String?
+  filmmaker_id String
+  id String @id @default(uuid())
+  status String @default("a_fazer")
+  title String
+  updated_at String @default("")
+  visit_id String?
+  assigned_toRelation auth_users? @relation("filmmaker_demands_assigned_to", fields: [assigned_to], references: [id], onDelete: SetNull)
+  @@index([assigned_to])
+  client_idRelation clients? @relation("filmmaker_demands_client_id", fields: [client_id], references: [id], onDelete: SetNull)
+  @@index([client_id])
+  filmmaker_idRelation auth_users @relation("filmmaker_demands_filmmaker_id", fields: [filmmaker_id], references: [id], onDelete: Cascade)
+  @@index([filmmaker_id])
+  visit_idRelation filmmaker_visits? @relation("filmmaker_demands_visit_id", fields: [visit_id], references: [id], onDelete: SetNull)
+  @@index([visit_id])
+  @@index([created_at])
+  @@index([due_date])
+}
+
+model filmmaker_visits {
+  assigned_to String?
+  client_id String?
+  created_at String @default("")
+  delivery_deadline String?
+  description String?
+  filmmaker_id String
+  id String @id @default(uuid())
+  location String?
+  notes String?
+  reminder_sent Boolean @default(false)
+  status String @default("agendada")
+  title String
+  updated_at String @default("")
+  visit_date String
+  assigned_toRelation auth_users? @relation("filmmaker_visits_assigned_to", fields: [assigned_to], references: [id], onDelete: SetNull)
+  @@index([assigned_to])
+  client_idRelation clients? @relation("filmmaker_visits_client_id", fields: [client_id], references: [id], onDelete: SetNull)
+  @@index([client_id])
+  filmmaker_idRelation auth_users @relation("filmmaker_visits_filmmaker_id", fields: [filmmaker_id], references: [id], onDelete: Cascade)
+  @@index([filmmaker_id])
+  filmmaker_demands_visit_id filmmaker_demands[] @relation("filmmaker_demands_visit_id")
+  tasks_visit_id tasks[] @relation("tasks_visit_id")
+  visit_equipment_visit_id visit_equipment[] @relation("visit_equipment_visit_id")
+  @@index([created_at])
+  @@index([visit_date])
+}
+
+model notifications {
+  created_at String @default("")
+  created_by String
+  id String @id @default(uuid())
+  message String
+  read_by Json @default(dbgenerated("'[]'"))
+  target_user_id String?
+  title String
+  created_byRelation auth_users @relation("notifications_created_by", fields: [created_by], references: [id], onDelete: Cascade)
+  @@index([created_by])
+  target_user_idRelation auth_users? @relation("notifications_target_user_id", fields: [target_user_id], references: [id], onDelete: SetNull)
+  @@index([target_user_id])
+  @@index([created_at])
+}
+
+model pautas {
+  client_id String?
+  created_at String @default("")
+  created_by String?
+  description String?
+  id String @id @default(uuid())
+  title String
+  updated_at String @default("")
+  client_idRelation clients? @relation("pautas_client_id", fields: [client_id], references: [id], onDelete: SetNull)
+  @@index([client_id])
+  created_byRelation auth_users? @relation("pautas_created_by", fields: [created_by], references: [id], onDelete: SetNull)
+  @@index([created_by])
+  @@index([created_at])
+}
+
+model posts {
+  caption String?
+  client_id String?
+  created_at String @default("")
+  created_by String?
+  id String @id @default(uuid())
+  link String?
+  media_url String?
+  platform String @default("instagram")
+  posted_at String?
+  scheduled_date String
+  status String @default("agendado")
+  title String
+  updated_at String @default("")
+  client_idRelation clients? @relation("posts_client_id", fields: [client_id], references: [id], onDelete: SetNull)
+  @@index([client_id])
+  created_byRelation auth_users? @relation("posts_created_by", fields: [created_by], references: [id], onDelete: SetNull)
+  @@index([created_by])
+  @@index([created_at])
+  @@index([scheduled_date])
+}
+
+model profiles {
+  avatar_url String?
+  birthday String?
+  created_at String @default("")
+  full_name String
+  id String @id @default(uuid())
+  phone String?
+  updated_at String @default("")
+  user_id String @unique
+  user_idRelation auth_users @relation("profiles_user_id", fields: [user_id], references: [id], onDelete: Cascade)
+  @@index([user_id])
+  @@index([created_at])
+}
+
+model task_comments {
+  content String
+  created_at String @default("")
+  id String @id @default(uuid())
+  task_id String
+  user_id String
+  task_idRelation tasks @relation("task_comments_task_id", fields: [task_id], references: [id], onDelete: Cascade)
+  @@index([task_id])
+  user_idRelation auth_users @relation("task_comments_user_id", fields: [user_id], references: [id], onDelete: Cascade)
+  @@index([user_id])
+  @@index([created_at])
+}
+
+model task_templates {
+  created_at String @default("")
+  created_by String
+  description String?
+  id String @id @default(uuid())
+  link String?
+  priority String
+  title String
+  updated_at String @default("")
+  created_byRelation auth_users @relation("task_templates_created_by", fields: [created_by], references: [id], onDelete: Cascade)
+  @@index([created_by])
+  @@index([created_at])
+}
+
+model tasks {
+  cancelled Boolean @default(false)
+  assigned_to String?
+  client_id String?
+  created_at String @default("")
+  created_by String?
+  delivery_link String?
+  description String?
+  due_date String?
+  id String @id @default(uuid())
+  pauta_id String?
+  priority String @default("media")
+  status String @default("a_fazer")
+  title String
+  updated_at String @default("")
+  visit_id String?
+  assigned_toRelation auth_users? @relation("tasks_assigned_to", fields: [assigned_to], references: [id], onDelete: SetNull)
+  @@index([assigned_to])
+  client_idRelation clients? @relation("tasks_client_id", fields: [client_id], references: [id], onDelete: SetNull)
+  @@index([client_id])
+  created_byRelation auth_users? @relation("tasks_created_by", fields: [created_by], references: [id], onDelete: SetNull)
+  @@index([created_by])
+  visit_idRelation filmmaker_visits? @relation("tasks_visit_id", fields: [visit_id], references: [id], onDelete: Cascade)
+  @@index([visit_id])
+  task_comments_task_id task_comments[] @relation("task_comments_task_id")
+  @@index([created_at])
+  @@index([due_date])
+}
+
+model user_roles {
+  id String @id @default(uuid())
+  role String
+  user_id String
+  user_idRelation auth_users @relation("user_roles_user_id", fields: [user_id], references: [id], onDelete: Cascade)
+  @@index([user_id])
+  @@unique([user_id, role])
+}
+
+model visit_equipment {
+  equipment_id String
+  id String @id @default(uuid())
+  visit_id String
+  equipment_idRelation equipment @relation("visit_equipment_equipment_id", fields: [equipment_id], references: [id], onDelete: Cascade)
+  @@index([equipment_id])
+  visit_idRelation filmmaker_visits @relation("visit_equipment_visit_id", fields: [visit_id], references: [id], onDelete: Cascade)
+  @@index([visit_id])
+  @@unique([visit_id, equipment_id])
+}
+
+model whatsapp_ai_messages {
+  content String?
+  created_at String @default("")
+  id String @id @default(uuid())
+  name String?
+  phone String
+  role String
+  tool_call_id String?
+  tool_calls Json?
+  @@index([created_at])
+}
+
+model whatsapp_config {
+  created_at String @default("")
+  id String @id @default(uuid())
+  instance_name String?
+  notify_on_cancel Boolean @default(true)
+  notify_on_create Boolean @default(true)
+  notify_on_reminder Boolean @default(true)
+  notify_on_update Boolean @default(true)
+  phone_connected String?
+  singleton Boolean @unique @default(true)
+  status String @default("disconnected")
+  updated_at String @default("")
+  @@index([created_at])
+}
+
+model whatsapp_message_logs {
+  created_at String @default("")
+  error String?
+  event String?
+  id String @id @default(uuid())
+  message String
+  phone String
+  provider_message_id String?
+  provider_status String?
+  recipient_label String?
+  remote_jid String?
+  @@index([created_at])
+}
+
+model whatsapp_recipients {
+  active Boolean @default(true)
+  created_at String @default("")
+  id String @id @default(uuid())
+  label String
+  phone String
+  updated_at String @default("")
+  @@index([created_at])
+}
+
+model storage_objects {
+  id String @id @default(uuid())
+  bucket String
+  path String
+  owner_id String?
+  mime_type String
+  size Int
+  created_at String
+  @@unique([bucket, path])
+}
+
+model webhook_receipts {
+  id String @id
+  created_at DateTime @default(now())
+}
+
+model whatsapp_outbox {
+  id String @id @default(uuid())
+  event String
+  message String
+  available_at String
+  attempts Int @default(0)
+  sent_at String?
+  last_error String?
+  @@index([sent_at, available_at])
+}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { 
   Building2, Calendar, CheckSquare, TrendingUp, Clock, ArrowRight, 
   Sparkles, AlertTriangle, Zap, BarChart3
@@ -58,22 +58,22 @@ export default function Dashboard() {
       tomorrow.setDate(tomorrow.getDate() + 1);
 
       const [clientsRes, tasksRes, pendingTasksRes, inProgressRes, eventsRes, recentTasksRes, upcomingEventsRes, overdueRes] = await Promise.all([
-        supabase.from('clients').select('id', { count: 'exact', head: true }),
-        supabase.from('tasks').select('id', { count: 'exact', head: true }),
-        supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('status', 'a_fazer'),
-        supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('status', 'fazendo'),
-        supabase.from('calendar_events').select('id', { count: 'exact', head: true })
+        api.from('clients').select('id', { count: 'exact', head: true }),
+        api.from('tasks').select('id', { count: 'exact', head: true }),
+        api.from('tasks').select('id', { count: 'exact', head: true }).eq('status', 'a_fazer'),
+        api.from('tasks').select('id', { count: 'exact', head: true }).eq('status', 'fazendo'),
+        api.from('calendar_events').select('id', { count: 'exact', head: true })
           .gte('start_date', today.toISOString())
           .lt('start_date', tomorrow.toISOString()),
-        supabase.from('tasks').select('id, title, status, priority, due_date')
+        api.from('tasks').select('id, title, status, priority, due_date')
           .neq('status', 'feito')
           .order('created_at', { ascending: false })
           .limit(5),
-        supabase.from('calendar_events').select('id, title, event_type, start_date')
+        api.from('calendar_events').select('id, title, event_type, start_date')
           .gte('start_date', new Date().toISOString())
           .order('start_date', { ascending: true })
           .limit(5),
-        supabase.from('tasks').select('id', { count: 'exact', head: true })
+        api.from('tasks').select('id', { count: 'exact', head: true })
           .neq('status', 'feito')
           .lt('due_date', today.toISOString()),
       ]);

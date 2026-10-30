@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -14,7 +14,6 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, MapPin, Calendar, Video, Package, Clock, CheckCircle, XCircle, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { sendWhatsappNotification } from '@/lib/whatsapp';
 
 interface Client {
   id: string;
@@ -66,9 +65,9 @@ export default function FilmmakerVisits() {
 
   const fetchData = async () => {
     const [visitsRes, clientsRes, equipmentRes] = await Promise.all([
-      supabase.from('filmmaker_visits').select('*').order('visit_date', { ascending: false }),
-      supabase.from('clients').select('id, name').order('name'),
-      supabase.from('equipment').select('*').order('name'),
+      api.from('filmmaker_visits').select('*').order('visit_date', { ascending: false }),
+      api.from('clients').select('id, name').order('name'),
+      api.from('equipment').select('*').order('name'),
     ]);
 
     if (clientsRes.data) setClients(clientsRes.data);
@@ -78,13 +77,13 @@ export default function FilmmakerVisits() {
       const visitsWithDetails = await Promise.all(
         visitsRes.data.map(async (visit) => {
           const client = clientsRes.data?.find(c => c.id === visit.client_id) || null;
-          
-          const { data: visitEquipment } = await supabase
+
+          const { data: visitEquipment } = await api
             .from('visit_equipment')
             .select('equipment_id')
             .eq('visit_id', visit.id);
-          
-          const equipmentItems = visitEquipment?.map(ve => 
+
+          const equipmentItems = visitEquipment?.map(ve =>
             equipmentRes.data?.find(e => e.id === ve.equipment_id)
           ).filter(Boolean) as Equipment[] || [];
 
@@ -101,125 +100,15 @@ export default function FilmmakerVisits() {
 
   const handleSubmit = async (data: VisitFormValues) => {
     setIsLoading(true);
-
     try {
-      // Parse the local datetime and create a proper ISO string with timezone
-      // The input gives us "2026-01-14T14:00" format
-      const localDate = new Date(data.visit_date);
-      const visitDateTime = localDate.toISOString();
-      
-      if (editingVisit) {
-        const { error } = await supabase
-          .from('filmmaker_visits')
-          .update({
-            title: data.title,
-            description: data.description || null,
-            location: data.location || null,
-            visit_date: visitDateTime,
-            client_id: data.client_id || null,
-            status: data.status,
-            notes: data.notes || null,
-            assigned_to: data.assigned_to || null,
-            delivery_deadline: data.delivery_deadline || null,
-          })
-          .eq('id', editingVisit.id);
-
-        if (error) throw error;
-
-        await supabase.from('visit_equipment').delete().eq('visit_id', editingVisit.id);
-        
-        if (data.equipment_ids.length > 0) {
-          await supabase.from('visit_equipment').insert(
-            data.equipment_ids.map(eq_id => ({
-              visit_id: editingVisit.id,
-              equipment_id: eq_id,
-            }))
-          );
-        }
-
-        toast({ title: 'Visita atualizada com sucesso!' });
-        {
-          const clientName = data.client_id ? clients.find(c => c.id === data.client_id)?.name ?? null : null;
-          const assignedName = data.assigned_to ? profiles.find(p => p.user_id === data.assigned_to)?.full_name ?? null : null;
-          sendWhatsappNotification(data.status === 'cancelada' ? 'cancel' : 'update', {
-            title: data.title,
-            visit_date: visitDateTime,
-            location: data.location,
-            clientName,
-            assignedName,
-          });
-        }
-      } else {
-        const { data: newVisit, error } = await supabase
-          .from('filmmaker_visits')
-          .insert({
-            filmmaker_id: user?.id,
-            title: data.title,
-            description: data.description || null,
-            location: data.location || null,
-            visit_date: visitDateTime,
-            client_id: data.client_id || null,
-            status: data.status,
-            notes: data.notes || null,
-            assigned_to: data.assigned_to || null,
-            delivery_deadline: data.delivery_deadline || null,
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        if (newVisit && data.equipment_ids.length > 0) {
-          await supabase.from('visit_equipment').insert(
-            data.equipment_ids.map(eq_id => ({
-              visit_id: newVisit.id,
-              equipment_id: eq_id,
-            }))
-          );
-        }
-
-        // Auto-create linked task for the assignee (vínculo via visit_id → exclusão em cascata)
-        if (newVisit && data.assigned_to) {
-          await supabase.from('tasks').insert({
-            title: `Entrega: ${data.title}`,
-            description: `Tarefa gerada a partir da visita agendada em ${format(localDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}.${data.notes ? `\n\nNotas: ${data.notes}` : ''}`,
-            status: 'a_fazer',
-            priority: 'media',
-            due_date: data.delivery_deadline,
-            client_id: data.client_id || null,
-            assigned_to: data.assigned_to,
-            created_by: user?.id,
-            visit_id: newVisit.id,
-          });
-        }
-
-        toast({ title: 'Visita criada e tarefa atribuída!' });
-        {
-          const clientName = data.client_id ? clients.find(c => c.id === data.client_id)?.name ?? null : null;
-          const assignedName = data.assigned_to ? profiles.find(p => p.user_id === data.assigned_to)?.full_name ?? null : null;
-          sendWhatsappNotification('create', {
-            title: data.title,
-            visit_date: visitDateTime,
-            location: data.location,
-            clientName,
-            assignedName,
-          });
-        }
-        setIsDialogOpen(false);
-        setEditingVisit(null);
-        fetchData();
-        navigate('/tasks');
-        return;
-      }
-
-      setIsDialogOpen(false);
-      setEditingVisit(null);
-      fetchData();
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Erro ao salvar visita', description: error.message });
-    } finally {
-      setIsLoading(false);
-    }
+      const { error } = await api.rpc('save_visit', { visit_id: editingVisit?.id ?? null, payload: { ...data, visit_date: new Date(data.visit_date).toISOString() } });
+      if (error) throw error;
+      const wasNew = !editingVisit;
+      toast({ title: wasNew ? 'Visita criada e tarefa atribuída!' : 'Visita atualizada com sucesso!' });
+      setIsDialogOpen(false); setEditingVisit(null); await fetchData();
+      if (wasNew) navigate('/tasks');
+    } catch (error) { toast({ variant: 'destructive', title: 'Erro ao salvar visita', description: error instanceof Error ? error.message : 'Tente novamente' }); }
+    finally { setIsLoading(false); }
   };
 
   const handleEdit = (visit: Visit) => {
@@ -228,21 +117,12 @@ export default function FilmmakerVisits() {
   };
 
   const handleDelete = async () => {
-    const visit = visits.find(v => v.id === confirmDialog.id);
-    const { error } = await supabase.from('filmmaker_visits').delete().eq('id', confirmDialog.id);
+    const { error } = await api.from('filmmaker_visits').delete().eq('id', confirmDialog.id);
 
     if (error) {
       toast({ variant: 'destructive', title: 'Erro ao excluir visita', description: error.message });
     } else {
       toast({ title: 'Visita excluída com sucesso!' });
-      if (visit) {
-        sendWhatsappNotification('cancel', {
-          title: visit.title,
-          visit_date: visit.visit_date,
-          location: visit.location,
-          clientName: visit.client?.name ?? null,
-        });
-      }
       fetchData();
     }
     setConfirmDialog({ open: false, id: '', title: '' });
@@ -272,8 +152,8 @@ export default function FilmmakerVisits() {
     // The stored date is already in ISO format with timezone from timestamptz
     const storedDate = new Date(editingVisit.visit_date);
     // Check if date is valid before formatting
-    const localDateStr = isNaN(storedDate.getTime()) 
-      ? '' 
+    const localDateStr = isNaN(storedDate.getTime())
+      ? ''
       : format(storedDate, "yyyy-MM-dd'T'HH:mm");
     return {
       title: editingVisit.title,
@@ -363,14 +243,14 @@ export default function FilmmakerVisits() {
                         <h3 className="font-medium text-sm">{visit.title}</h3>
                         {getStatusBadge(visit.status)}
                       </div>
-                      
+
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           {(() => {
                             const visitDate = new Date(visit.visit_date);
-                            return isNaN(visitDate.getTime()) 
-                              ? 'Data inválida' 
+                            return isNaN(visitDate.getTime())
+                              ? 'Data inválida'
                               : format(visitDate, "dd MMM 'às' HH:mm", { locale: ptBR });
                           })()}
                         </span>
@@ -396,17 +276,17 @@ export default function FilmmakerVisits() {
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="flex gap-1 flex-shrink-0">
                       <Button variant="ghost" size="sm" className="text-xs h-7 gap-1" onClick={() => handleEdit(visit)}>
                         <Pencil className="h-3 w-3" />
                         Editar
                       </Button>
                       {isAdminOrManager && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="text-xs h-7 gap-1 text-destructive hover:text-destructive" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 gap-1 text-destructive hover:text-destructive"
                           onClick={() => setConfirmDialog({ open: true, id: visit.id, title: visit.title })}
                         >
                           <Trash2 className="h-3 w-3" />

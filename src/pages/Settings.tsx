@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { useToast } from '@/hooks/use-toast';
 import { User, Lock, Building2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -31,7 +31,7 @@ export default function Settings() {
     if (!user) return;
 
     setIsLoading(true);
-    const { error } = await supabase
+    const { error } = await api
       .from('profiles')
       .update({
         full_name: profileData.full_name,
@@ -55,13 +55,13 @@ export default function Settings() {
       return;
     }
 
-    if (passwordData.newPassword.length < 6) {
-      toast({ variant: 'destructive', title: 'A senha deve ter no mínimo 6 caracteres' });
+    if (passwordData.newPassword.length < 12) {
+      toast({ variant: 'destructive', title: 'A senha deve ter no mínimo 12 caracteres' });
       return;
     }
 
     setIsLoading(true);
-    const { error } = await supabase.auth.updateUser({
+    const { error } = await api.auth.updateUser({
       password: passwordData.newPassword,
     });
     setIsLoading(false);

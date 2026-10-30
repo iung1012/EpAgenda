@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { startOfMonth, endOfMonth, isSameDay, setYear, setMonth, setDate, getDate, getMonth } from 'date-fns';
 
 export interface CalendarEvent {
@@ -37,19 +37,19 @@ export function useCalendarEvents(currentDate: Date) {
 
     // Fetch calendar events, visits, and profiles (for birthdays) in parallel
     const [eventsResult, visitsResult, profilesResult] = await Promise.all([
-      supabase
+      api
         .from('calendar_events')
         .select('*, clients(name)')
         .gte('start_date', start.toISOString())
         .lte('start_date', end.toISOString())
         .order('start_date'),
-      supabase
+      api
         .from('filmmaker_visits')
         .select('*, clients(name)')
         .gte('visit_date', start.toISOString())
         .lte('visit_date', end.toISOString())
         .order('visit_date'),
-      supabase
+      api
         .from('profiles')
         .select('user_id, full_name, birthday')
         .not('birthday', 'is', null)
@@ -68,12 +68,12 @@ export function useCalendarEvents(currentDate: Date) {
     }
 
     // Convert events with client names
-    const calendarEvents: CalendarEvent[] = (eventsResult.data || []).map((event: any) => ({
+    const calendarEvents: CalendarEvent[] = (eventsResult.data || []).map((event) => ({
       ...event,
       client_name: event.clients?.name || null,
     }));
     
-    const visitEvents: CalendarEvent[] = (visitsResult.data || []).map((visit: any) => ({
+    const visitEvents: CalendarEvent[] = (visitsResult.data || []).map((visit) => ({
       id: `visit-${visit.id}`,
       title: `📹 ${visit.title}`,
       description: visit.description,

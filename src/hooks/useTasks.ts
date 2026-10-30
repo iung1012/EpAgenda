@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 
 export type TaskStatus = 'a_fazer' | 'fazendo' | 'feito';
 export type TaskPriority = 'baixa' | 'media' | 'alta';
@@ -12,6 +12,7 @@ export interface Task {
   priority: TaskPriority;
   due_date: string | null;
   client_id: string | null;
+  pauta_id?: string | null;
   assigned_to: string | null;
   created_by: string | null;
   created_at: string;
@@ -55,7 +56,7 @@ const mapTaskStatusToDemandStatus = (taskStatus: TaskStatus): string => {
 async function notifyAdminsOnDelivery(taskTitle: string, deliveryLink: string, userId: string) {
   try {
     // Create a notification for all users (admins/managers will see it)
-    await supabase.from('notifications').insert({
+    await api.from('notifications').insert({
       title: '🎉 Entrega Concluída',
       message: `A tarefa "${taskTitle}" foi concluída. Link: ${deliveryLink}`,
       created_by: userId,
@@ -76,11 +77,11 @@ export function useTasks() {
 
     // Fetch tasks and demands in parallel
     const [tasksResult, demandsResult] = await Promise.all([
-      supabase
+      api
         .from('tasks')
         .select('*')
         .order('created_at', { ascending: false }),
-      supabase
+      api
         .from('filmmaker_demands')
         .select('*')
         .order('created_at', { ascending: false })
@@ -135,7 +136,7 @@ export function useTasks() {
       const demandId = taskId.replace('demand-', '');
       const demandStatus = mapTaskStatusToDemandStatus(newStatus);
       
-      const { error } = await supabase
+      const { error } = await api
         .from('filmmaker_demands')
         .update({ status: demandStatus })
         .eq('id', demandId);
@@ -147,7 +148,7 @@ export function useTasks() {
       return { error };
     } else {
       // Regular task
-      const { error } = await supabase
+      const { error } = await api
         .from('tasks')
         .update({ status: newStatus })
         .eq('id', taskId);
@@ -162,14 +163,14 @@ export function useTasks() {
 
   const updateTaskDeliveryLink = useCallback(async (taskId: string, deliveryLink: string, taskTitle?: string) => {
     // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await api.auth.getUser();
     const userId = user?.id;
 
     // Check if it's a demand task
     if (taskId.startsWith('demand-')) {
       const demandId = taskId.replace('demand-', '');
       
-      const { error } = await supabase
+      const { error } = await api
         .from('filmmaker_demands')
         .update({ delivery_link: deliveryLink })
         .eq('id', demandId);
@@ -184,7 +185,7 @@ export function useTasks() {
       return { error };
     } else {
       // Regular task
-      const { error } = await supabase
+      const { error } = await api
         .from('tasks')
         .update({ delivery_link: deliveryLink })
         .eq('id', taskId);

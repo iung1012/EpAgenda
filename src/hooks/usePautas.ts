@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 
 export interface Pauta {
   id: string;
@@ -17,7 +17,7 @@ export function usePautas() {
 
   const fetchPautas = useCallback(async () => {
     setIsLoading(true);
-    const { data } = await supabase
+    const { data } = await api
       .from('pautas')
       .select('*')
       .order('created_at', { ascending: false });

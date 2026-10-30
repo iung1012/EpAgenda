@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from '@/components/ui/alert-dialog';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { AppBackup, decryptBackup, downloadBackup, encryptBackup, includeFiles } from '@/lib/backup';
 
 export function BackupSettings() {
@@ -16,8 +16,8 @@ export function BackupSettings() {
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState<Blob | null>(null);
   const [preview, setPreview] = useState<AppBackup | null>(null);
-  const call = async (body: unknown) => {
-    const { data, error } = await supabase.functions.invoke('application-backup', {body});
+  const call = async <T,>(body: unknown): Promise<T> => {
+    const { data, error } = await api.functions.invoke<T>('application-backup', {body});
     if (error) {
       let detail = 'Não foi possível concluir. Confira sua conexão e tente novamente';
       if (error.context instanceof Response) {
@@ -26,7 +26,6 @@ export function BackupSettings() {
       }
       throw new Error(detail);
     }
-    if (data?.error) throw new Error(data.error);
     return data;
   };
   const run = async (operation: () => Promise<void>) => {
@@ -43,7 +42,7 @@ export function BackupSettings() {
     <p className="text-xs text-muted-foreground">Use pelo menos 12 caracteres. Guarde a senha: não é possível recuperar a cópia sem ela. Limite: 40 MB de arquivos enviados.</p>
     <div className="flex flex-wrap gap-3">
       <Button disabled={busy || password.length < 12 || password !== confirmation} onClick={() => run(async () => {
-        setReady(null); const manifest = await call({action: 'export'});
+        setReady(null); const manifest = await call<Parameters<typeof includeFiles>[0]>({action: 'export'});
         const backup = await includeFiles(manifest, setMessage);
         setMessage('Protegendo a cópia…'); setReady(await encryptBackup(backup, password));
         setMessage('Cópia pronta para baixar');
@@ -59,7 +58,7 @@ export function BackupSettings() {
       <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Confirmar importação</AlertDialogTitle><AlertDialogDescription>
         Cópia de {preview ? new Date(preview.createdAt).toLocaleString('pt-BR') : ''}, com {preview ? Object.values(preview.tables).reduce((n,rows) => n + rows.length, 0) : 0} registros e {preview?.files.length || 0} arquivos. Registros com o mesmo ID serão atualizados; os demais serão adicionados. Nada será apagado. Permissões da equipe não serão alteradas. Faça uma cópia do destino antes de continuar.
       </AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel><Button disabled={busy} onClick={() => run(async () => {
-        if (!preview) return; const result = await call({action: 'import', backup: preview});
+        if (!preview) return; const result = await call<{ records: number; files: number }>({action: 'import', backup: preview});
         setPreview(null); setMessage(`Importação concluída: ${result.records} registros e ${result.files} arquivos. Atualize a página para conferir.`); setPassword(''); setConfirmation('');
       })}>{busy ? 'Importando…' : 'Confirmar importação'}</Button></AlertDialogFooter></AlertDialogContent>
     </AlertDialog>

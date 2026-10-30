@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { 
@@ -45,7 +45,7 @@ export function RecentActivityWidget() {
     const fetchActivities = async () => {
       try {
         // Fetch profiles for user names
-        const { data: profiles } = await supabase
+        const { data: profiles } = await api
           .from('profiles')
           .select('user_id, full_name');
 
@@ -56,23 +56,23 @@ export function RecentActivityWidget() {
 
         // Fetch recent data from multiple tables
         const [tasksRes, eventsRes, visitsRes, demandsRes, clientsRes] = await Promise.all([
-          supabase.from('tasks')
+          api.from('tasks')
             .select('id, title, status, created_by, created_at, updated_at')
             .order('updated_at', { ascending: false })
             .limit(10),
-          supabase.from('calendar_events')
+          api.from('calendar_events')
             .select('id, title, created_by, created_at')
             .order('created_at', { ascending: false })
             .limit(5),
-          supabase.from('filmmaker_visits')
+          api.from('filmmaker_visits')
             .select('id, title, filmmaker_id, created_at')
             .order('created_at', { ascending: false })
             .limit(5),
-          supabase.from('filmmaker_demands')
+          api.from('filmmaker_demands')
             .select('id, title, filmmaker_id, created_at')
             .order('created_at', { ascending: false })
             .limit(5),
-          supabase.from('clients')
+          api.from('clients')
             .select('id, name, created_by, created_at')
             .order('created_at', { ascending: false })
             .limit(5),

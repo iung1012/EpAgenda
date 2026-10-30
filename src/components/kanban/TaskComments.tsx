@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfiles } from '@/hooks/useProfiles';
 import { Button } from '@/components/ui/button';
@@ -47,7 +47,7 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
   }, [profiles, mentionSearch]);
 
   const fetchComments = async () => {
-    const { data, error } = await supabase
+    const { data, error } = await api
       .from('task_comments')
       .select('*')
       .eq('task_id', taskId)
@@ -61,11 +61,11 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
 
   useEffect(() => {
     fetchComments();
-    const channel = supabase
+    const channel = api
       .channel(`task-comments-${taskId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments', filter: `task_id=eq.${taskId}` }, () => fetchComments())
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { api.removeChannel(channel); };
   }, [taskId]);
 
   useEffect(() => {
@@ -94,12 +94,12 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
 
     for (const userId of mentionedIds) {
       if (userId === user.id) continue; // don't notify self
-      await supabase.from('notifications').insert({
+      await api.from('notifications').insert({
         title: `💬 ${authorName} mencionou você`,
         message: `Em um comentário de tarefa: "${displayContent.substring(0, 100)}${displayContent.length > 100 ? '...' : ''}" [task:${taskId}]`,
         created_by: user.id,
         target_user_id: userId,
-      } as any);
+      });
     }
   };
 
@@ -108,7 +108,7 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
 
     setIsSending(true);
     const content = newComment.trim();
-    const { error } = await supabase.from('task_comments').insert({
+    const { error } = await api.from('task_comments').insert({
       task_id: taskId,
       user_id: user.id,
       content,
@@ -125,7 +125,7 @@ export function TaskComments({ taskId }: TaskCommentsProps) {
   };
 
   const handleDelete = async (commentId: string) => {
-    const { error } = await supabase.from('task_comments').delete().eq('id', commentId);
+    const { error } = await api.from('task_comments').delete().eq('id', commentId);
     if (error) toast.error('Erro ao excluir comentário');
   };
 

@@ -1,0 +1,24 @@
+name: Verify application
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix server
+      - run: npm --prefix server run generate
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm --prefix server run typecheck
+      - run: npm --prefix server test
+      - run: npm run build

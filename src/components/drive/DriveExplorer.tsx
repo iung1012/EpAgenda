@@ -23,6 +23,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/api/client';
 
 interface DriveExplorerProps {
   folderId?: string;
@@ -83,8 +84,7 @@ const isPdf = (mimeType: string) => mimeType.includes('pdf');
 
 // Generate stream URL for media
 function getStreamUrl(fileId: string): string {
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  return `https://${projectId}.supabase.co/functions/v1/google-drive?action=stream&fileId=${fileId}`;
+  return `/api/functions/google-drive?action=stream&fileId=${fileId}`;
 }
 
 // Thumbnail component that fetches via edge function proxy
@@ -108,9 +108,8 @@ function ThumbnailImage({
     
     const fetchThumbnail = async () => {
       try {
-        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
         const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/google-drive?action=thumbnail&fileId=${fileId}`,
+          `/api/functions/google-drive?action=thumbnail&fileId=${fileId}`,
           {
             headers: {
               'Authorization': `Bearer ${authToken}`,
@@ -185,16 +184,15 @@ function VideoPlayer({
     }
     (async () => {
       try {
-        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
         const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/google-drive?action=streamToken&fileId=${fileId}`,
+          `/api/functions/google-drive?action=streamToken&fileId=${fileId}`,
           { headers: { Authorization: `Bearer ${authToken}` } },
         );
         if (!res.ok) throw new Error('token');
         const { token } = await res.json();
         if (cancelled) return;
         setStreamUrl(
-          `https://${projectId}.supabase.co/functions/v1/google-drive?action=stream&fileId=${fileId}&st=${encodeURIComponent(token)}`,
+          `/api/functions/google-drive?action=stream&fileId=${fileId}&st=${encodeURIComponent(token)}`,
         );
       } catch {
         if (!cancelled) setError(true);
@@ -268,7 +266,7 @@ export function DriveExplorer({ folderId, className }: DriveExplorerProps) {
   // Get auth token for thumbnail requests
   useEffect(() => {
     const getToken = async () => {
-      const { data } = await (await import('@/integrations/supabase/client')).supabase.auth.getSession();
+      const { data } = await api.auth.getSession();
       setAuthToken(data?.session?.access_token || null);
     };
     getToken();

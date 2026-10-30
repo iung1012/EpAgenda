@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api/client";
 import { useToast } from "@/hooks/use-toast";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ export default function Profile() {
         full_name: profile.full_name || "",
         phone: profile.phone || "",
         avatar_url: profile.avatar_url || "",
-        birthday: (profile as any).birthday || "",
+        birthday: profile.birthday || "",
       });
     }
   }, [profile]);
@@ -66,13 +66,13 @@ export default function Profile() {
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}/avatar.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await api.storage
         .from("client-files")
         .upload(fileName, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
+      const { data: urlData } = api.storage
         .from("client-files")
         .getPublicUrl(fileName);
 
@@ -84,10 +84,10 @@ export default function Profile() {
         title: "Sucesso",
         description: "Foto atualizada com sucesso",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro ao fazer upload",
-        description: error.message,
+        description: (error instanceof Error ? error.message : 'Não foi possível concluir a operação'),
         variant: "destructive",
       });
     } finally {
@@ -109,14 +109,14 @@ export default function Profile() {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase
+      const { error } = await api
         .from("profiles")
         .update({
           full_name: formData.full_name.trim(),
           phone: formData.phone.trim() || null,
           avatar_url: formData.avatar_url || null,
           birthday: formData.birthday || null,
-        } as any)
+        })
         .eq("user_id", user.id);
 
       if (error) throw error;
@@ -128,10 +128,10 @@ export default function Profile() {
 
       // Reload to refresh context
       window.location.reload();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro ao salvar",
-        description: error.message,
+        description: (error instanceof Error ? error.message : 'Não foi possível concluir a operação'),
         variant: "destructive",
       });
     } finally {

@@ -28,7 +28,7 @@ interface ClientFoldersTabProps {
   currentFolderType: string;
   setCurrentFolderType: (type: string) => void;
   folderForm: { name: string; description: string; file_url: string };
-  setFolderForm: (form: any) => void;
+  setFolderForm: (form: ClientFoldersTabProps['folderForm']) => void;
   onAddFolder: (e: React.FormEvent) => void;
   onDeleteFolder: (id: string, name: string) => void;
 }

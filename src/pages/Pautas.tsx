@@ -17,7 +17,7 @@ import { useClients } from '@/hooks/useClients';
 import { useTasks } from '@/hooks/useTasks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 
 export default function Pautas() {
@@ -35,8 +35,7 @@ export default function Pautas() {
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
   const [newTaskInput, setNewTaskInput] = useState<Record<string, string>>({});
 
-  // Fetch tasks with pauta_id (need raw since useTasks doesn't expose it)
-  const tasksWithPauta = tasks as any[];
+  const tasksWithPauta = tasks;
 
   const filteredPautas = useMemo(() => pautas.filter(p =>
     clientFilter === 'all' || p.client_id === clientFilter
@@ -51,19 +50,19 @@ export default function Pautas() {
         client_id: data.client_id || null,
       };
       if (editing) {
-        const { error } = await supabase.from('pautas').update(payload).eq('id', editing.id);
+        const { error } = await api.from('pautas').update(payload).eq('id', editing.id);
         if (error) throw error;
         toast({ title: 'Pauta atualizada!' });
       } else {
-        const { error } = await supabase.from('pautas').insert({ ...payload, created_by: user?.id });
+        const { error } = await api.from('pautas').insert({ ...payload, created_by: user?.id });
         if (error) throw error;
         toast({ title: 'Pauta criada!' });
       }
       setDialogOpen(false);
       setEditing(null);
       refetch();
-    } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Erro', description: e.message });
+    } catch (e: unknown) {
+      toast({ variant: 'destructive', title: 'Erro', description: (e instanceof Error ? e.message : 'Não foi possível concluir a operação') });
     } finally {
       setIsLoading(false);
     }
@@ -71,8 +70,9 @@ export default function Pautas() {
 
   const handleDelete = async () => {
     // Unlink tasks first
-    await (supabase.from('tasks') as any).update({ pauta_id: null }).eq('pauta_id', confirmDelete.id);
-    const { error } = await supabase.from('pautas').delete().eq('id', confirmDelete.id);
+    const { error: unlinkError } = await api.from('tasks').update({ pauta_id: null }).eq('pauta_id', confirmDelete.id);
+    if (unlinkError) { toast({ variant: 'destructive', title: 'Erro', description: unlinkError.message }); return; }
+    const { error } = await api.from('pautas').delete().eq('id', confirmDelete.id);
     if (error) toast({ variant: 'destructive', title: 'Erro', description: error.message });
     else { toast({ title: 'Pauta excluída' }); refetch(); refetchTasks(); }
     setConfirmDelete({ open: false, id: '', title: '' });
@@ -82,7 +82,7 @@ export default function Pautas() {
     const title = (newTaskInput[pautaId] || '').trim();
     if (!title || !user) return;
     const pauta = pautas.find(p => p.id === pautaId);
-    const { error } = await supabase.from('tasks').insert({
+    const { error } = await api.from('tasks').insert({
       title,
       created_by: user.id,
       status: 'a_fazer',
@@ -90,7 +90,7 @@ export default function Pautas() {
       assigned_to: user.id,
       client_id: pauta?.client_id || null,
       pauta_id: pautaId,
-    } as any);
+    });
     if (error) toast({ variant: 'destructive', title: 'Erro', description: error.message });
     else {
       setNewTaskInput(p => ({ ...p, [pautaId]: '' }));
@@ -100,7 +100,7 @@ export default function Pautas() {
 
   const toggleTask = async (taskId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'feito' ? 'a_fazer' : 'feito';
-    const { error } = await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
+    const { error } = await api.from('tasks').update({ status: newStatus }).eq('id', taskId);
     if (error) toast({ variant: 'destructive', title: 'Erro' });
     else refetchTasks();
   };

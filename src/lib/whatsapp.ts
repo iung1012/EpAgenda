@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -39,7 +39,7 @@ export function buildVisitMessage(event: WhatsappEvent, visit: VisitLike) {
 export async function sendWhatsappNotification(event: WhatsappEvent, visit: VisitLike) {
   try {
     const message = buildVisitMessage(event, visit);
-    await supabase.functions.invoke('whatsapp-send', {
+    await api.functions.invoke('whatsapp-send', {
       body: { event, message },
     });
   } catch (err) {

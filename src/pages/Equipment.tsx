@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api/client";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState } from "@/components/layout/EmptyState";
@@ -29,7 +29,7 @@ export default function Equipment() {
     
     try {
       if (editingEquipment) {
-        const { error } = await supabase
+        const { error } = await api
           .from("equipment")
           .update({
             name: data.name,
@@ -40,7 +40,7 @@ export default function Equipment() {
         if (error) throw error;
         toast({ title: "Equipamento atualizado com sucesso!" });
       } else {
-        const { error } = await supabase.from("equipment").insert({
+        const { error } = await api.from("equipment").insert({
           name: data.name,
           description: data.description || null,
         });
@@ -52,10 +52,10 @@ export default function Equipment() {
       setDialogOpen(false);
       setEditingEquipment(null);
       refetch();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: editingEquipment ? "Erro ao atualizar equipamento" : "Erro ao criar equipamento",
-        description: error.message,
+        description: (error instanceof Error ? error.message : 'Não foi possível concluir a operação'),
         variant: "destructive",
       });
     } finally {
@@ -69,12 +69,12 @@ export default function Equipment() {
   };
 
   const handleDelete = async () => {
-    const { error } = await supabase.from("equipment").delete().eq("id", confirmDialog.id);
+    const { error } = await api.from("equipment").delete().eq("id", confirmDialog.id);
 
     if (error) {
       toast({
         title: "Erro ao excluir equipamento",
-        description: error.message,
+        description: (error instanceof Error ? error.message : 'Não foi possível concluir a operação'),
         variant: "destructive",
       });
     } else {

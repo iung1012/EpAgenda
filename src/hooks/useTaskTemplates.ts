@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import type { TaskPriority } from './useTasks';
 
 export interface TaskTemplate {
@@ -14,7 +14,7 @@ export interface TaskTemplate {
 }
 
 // Helper to access task_templates table (not yet in generated types)
-const taskTemplatesTable = () => supabase.from('task_templates' as any);
+const taskTemplatesTable = () => api.from('task_templates');
 
 export function useTaskTemplates() {
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
@@ -47,7 +47,7 @@ export function useTaskTemplates() {
     priority: TaskPriority;
     link?: string;
   }) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await api.auth.getUser();
     if (!user) return { error: { message: 'Usuário não autenticado' } };
 
     const { error } = await taskTemplatesTable()

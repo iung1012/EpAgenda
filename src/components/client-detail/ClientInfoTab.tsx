@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Pencil, User, Mail, Phone, Tag, StickyNote } from 'lucide-react';
+import { Pencil, User, Mail, Phone, Tag, StickyNote, type LucideIcon } from 'lucide-react';
 import ElfsightInstagramFeed from '@/components/clients/ElfsightInstagramFeed';
 import { motion } from 'framer-motion';
 
@@ -34,7 +34,7 @@ interface ClientInfoTabProps {
     canva_link: string;
     notes: string;
   };
-  setEditForm: (form: any) => void;
+  setEditForm: (form: ClientInfoTabProps['editForm']) => void;
   onOpenEditDialog: () => void;
   onEditClient: (e: React.FormEvent) => void;
 }
@@ -44,7 +44,7 @@ const itemVariants = {
   show: { opacity: 1, y: 0 },
 };
 
-const InfoRow = ({ icon: Icon, label, value }: { icon: any; label: string; value: string | null }) => (
+const InfoRow = ({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string | null }) => (
   <motion.div variants={itemVariants} className="flex items-start gap-3 p-3 rounded-xl bg-secondary/40">
     <div className="h-9 w-9 rounded-lg bg-primary/5 flex items-center justify-center flex-shrink-0 mt-0.5">
       <Icon className="h-4 w-4 text-muted-foreground" />

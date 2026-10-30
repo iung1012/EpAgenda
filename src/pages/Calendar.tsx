@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays } from 'date-fns';
@@ -16,7 +16,6 @@ import { VisitFormDialog, VisitFormValues } from '@/components/forms/VisitFormDi
 import { useCalendarEvents, CalendarEvent } from '@/hooks/useCalendarEvents';
 import { useHolidays } from '@/hooks/useHolidays';
 import { useProfiles } from '@/hooks/useProfiles';
-import { sendWhatsappNotification } from '@/lib/whatsapp';
 import { DayEventsDialog } from '@/components/calendar/DayEventsDialog';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -64,12 +63,12 @@ export default function Calendar() {
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-  
+
   // Day events dialog
   const [dayDialogOpen, setDayDialogOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [selectedDayEvents, setSelectedDayEvents] = useState<CalendarEvent[]>([]);
-  
+
   // Delete confirmation
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<CalendarEvent | null>(null);
@@ -89,14 +88,14 @@ export default function Calendar() {
   useEffect(() => {
     const fetchClientsAndEquipment = async () => {
       const [clientsResult, equipmentResult] = await Promise.all([
-        supabase.from('clients').select('id, name').order('name'),
-        supabase.from('equipment').select('id, name').order('name'),
+        api.from('clients').select('id, name').order('name'),
+        api.from('equipment').select('id, name').order('name'),
       ]);
-      
+
       if (clientsResult.data) setClients(clientsResult.data);
       if (equipmentResult.data) setEquipment(equipmentResult.data);
     };
-    
+
     fetchClientsAndEquipment();
   }, []);
 
@@ -119,7 +118,7 @@ export default function Calendar() {
       : new Date(startDateTime.getTime() + 60 * 60 * 1000); // +1 hour
 
     if (editingEvent) {
-      const { error } = await supabase
+      const { error } = await api
         .from('calendar_events')
         .update({
           title: data.title,
@@ -143,14 +142,7 @@ export default function Calendar() {
         {
           const clientName = data.client_id ? clients.find(c => c.id === data.client_id)?.name ?? null : null;
           const assignedName = data.assigned_to ? profiles.find(p => p.user_id === data.assigned_to)?.full_name ?? null : null;
-          sendWhatsappNotification('update', {
-            title: data.title,
-            visit_date: startDateTime.toISOString(),
-            location: data.location,
-            clientName,
-            assignedName,
-            kindLabel: 'evento',
-          });
+
         }
         setIsDialogOpen(false);
         setEditingEvent(null);
@@ -158,7 +150,7 @@ export default function Calendar() {
         refetch();
       }
     } else {
-      const { error } = await supabase.from('calendar_events').insert({
+      const { error } = await api.from('calendar_events').insert({
         title: data.title,
         description: data.description || null,
         event_type: data.event_type,
@@ -181,14 +173,7 @@ export default function Calendar() {
         {
           const clientName = data.client_id ? clients.find(c => c.id === data.client_id)?.name ?? null : null;
           const assignedName = data.assigned_to ? profiles.find(p => p.user_id === data.assigned_to)?.full_name ?? null : null;
-          sendWhatsappNotification('create', {
-            title: data.title,
-            visit_date: startDateTime.toISOString(),
-            location: data.location,
-            clientName,
-            assignedName,
-            kindLabel: 'evento',
-          });
+
         }
         setIsDialogOpen(false);
         setSelectedDate('');
@@ -210,7 +195,7 @@ export default function Calendar() {
         title: eventToDelete.title?.replace('📹 ', '') || 'Visita',
         visit_date: eventToDelete.start_date,
       };
-      const { error } = await supabase
+      const { error } = await api
         .from('filmmaker_visits')
         .delete()
         .eq('id', eventToDelete.visitId);
@@ -223,12 +208,12 @@ export default function Calendar() {
         toast({ variant: 'destructive', title: 'Erro ao excluir visita', description: error.message });
       } else {
         toast({ title: 'Visita excluída com sucesso!' });
-        sendWhatsappNotification('cancel', visitInfo);
+
         setDayDialogOpen(false);
         refetch();
       }
     } else {
-      const { error } = await supabase
+      const { error } = await api
         .from('calendar_events')
         .delete()
         .eq('id', eventToDelete.id);
@@ -241,12 +226,7 @@ export default function Calendar() {
         toast({ variant: 'destructive', title: 'Erro ao excluir evento', description: error.message });
       } else {
         toast({ title: 'Evento excluído com sucesso!' });
-        sendWhatsappNotification('cancel', {
-          title: eventToDelete.title || 'Evento',
-          visit_date: eventToDelete.start_date,
-          location: (eventToDelete as any).location ?? null,
-          kindLabel: 'evento',
-        });
+
         setDayDialogOpen(false);
         refetch();
       }
@@ -274,11 +254,11 @@ export default function Calendar() {
   const handleEditEvent = async (event: CalendarEvent) => {
     // Get the most up-to-date event from local state (for optimistic updates)
     const currentEvent = events.find(e => e.id === event.id) || event;
-    
+
     // Check if it's a visit event
     if (currentEvent.isVisit && currentEvent.visitId) {
       // Fetch the full visit data including equipment
-      const { data: visitData, error: visitError } = await supabase
+      const { data: visitData, error: visitError } = await api
         .from('filmmaker_visits')
         .select('*')
         .eq('id', currentEvent.visitId)
@@ -290,7 +270,7 @@ export default function Calendar() {
       }
 
       // Fetch equipment for this visit
-      const { data: visitEquipment } = await supabase
+      const { data: visitEquipment } = await api
         .from('visit_equipment')
         .select('equipment_id')
         .eq('visit_id', currentEvent.visitId);
@@ -313,125 +293,16 @@ export default function Calendar() {
   };
 
   const handleVisitSubmit = async (data: VisitFormValues) => {
-    if (!user) return;
-
     setIsVisitSubmitting(true);
-
-    // Converte o horário local para ISO com offset (consistente com as demais telas)
-    const visitDateTime = new Date(data.visit_date).toISOString();
-
-    if (!editingVisit) {
-      // Create new visit
-      const { data: created, error } = await supabase
-        .from('filmmaker_visits')
-        .insert({
-          title: data.title,
-          description: data.description || null,
-          location: data.location || null,
-          visit_date: visitDateTime,
-          client_id: data.client_id || null,
-          status: data.status,
-          notes: data.notes || null,
-          filmmaker_id: user.id,
-          assigned_to: data.assigned_to || null,
-          delivery_deadline: data.delivery_deadline || null,
-        })
-        .select()
-        .single();
-
-      if (error || !created) {
-        toast({ variant: 'destructive', title: 'Erro ao criar visita', description: error?.message });
-        setIsVisitSubmitting(false);
-        return;
-      }
-
-      if (data.equipment_ids.length > 0) {
-        await supabase.from('visit_equipment').insert(
-          data.equipment_ids.map((equipmentId) => ({ visit_id: created.id, equipment_id: equipmentId }))
-        );
-      }
-
-      if (data.assigned_to) {
-        await supabase.from('tasks').insert({
-          title: `Entrega: ${data.title}`,
-          description: `Tarefa gerada a partir da visita agendada para ${format(new Date(data.visit_date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}.${data.notes ? `\n\nNotas: ${data.notes}` : ''}`,
-          status: 'a_fazer',
-          priority: 'media',
-          due_date: data.delivery_deadline,
-          client_id: data.client_id || null,
-          assigned_to: data.assigned_to,
-          created_by: user.id,
-          visit_id: created.id,
-        });
-      }
-
-      const clientName = data.client_id ? clients.find(c => c.id === data.client_id)?.name ?? null : null;
-      const assignedName = data.assigned_to ? profiles.find(p => p.user_id === data.assigned_to)?.full_name ?? null : null;
-      sendWhatsappNotification('create', {
-        title: data.title,
-        visit_date: visitDateTime,
-        location: data.location,
-        clientName,
-        assignedName,
-      });
-
-      setIsVisitSubmitting(false);
-      setIsVisitDialogOpen(false);
-      toast({ title: 'Visita agendada e tarefa atribuída!' });
-      refetch();
-      navigate('/tasks');
-      return;
-    }
-
-    const { error } = await supabase
-      .from('filmmaker_visits')
-      .update({
-        title: data.title,
-        description: data.description || null,
-        location: data.location || null,
-        visit_date: visitDateTime,
-        client_id: data.client_id || null,
-        status: data.status,
-        notes: data.notes || null,
-        assigned_to: data.assigned_to || null,
-        delivery_deadline: data.delivery_deadline || null,
-      })
-      .eq('id', editingVisit.id);
-
-    if (error) {
-      toast({ variant: 'destructive', title: 'Erro ao atualizar visita', description: error.message });
-      setIsVisitSubmitting(false);
-      return;
-    }
-
-    // Update equipment - delete existing and insert new
-    await supabase.from('visit_equipment').delete().eq('visit_id', editingVisit.id);
-
-    if (data.equipment_ids.length > 0) {
-      const equipmentInserts = data.equipment_ids.map((equipmentId) => ({
-        visit_id: editingVisit.id,
-        equipment_id: equipmentId,
-      }));
-      await supabase.from('visit_equipment').insert(equipmentInserts);
-    }
-
-    setIsVisitSubmitting(false);
-    setIsVisitDialogOpen(false);
-    setEditingVisit(null);
-    setDayDialogOpen(false);
-    toast({ title: 'Visita atualizada com sucesso!' });
-    {
-      const clientName = data.client_id ? clients.find(c => c.id === data.client_id)?.name ?? null : null;
-      const assignedName = data.assigned_to ? profiles.find(p => p.user_id === data.assigned_to)?.full_name ?? null : null;
-      sendWhatsappNotification(data.status === 'cancelada' ? 'cancel' : 'update', {
-        title: data.title,
-        visit_date: visitDateTime,
-        location: data.location,
-        clientName,
-        assignedName,
-      });
-    }
-    refetch();
+    try {
+      const { error } = await api.rpc('save_visit', { visit_id: editingVisit?.id ?? null, payload: { ...data, visit_date: new Date(data.visit_date).toISOString() } });
+      if (error) throw error;
+      const wasNew = !editingVisit;
+      setIsVisitDialogOpen(false); setEditingVisit(null); setDayDialogOpen(false);
+      toast({ title: wasNew ? 'Visita agendada e tarefa atribuída!' : 'Visita atualizada com sucesso!' });
+      await refetch(); if (wasNew) navigate('/tasks');
+    } catch (error) { toast({ variant: 'destructive', title: 'Erro ao salvar visita', description: error instanceof Error ? error.message : 'Tente novamente' }); }
+    finally { setIsVisitSubmitting(false); }
   };
 
   const getVisitDefaultValues = (): Partial<VisitFormValues> | undefined => {
@@ -444,7 +315,7 @@ export default function Calendar() {
         equipment_ids: [],
       };
     }
-    
+
     const visitDate = new Date(editingVisit.visit_date);
     return {
       title: editingVisit.title.replace('📹 ', ''),
@@ -494,12 +365,7 @@ export default function Calendar() {
     if (event.isVisit && event.visitId) {
       // Use ISO string which includes timezone offset - this ensures the
       // database stores the correct UTC time that corresponds to the user's local time
-      const { error } = await supabase
-        .from('filmmaker_visits')
-        .update({
-          visit_date: newDate.toISOString(),
-        })
-        .eq('id', event.visitId);
+      const { error } = await api.rpc('move_visit', { target_visit: event.visitId, scheduled_at: newDate.toISOString() });
 
       if (error) {
         toast({ variant: 'destructive', title: 'Erro ao mover visita', description: error.message });
@@ -510,7 +376,7 @@ export default function Calendar() {
       }
     } else {
       // Regular calendar event - use ISO string for timestamp with timezone
-      const { error } = await supabase
+      const { error } = await api
         .from('calendar_events')
         .update({
           start_date: newDate.toISOString(),
@@ -544,7 +410,7 @@ export default function Calendar() {
       };
     }
     if (selectedDate) {
-      return { 
+      return {
         start_date: selectedDate,
         start_time: selectedTime || undefined,
       };
@@ -615,7 +481,7 @@ export default function Calendar() {
   }
 
   return (
-    <motion.div 
+    <motion.div
       variants={containerVariants}
       initial="hidden"
       animate="show"

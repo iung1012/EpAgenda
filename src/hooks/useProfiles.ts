@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 
 export type AppRole = 'admin' | 'gerente' | 'colaborador' | 'filmmaker' | 'designer';
 
@@ -30,7 +30,7 @@ export function useProfiles(options: UseProfilesOptions = {}) {
     setIsLoading(true);
     setError(null);
 
-    const { data: profilesData, error: profilesError } = await supabase
+    const { data: profilesData, error: profilesError } = await api
       .from('profiles')
       .select('id, user_id, full_name, avatar_url, phone, birthday')
       .order('full_name');
@@ -45,7 +45,7 @@ export function useProfiles(options: UseProfilesOptions = {}) {
       setProfiles(profilesData as Profile[]);
 
       if (options.withRoles) {
-        const { data: roles } = await supabase
+        const { data: roles } = await api
           .from('user_roles')
           .select('user_id, role');
 

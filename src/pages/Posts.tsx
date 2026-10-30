@@ -13,7 +13,7 @@ import {
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 
 interface FixedClient {
@@ -39,21 +39,21 @@ export default function Posts() {
   const [manageOpen, setManageOpen] = useState(false);
 
   const fetchClients = useCallback(async () => {
-    const { data } = await supabase
+    const { data } = await api
       .from('clients')
       .select('id, name, logo_url, is_fixed_posting')
       .order('name');
-    setClients((data as any) || []);
+    setClients(data || []);
   }, []);
 
   const fetchDayPosts = useCallback(async () => {
-    const { data } = await supabase
+    const { data } = await api
       .from('posts')
       .select('id, client_id')
       .eq('status', 'postado')
       .gte('scheduled_date', startOfDay(date).toISOString())
       .lte('scheduled_date', endOfDay(date).toISOString());
-    setDayPosts((data as any) || []);
+    setDayPosts(data || []);
   }, [date]);
 
   useEffect(() => {
@@ -73,7 +73,7 @@ export default function Posts() {
     if (isPosted) {
       const existing = dayPosts.find(p => p.client_id === client.id);
       if (!existing) return;
-      const { error } = await supabase.from('posts').delete().eq('id', existing.id);
+      const { error } = await api.from('posts').delete().eq('id', existing.id);
       if (error) {
         toast({ variant: 'destructive', title: 'Erro', description: error.message });
         return;
@@ -82,7 +82,7 @@ export default function Posts() {
     } else {
       const noonDate = new Date(date);
       noonDate.setHours(12, 0, 0, 0);
-      const { data, error } = await supabase.from('posts').insert({
+      const { data, error } = await api.from('posts').insert({
         title: `${client.name} - ${format(date, 'dd/MM/yyyy')}`,
         scheduled_date: noonDate.toISOString(),
         posted_at: new Date().toISOString(),
@@ -101,7 +101,7 @@ export default function Posts() {
 
   const toggleFixed = async (client: FixedClient, value: boolean) => {
     setClients(prev => prev.map(c => c.id === client.id ? { ...c, is_fixed_posting: value } : c));
-    const { error } = await supabase.from('clients').update({ is_fixed_posting: value }).eq('id', client.id);
+    const { error } = await api.from('clients').update({ is_fixed_posting: value }).eq('id', client.id);
     if (error) {
       toast({ variant: 'destructive', title: 'Erro', description: error.message });
       setClients(prev => prev.map(c => c.id === client.id ? { ...c, is_fixed_posting: !value } : c));
@@ -113,7 +113,7 @@ export default function Posts() {
     if (targets.length === 0) return;
     const snapshot = clients;
     setClients(cs => cs.map(c => ({ ...c, is_fixed_posting: value })));
-    const { error } = await supabase
+    const { error } = await api
       .from('clients')
       .update({ is_fixed_posting: value })
       .in('id', targets.map(c => c.id));

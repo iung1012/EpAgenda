@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useProfiles } from '@/hooks/useProfiles';
@@ -65,9 +65,9 @@ export default function FilmmakerDemands() {
 
   const fetchData = async () => {
     const [demandsRes, clientsRes, visitsRes] = await Promise.all([
-      supabase.from('filmmaker_demands').select('*').order('created_at', { ascending: false }),
-      supabase.from('clients').select('id, name').order('name'),
-      supabase.from('filmmaker_visits').select('id, title, visit_date').order('visit_date', { ascending: false }),
+      api.from('filmmaker_demands').select('*').order('created_at', { ascending: false }),
+      api.from('clients').select('id, name').order('name'),
+      api.from('filmmaker_visits').select('id, title, visit_date').order('visit_date', { ascending: false }),
     ]);
 
     if (clientsRes.data) setClients(clientsRes.data);
@@ -92,7 +92,7 @@ export default function FilmmakerDemands() {
 
     try {
       if (editingDemand) {
-        const { error } = await supabase
+        const { error } = await api
           .from('filmmaker_demands')
           .update({
             title: data.title,
@@ -109,7 +109,7 @@ export default function FilmmakerDemands() {
         if (error) throw error;
         toast({ title: 'Demanda atualizada com sucesso!' });
       } else {
-        const { error } = await supabase
+        const { error } = await api
           .from('filmmaker_demands')
           .insert({
             filmmaker_id: user?.id,
@@ -130,8 +130,8 @@ export default function FilmmakerDemands() {
       setIsDialogOpen(false);
       setEditingDemand(null);
       fetchData();
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Erro ao salvar demanda', description: error.message });
+    } catch (error: unknown) {
+      toast({ variant: 'destructive', title: 'Erro ao salvar demanda', description: (error instanceof Error ? error.message : 'Não foi possível concluir a operação') });
     } finally {
       setIsLoading(false);
     }
@@ -144,11 +144,11 @@ export default function FilmmakerDemands() {
 
   const handleDelete = async () => {
     setIsDeleting(true);
-    const { error } = await supabase.from('filmmaker_demands').delete().eq('id', confirmDialog.id);
+    const { error } = await api.from('filmmaker_demands').delete().eq('id', confirmDialog.id);
     setIsDeleting(false);
 
     if (error) {
-      toast({ variant: 'destructive', title: 'Erro ao excluir demanda', description: error.message });
+      toast({ variant: 'destructive', title: 'Erro ao excluir demanda', description: (error instanceof Error ? error.message : 'Não foi possível concluir a operação') });
     } else {
       toast({ title: 'Demanda excluída com sucesso!' });
       setConfirmDialog({ open: false, id: '', title: '' });
@@ -157,13 +157,13 @@ export default function FilmmakerDemands() {
   };
 
   const handleStatusChange = async (demandId: string, newStatus: 'a_fazer' | 'em_processo' | 'terminado' | 'alteracoes') => {
-    const { error } = await supabase
+    const { error } = await api
       .from('filmmaker_demands')
       .update({ status: newStatus })
       .eq('id', demandId);
 
     if (error) {
-      toast({ variant: 'destructive', title: 'Erro ao atualizar status', description: error.message });
+      toast({ variant: 'destructive', title: 'Erro ao atualizar status', description: (error instanceof Error ? error.message : 'Não foi possível concluir a operação') });
     } else {
       toast({ title: 'Status atualizado!' });
       fetchData();

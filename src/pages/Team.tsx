@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Users, Shield, UserCog, User, Plus, Video, Palette } from 'lucide-react';
@@ -44,18 +44,18 @@ export default function Team() {
       return;
     }
 
-    if (newMemberForm.password.length < 6) {
-      toast({ variant: 'destructive', title: 'A senha deve ter pelo menos 6 caracteres' });
+    if (newMemberForm.password.length < 12) {
+      toast({ variant: 'destructive', title: 'A senha deve ter pelo menos 12 caracteres' });
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const { data: session } = await supabase.auth.getSession();
+      const { data: session } = await api.auth.getSession();
       
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`,
+        `/api/functions/create-user`,
         {
           method: 'POST',
           headers: {
@@ -103,7 +103,7 @@ export default function Team() {
       return;
     }
 
-    const { error } = await supabase
+    const { error } = await api
       .from('user_roles')
       .update({ role: newRole })
       .eq('user_id', userId);
@@ -119,15 +119,12 @@ export default function Team() {
   const handleRemoveMember = async () => {
     const { userId } = confirmDialog;
     
-    const { error } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('user_id', userId);
+    const { error } = await api.functions.invoke('deactivate-user', { body: { user_id: userId } });
 
     if (error) {
       toast({ variant: 'destructive', title: 'Erro ao remover membro', description: error.message });
     } else {
-      toast({ title: 'Membro removido com sucesso!' });
+      toast({ title: 'Acesso do membro desativado!' });
       refetch();
     }
     
@@ -345,9 +342,9 @@ export default function Team() {
       <ConfirmDialog
         open={confirmDialog.open}
         onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, open }))}
-        title="Remover membro"
-        description={`Tem certeza que deseja remover ${confirmDialog.memberName}? Esta ação não pode ser desfeita.`}
-        confirmText="Remover"
+        title="Desativar acesso"
+        description={`Desativar o acesso de ${confirmDialog.memberName}? As sessões serão revogadas e o histórico será preservado.`}
+        confirmText="Desativar"
         onConfirm={handleRemoveMember}
         variant="destructive"
       />

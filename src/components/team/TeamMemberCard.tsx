@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Shield, UserCog, User, Video, Palette, Trash2, Phone, Camera, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/api/client';
 import { useToast } from '@/hooks/use-toast';
 
 type AppRole = 'admin' | 'gerente' | 'colaborador' | 'filmmaker' | 'designer';
@@ -114,20 +114,20 @@ export function TeamMemberCard({
       const fileExt = file.name.split(".").pop();
       const fileName = `${member.user_id}/avatar.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await api.storage
         .from("client-files")
         .upload(fileName, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
+      const { data: urlData } = api.storage
         .from("client-files")
         .getPublicUrl(fileName);
 
       const newAvatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
       
       // Update profile in database
-      const { error: updateError } = await supabase
+      const { error: updateError } = await api
         .from("profiles")
         .update({ avatar_url: newAvatarUrl })
         .eq("user_id", member.user_id);
@@ -141,10 +141,10 @@ export function TeamMemberCard({
         title: "Sucesso",
         description: "Foto atualizada com sucesso",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro ao fazer upload",
-        description: error.message,
+        description: (error instanceof Error ? error.message : 'Não foi possível concluir a operação'),
         variant: "destructive",
       });
     } finally {
