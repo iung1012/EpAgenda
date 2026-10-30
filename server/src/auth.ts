@@ -66,7 +66,7 @@ export async function registerAuth(app: FastifyInstance) {
     // Constant-cost comparison for unknown accounts prevents email enumeration.
     const valid = await bcrypt.compare(password, user?.password_hash || '$2b$12$M5VJO1lfOPikjZ5AKZ2Ire3Q1KIkfP.ehyqSe1I.5PFgoHy2nFJbK');
     const actor = user ? await actorForUser(user.id) : null;
-    if (!valid || !actor) throw new HttpError(401, 'Email ou senha incorretos');
+    if (!user?.password_hash || !valid || !actor || Buffer.byteLength(password, 'utf8') > 72) throw new HttpError(401, 'Email ou senha incorretos');
     const token = randomBytes(32).toString('base64url');
     if (req.cookies.epagenda_session) await db.auth_sessions.deleteMany({ where: { token_hash: hashToken(req.cookies.epagenda_session) } });
     await db.auth_sessions.create({ data: { token_hash: hashToken(token), user_id: actor.id, expires_at: new Date(Date.now() + 7 * 86400_000) } });

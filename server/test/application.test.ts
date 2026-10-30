@@ -23,6 +23,7 @@ const {credentialWire}=await import('../src/query.ts');
 const {decryptCredential,hashToken}=await import('../src/crypto.ts');
 const {validatePath}=await import('../src/storage.ts');
 const {generateReminders}=await import('../src/jobs.ts');
+const {default:bcrypt}=await import('bcryptjs');
 const app=await buildApp();
 const fixturePassword='Synthetic-password-12345';
 const admin=await createUser({email:'admin@agency.test',password:fixturePassword,full_name:'Administrador',role:'admin'});
@@ -36,6 +37,7 @@ const filter=(column:string,value:unknown)=>({column,op:'eq',value});
 let clientId='',equipmentId='',visitId='';
 test('VPS application authorization and migration regressions',async t=>{
   await t.test('requires a session, rejects unsafe fields and blocks public account creation',async()=>{
+    const page=await app.inject({url:'/auth'}),head=await app.inject({method:'HEAD',url:'/auth'});assert.equal(head.statusCode,page.statusCode);assert.equal(head.body,'');
     assert.equal((await query('',{table:'clients'})).statusCode,401);
     assert.equal((await app.inject({method:'POST',url:'/api/auth/signup',payload:{email:'bad@agency.test',password:fixturePassword}})).statusCode,404);
     assert.equal((await query(adminCookie,{table:'auth_users'})).statusCode,400);
@@ -99,8 +101,12 @@ test('VPS application authorization and migration regressions',async t=>{
     const restoredFiles=[];for(const file of backup.files){const url=new URL(file.url),download=await app.inject({url:url.pathname+url.search});restoredFiles.push({path:file.path,type:download.headers['content-type'],data:download.rawPayload.toString('base64')});}
     backup.files=restoredFiles;const imported=await app.inject({method:'POST',url:'/api/functions/application-backup',headers:{cookie:adminCookie},payload:{action:'import',backup}});assert.equal(imported.statusCode,200,imported.body);assert.equal(await db.user_roles.count({where:{user_id:admin.id,role:'admin'}}),1);
   });
-  await t.test('activation links are single-use and deactivation revokes already issued sessions',async()=>{
+  await t.test('activation links are single-use and deactivation revokes already issued sessions',async authTest=>{
     const token=randomBytes(32).toString('base64url');await db.auth_users.update({where:{id:colleague.id},data:{password_hash:null}});await db.auth_activation_tokens.create({data:{user_id:colleague.id,token_hash:hashToken(token),expires_at:new Date(Date.now()+60000)}});
+    // Even a successful dummy comparison must never authenticate a pending account.
+    const dummy=authTest.mock.method(bcrypt,'compare',async()=>true);
+    try { assert.equal((await app.inject({method:'POST',url:'/api/auth/login',payload:{email:colleague.email,password:fixturePassword}})).statusCode,401); }
+    finally { dummy.mock.restore(); }
     const payload={token,password:'Synthetic-new-password-12345'};let response=await app.inject({method:'POST',url:'/api/auth/activate',payload});assert.equal(response.statusCode,200,response.body);response=await app.inject({method:'POST',url:'/api/auth/activate',payload});assert.equal(response.statusCode,401);
     const cookie=await login(colleague.email,payload.password);assert.equal((await app.inject({method:'POST',url:'/api/functions/deactivate-user',headers:{cookie:adminCookie},payload:{user_id:admin.id}})).statusCode,400);
     response=await app.inject({method:'POST',url:'/api/functions/deactivate-user',headers:{cookie:adminCookie},payload:{user_id:colleague.id}});assert.equal(response.statusCode,200,response.body);assert.equal((await query(cookie,{table:'clients'})).statusCode,401);assert.equal((await query(otherCookie,{table:'clients'})).statusCode,401);assert.equal(await db.profiles.count({where:{user_id:colleague.id}}),1);

@@ -73,7 +73,7 @@ export async function buildApp(){
   await app.register(staticFiles,{root:resolve(dist,'assets'),prefix:'/assets/',decorateReply:true});
   for(const file of ['favicon.ico','favicon.png','robots.txt','placeholder.svg'])app.get(`/${file}`,async (_req,reply)=>reply.sendFile(file,dist));
   app.setNotFoundHandler((req,reply)=>{
-    if(req.url.startsWith('/api/')||req.method!=='GET')return reply.code(404).send({error:'Não encontrado'});
+    if(req.url.startsWith('/api/')||!['GET','HEAD'].includes(req.method))return reply.code(404).send({error:'Não encontrado'});
     if(existsSync(resolve(dist,'index.html')))return reply.sendFile('index.html',dist);
     return reply.code(503).send({error:'A interface ainda está sendo preparada'});
   });
