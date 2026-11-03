@@ -17,6 +17,7 @@ import { registerEvents } from './events.ts';
 import { registerBackup } from './backup.ts';
 import { registerVisits } from './visits.ts';
 import { integrationContext } from './context.ts';
+import { registerPostDays } from './post-days.ts';
 
 process.env.APP_INTERNAL_URL ||= `http://127.0.0.1:${config.port}`;
 process.env.INTERNAL_SERVICE_KEY ||= 'local-server-only';
@@ -44,7 +45,7 @@ export async function buildApp(){
   app.get('/api/health',async()=>{await db.$queryRaw`SELECT 1`;return {status:'ok',database:'sqlite',dataImported:existsSync(resolve(config.dataDir,'migration-report.json'))};});
   await registerAuth(app);
   app.post('/api/query',async req=>executeQuery(req.body,await requireActor(req)));
-  await registerStorage(app);await registerEvents(app);await registerBackup(app);await registerVisits(app);
+  await registerStorage(app);await registerEvents(app);await registerBackup(app);await registerVisits(app);await registerPostDays(app);
   const integrations:Record<string,()=>Promise<{default:(request:Request)=>Promise<Response|undefined>}>>={
     'google-drive':()=>import('./integrations/google-drive.js'),
     'whatsapp-send':()=>import('./integrations/whatsapp-send.js'),

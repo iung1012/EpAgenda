@@ -13,7 +13,7 @@ const args=process.argv.slice(2);
 const option=(name:string)=>{const index=args.indexOf(name);return index<0?undefined:args[index+1];};
 const source=option('--input');
 if(!source)throw new Error('Use --input arquivo.json --create-activation-links --origin https://epagenda.site');
-const schema=z.object({format:z.literal('ep-midias-backup'),version:z.literal(1),createdAt:z.string(),sourceUrl:z.string(),credentialsFormat:z.literal('utf8-v1').optional(),users:z.array(z.object({id:z.string().uuid(),email:z.string().email()})),tables:z.record(z.string(),z.array(z.record(z.string(),z.unknown()))),files:z.array(z.object({path:z.string(),type:z.string(),data:z.string()}))});
+const schema=z.object({format:z.literal('ep-midias-backup'),version:z.literal(1),createdAt:z.string(),sourceUrl:z.string(),credentialsFormat:z.literal('utf8-v1').optional(),closedDays:z.array(z.object({date:z.iso.date(),closed_at:z.string(),closed_by:z.string().uuid()})).optional(),users:z.array(z.object({id:z.string().uuid(),email:z.string().email()})),tables:z.record(z.string(),z.array(z.record(z.string(),z.unknown()))),files:z.array(z.object({path:z.string(),type:z.string(),data:z.string()}))});
 const backup=schema.parse(JSON.parse(await readFile(source,'utf8')));
 const origin=new URL(option('--origin')||config.origin).origin;
 if(!args.includes('--create-activation-links'))throw new Error('Este backup não contém hashes de login. Confirme --create-activation-links para criar novos acessos individuais');
@@ -25,6 +25,7 @@ const records=rewriteStorage(backup.tables,backup.sourceUrl) as Record<TableName
 const originalPasswords=new Map<string,string>();
 const now=new Date().toISOString(),expiresAt=new Date(Date.now()+7*86400_000);
 const userIds=new Set(backup.users.map(user=>user.id));
+if((backup.closedDays||[]).some(day=>!userIds.has(day.closed_by)))throw new Error('Conta responsável pelo encerramento ausente');
 const dateTimes=new Set(['created_at','updated_at','visit_date','scheduled_date','posted_at','start_date','end_date']);
 for(const table of expected)for(const row of records[table]){
   if(!z.string().uuid().safeParse(row.id).success)throw new Error(`Identificador inválido em ${table}`);
@@ -54,6 +55,7 @@ try{
       await model(table,tx).create({data});
     }
     for(const file of backup.files)await tx.storage_objects.create({data:{bucket:'client-files',path:file.path,mime_type:file.type||'application/octet-stream',size:Buffer.from(file.data,'base64').length,created_at:now}});
+    for(const day of backup.closedDays||[])await tx.post_day_closures.create({data:day});
     for(const link of links)await tx.auth_activation_tokens.create({data:{user_id:link.id,token_hash:hashToken(link.token),expires_at:expiresAt}});
   },{timeout:120000});
   committed=true;

@@ -8,11 +8,12 @@ import { requireActor,requireAdmin } from './auth.ts';
 import { decryptCredential,encryptCredential,signFile,hashToken } from './crypto.ts';
 import { validatePath,fileUrl } from './storage.ts';
 import { dirname } from 'node:path';
+import { postDate } from './post-days.ts';
 
 const names=Object.keys(tables) as TableName[];
 // Foreign-key order for portable application restores; managed login data is excluded.
 export const restoreOrder:TableName[]=['profiles','user_roles','clients','equipment','pautas','filmmaker_visits','tasks','calendar_events','filmmaker_demands','posts','client_drive_folders','client_folders','client_passwords','task_comments','task_templates','visit_equipment','notifications','whatsapp_config','whatsapp_recipients','whatsapp_message_logs','whatsapp_ai_messages'];
-const envelope=z.object({format:z.literal('ep-midias-backup'),version:z.literal(1),createdAt:z.string(),sourceUrl:z.string().url(),credentialsFormat:z.literal('utf8-v1').optional(),tables:z.record(z.string(),z.array(z.record(z.string(),z.unknown()))),users:z.array(z.object({id:z.string().uuid(),email:z.string().email()})),files:z.array(z.object({path:z.string(),type:z.string(),data:z.string()}))});
+const envelope=z.object({format:z.literal('ep-midias-backup'),version:z.literal(1),createdAt:z.string(),sourceUrl:z.string().url(),credentialsFormat:z.literal('utf8-v1').optional(),closedDays:z.array(z.object({date:z.iso.date(),closed_at:z.string(),closed_by:z.string().uuid()})).optional(),tables:z.record(z.string(),z.array(z.record(z.string(),z.unknown()))),users:z.array(z.object({id:z.string().uuid(),email:z.string().email()})),files:z.array(z.object({path:z.string(),type:z.string(),data:z.string()}))});
 export async function applicationSnapshot(database:Database=db){
   const result:Record<string,Row[]>={};
   for(const name of names) result[name]=await model(name,database).findMany();
@@ -40,9 +41,9 @@ export async function registerBackup(app:FastifyInstance){
     const body=z.object({action:z.enum(['export','import']),backup:z.unknown().optional()}).parse(req.body);
     const users=await db.auth_users.findMany({select:{id:true,email:true}});
     if(body.action==='export'){
-      const snapshot=await db.$transaction(tx=>applicationSnapshot(tx),{timeout:30000});
+      const {snapshot,closedDays}=await db.$transaction(async tx=>({snapshot:await applicationSnapshot(tx),closedDays:await tx.post_day_closures.findMany()}),{timeout:30000});
       const files=await db.storage_objects.findMany({where:{bucket:'client-files'},orderBy:{path:'asc'}});
-      return {format:'ep-midias-backup',version:1,credentialsFormat:'utf8-v1',createdAt:new Date().toISOString(),sourceUrl:config.origin,tables:snapshot,users,files:files.map(file=>({path:file.path,url:`${fileUrl(file.bucket,file.path)}?token=${encodeURIComponent(signFile(file.bucket,file.path,3600))}`}))};
+      return {format:'ep-midias-backup',version:1,credentialsFormat:'utf8-v1',createdAt:new Date().toISOString(),sourceUrl:config.origin,tables:snapshot,closedDays,users,files:files.map(file=>({path:file.path,url:`${fileUrl(file.bucket,file.path)}?token=${encodeURIComponent(signFile(file.bucket,file.path,3600))}`}))};
     }
     const backup=envelope.parse(body.backup);
     if(Object.keys(backup.tables).length!==names.length||names.some(name=>!Array.isArray(backup.tables[name])))throw new HttpError(400,'A cópia deve conter todas as tabelas da aplicação');
@@ -75,8 +76,17 @@ export async function registerBackup(app:FastifyInstance){
       const records=await db.$transaction(async tx=>{
         let count=0;
         for(const table of restoreOrder)for(const row of restored[table]){
+          if(table==='posts') {
+            const existing=await tx.posts.findUnique({where:{id:String(row.id)}});
+            const dates=[postDate(row.scheduled_date),...(existing?[postDate(existing.scheduled_date)]:[])];
+            if(await tx.post_day_closures.count({where:{date:{in:dates}}})){
+              if(existing && Object.entries(row).every(([key,value])=>Object.is((existing as unknown as Row)[key],value))){count++;continue;}
+              throw new HttpError(409,'A cópia alteraria uma postagem de um dia encerrado');
+            }
+          }
           await model(table,tx).upsert({where:{id:row.id},create:row,update:row});count++;
         }
+        for(const day of backup.closedDays||[]){const closed_by=mapping.get(day.closed_by);if(!closed_by)throw new HttpError(409,'Conta responsável pelo encerramento não encontrada');await tx.post_day_closures.upsert({where:{date:day.date},create:{...day,closed_by},update:{}});}
         for(const file of backup.files)await tx.storage_objects.upsert({where:{bucket_path:{bucket:'client-files',path:file.path}},create:{bucket:'client-files',path:file.path,mime_type:file.type,size:Buffer.from(file.data,'base64').length,created_at:new Date().toISOString()},update:{}});
         return count;
       },{timeout:60000});

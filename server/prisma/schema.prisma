@@ -436,6 +436,12 @@ model webhook_receipts {
   created_at DateTime @default(now())
 }
 
+model post_day_closures {
+  date String @id
+  closed_at String
+  closed_by String
+}
+
 model whatsapp_outbox {
   id String @id @default(uuid())
   event String

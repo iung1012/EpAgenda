@@ -15,6 +15,7 @@ process.env.FILE_SIGNING_KEY=randomBytes(32).toString('base64');
 process.env.CRON_SECRET=randomBytes(32).toString('base64');
 const initialization=new DatabaseSync(resolve(directory,'test.db'));
 initialization.exec(await readFile(resolve(import.meta.dirname,'../prisma/migrations/20261030170000_init/migration.sql'),'utf8'));
+initialization.exec(await readFile(resolve(import.meta.dirname,'../prisma/migrations/20261103190000_post_day_closures/migration.sql'),'utf8'));
 initialization.close();
 const {db}=await import('../src/db.ts');
 const {buildApp}=await import('../src/index.ts');
@@ -103,6 +104,22 @@ test('VPS application authorization and migration regressions',async t=>{
     const response=await app.inject({method:'POST',url:'/api/functions/application-backup',headers:{cookie:adminCookie},payload:{action:'export'}});assert.equal(response.statusCode,200,response.body);const backup=response.json();assert.equal(backup.credentialsFormat,'utf8-v1');assert.equal(backup.users.length,4);assert.ok(!response.body.includes('password_hash'));assert.ok(!response.body.includes('token_hash'));
     const restoredFiles=[];for(const file of backup.files){const url=new URL(file.url),download=await app.inject({url:url.pathname+url.search});restoredFiles.push({path:file.path,type:download.headers['content-type'],data:download.rawPayload.toString('base64')});}
     backup.files=restoredFiles;const imported=await app.inject({method:'POST',url:'/api/functions/application-backup',headers:{cookie:adminCookie},payload:{action:'import',backup}});assert.equal(imported.statusCode,200,imported.body);assert.equal(await db.user_roles.count({where:{user_id:admin.id,role:'admin'}}),1);
+  });
+  await t.test('closing a posting day prevents edits, moves, inserts and deletions and survives export',async()=>{
+    const payload={table:'posts',operation:'insert',values:{title:'Publicação',scheduled_date:'2031-03-10T15:00:00.000Z',platform:'instagram',status:'postado',client_id:clientId,posted_at:'2031-03-10T15:00:00.000Z'}};
+    const created=await query(adminCookie,payload);assert.equal(created.statusCode,200,created.body);const id=created.json().data[0].id;
+    const next=await query(adminCookie,{...payload,values:{...payload.values,scheduled_date:'2031-03-11T15:00:00.000Z'}});assert.equal(next.statusCode,200,next.body);const nextId=next.json().data[0].id;
+    assert.equal((await app.inject({method:'POST',url:'/api/rpc/close_post_day',headers:{cookie:adminCookie},payload:{date:'2031-03-10'}})).statusCode,200);
+    assert.equal((await app.inject({method:'POST',url:'/api/rpc/get_post_day',headers:{cookie:filmCookie},payload:{date:'2031-03-10'}})).json().closed,true);
+    assert.equal((await query(adminCookie,{table:'posts',operation:'update',filters:[filter('id',id)],values:{status:'agendado'}})).statusCode,409);
+    assert.equal((await query(adminCookie,{table:'posts',operation:'delete',filters:[filter('id',id)]})).statusCode,409);
+    assert.equal((await query(adminCookie,payload)).statusCode,409);
+    assert.equal((await query(adminCookie,{table:'posts',operation:'update',filters:[filter('id',nextId)],values:{scheduled_date:'2031-03-10T15:00:00.000Z'}})).statusCode,409);
+    const backup=await app.inject({method:'POST',url:'/api/functions/application-backup',headers:{cookie:adminCookie},payload:{action:'export'}});assert.equal(backup.statusCode,200);assert.equal(backup.json().closedDays[0].date,'2031-03-10');
+    const snapshot=backup.json();snapshot.files=[];
+    const unchanged=await app.inject({method:'POST',url:'/api/functions/application-backup',headers:{cookie:adminCookie},payload:{action:'import',backup:snapshot}});assert.equal(unchanged.statusCode,200,unchanged.body);
+    snapshot.tables.posts.find((row:{id:string})=>row.id===id).title='Alteração não autorizada';
+    const altered=await app.inject({method:'POST',url:'/api/functions/application-backup',headers:{cookie:adminCookie},payload:{action:'import',backup:snapshot}});assert.equal(altered.statusCode,409);
   });
   await t.test('activation links are single-use and deactivation revokes already issued sessions',async authTest=>{
     const token=randomBytes(32).toString('base64url');await db.auth_users.update({where:{id:colleague.id},data:{password_hash:null}});await db.auth_activation_tokens.create({data:{user_id:colleague.id,token_hash:hashToken(token),expires_at:new Date(Date.now()+60000)}});

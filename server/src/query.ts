@@ -7,6 +7,7 @@ import { isManager, type Actor } from './auth.ts';
 import { encryptCredential, decryptCredential } from './crypto.ts';
 import { HttpError } from './config.ts';
 import { queueCalendarMessage } from './outbox.ts';
+import { requireOpenPostDay } from './post-days.ts';
 
 const filterSchema = z.object({ column: z.string(), op: z.enum(['eq','neq','gt','gte','lt','lte','in','is','not','ilike']), value: z.unknown() });
 export const querySchema = z.object({
@@ -143,6 +144,7 @@ export async function executeQuery(input: unknown, actor: Actor | null, privileg
         const output: Row[] = [];
         for (const input of inputs) {
           const data = validateData(table,input,true,privileged ? null : actor);
+          if(table==='posts'&&!privileged)await requireOpenPostDay(tx,data.scheduled_date);
           if (!privileged && actor) {
             if (table === 'notifications') {
               data.created_by=actor.id; data.read_by=[];
@@ -165,6 +167,7 @@ export async function executeQuery(input: unknown, actor: Actor | null, privileg
       const output:Row[]=[];
       for(const row of previous){
         let data=query.operation==='update'?validateData(table,query.values,false,privileged?null:actor):{};
+        if(table==='posts'&&!privileged){await requireOpenPostDay(tx,row.scheduled_date);if(data.scheduled_date)await requireOpenPostDay(tx,data.scheduled_date);}
         if(!privileged&&actor){
           if(table==='notifications'&&query.operation==='update') {
             if(Object.keys(query.values as Row).some(key=>key!=='read_by')) throw new HttpError(403,'Somente a leitura pode ser alterada');

@@ -1,5 +1,6 @@
 export interface AppBackup {
   format: 'ep-midias-backup'; version: 1; createdAt: string; sourceUrl: string;
+  closedDays?: {date: string; closed_at: string; closed_by: string}[];
   tables: Record<string, Record<string, unknown>[]>;
   users: { id: string; email: string }[];
   files: { path: string; type: string; data: string }[];

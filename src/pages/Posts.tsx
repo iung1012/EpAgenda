@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { format, addDays, subDays, startOfDay, endOfDay } from 'date-fns';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { format, addDays, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, CheckCircle2, Circle, Settings2, Image as ImageIcon } from 'lucide-react';
+import { ChevronRight, CalendarDays, FileText, CheckCircle2, Circle, Settings2, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -17,6 +17,10 @@ import { api } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { usePosts, type Post } from '@/hooks/usePosts';
 import { PostFormDialog, type PostFormValues } from '@/components/forms/PostFormDialog';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 
 interface FixedClient {
   id: string;
@@ -38,10 +42,59 @@ export default function Posts() {
   const [clients, setClients] = useState<FixedClient[]>([]);
   const [dayPosts, setDayPosts] = useState<DayPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dayError, setDayError] = useState<string | null>(null);
+  const [dayPostsLoading, setDayPostsLoading] = useState(true);
+  const dayRequest = useRef(0);
+  const initialDay = useRef(true);
   const [manageOpen, setManageOpen] = useState(false);
   const [postDialogOpen, setPostDialogOpen] = useState(false);
   const [savingPost, setSavingPost] = useState(false);
-  const { posts, refetch: refetchPosts } = usePosts();
+  const [closed, setClosed] = useState(false);
+  const [checkingDay, setCheckingDay] = useState(true);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportStart, setReportStart] = useState(format(startOfDay(new Date()),'yyyy-MM-dd'));
+  const [reportEnd, setReportEnd] = useState(format(new Date(),'yyyy-MM-dd'));
+  const [report, setReport] = useState<Post[] | null>(null);
+  const [reportBusy, setReportBusy] = useState(false);
+  const { posts, isLoading: postsLoading, error: postsError, refetch: refetchPosts } = usePosts(date);
+  useEffect(() => {
+    let current=true; setCheckingDay(true); setClosed(false);
+    void api.rpc<{closed:boolean}>('get_post_day',{date:format(date,'yyyy-MM-dd')}).then(({data,error})=>{
+      if(!current)return;
+      if(error){setClosed(true);toast({variant:'destructive',title:'Não foi possível verificar o dia',description:error.message});}
+      else {
+        if(initialDay.current && data?.closed){setDate(value=>addDays(value,1));return;}
+        setClosed(!!data?.closed);
+      }
+      initialDay.current=false;
+      setCheckingDay(false);
+    });
+    return ()=>{current=false;};
+  },[date,toast]);
+  const closeDay = async () => {
+    setClosing(true);
+    const {error}=await api.rpc('close_post_day',{date:format(date,'yyyy-MM-dd')});
+    setClosing(false);setConfirmClose(false);
+    if(error){toast({variant:'destructive',title:'Erro ao encerrar o dia',description:error.message});return;}
+    toast({title:'Dia encerrado'});setDate(current=>addDays(current,1));
+  };
+  const loadReport = async () => {
+    const from=new Date(`${reportStart}T00:00:00`),to=new Date(`${reportEnd}T23:59:59.999`);
+    if(!reportStart||!reportEnd||Number.isNaN(from.getTime())||Number.isNaN(to.getTime())||from>to){toast({variant:'destructive',title:'Informe um período válido'});return;}
+    setReportBusy(true);setReport(null);
+    try {
+      const all:Post[]=[];
+      for(let offset=0;;offset+=1000){
+        const {data,error}=await api.from('posts').select('*').eq('status','postado').gte('scheduled_date',from.toISOString()).lte('scheduled_date',to.toISOString()).order('scheduled_date',{ascending:true}).order('id',{ascending:true}).range(offset,offset+999);
+        if(error)throw error;const rows=(data||[]) as Post[];all.push(...rows);if(rows.length<1000)break;
+      }
+      setReport(all);
+    } catch(error){toast({variant:'destructive',title:'Erro ao gerar relatório',description:error instanceof Error?error.message:'Tente novamente'});}
+    finally{setReportBusy(false);}
+  };
   const selectedPosts = useMemo(() => posts.filter(post => {
     const scheduled = new Date(post.scheduled_date);
     if (scheduled < startOfDay(date) || scheduled > endOfDay(date)) return false;
@@ -85,12 +138,15 @@ export default function Posts() {
   }, []);
 
   const fetchDayPosts = useCallback(async () => {
-    const { data } = await api
+    const current=++dayRequest.current;setDayPostsLoading(true);
+    const { data, error } = await api
       .from('posts')
       .select('id, client_id')
       .eq('status', 'postado')
       .gte('scheduled_date', startOfDay(date).toISOString())
       .lte('scheduled_date', endOfDay(date).toISOString());
+    if(current!==dayRequest.current)return;
+    setDayError(error?.message || null);setDayPostsLoading(false);
     setDayPosts(data || []);
   }, [date]);
 
@@ -233,9 +289,7 @@ export default function Posts() {
       {/* Date nav */}
       <Card className="p-4 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => setDate(subDays(date, 1))}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}><PopoverTrigger asChild><Button variant="outline" size="icon" aria-label="Escolher data"><CalendarDays className="h-4 w-4" /></Button></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={date} onSelect={selected=>{if(selected){initialDay.current=false;setDate(selected);setCalendarOpen(false);}}} locale={ptBR} captionLayout="dropdown-buttons" fromYear={2020} toYear={2100} /></PopoverContent></Popover>
           <div className="text-center min-w-[220px]">
             <div className="text-lg font-semibold capitalize">
               {format(date, "EEEE, dd 'de' MMMM", { locale: ptBR })}
@@ -244,23 +298,30 @@ export default function Posts() {
               {isToday ? 'Hoje' : format(date, 'yyyy')}
             </div>
           </div>
-          <Button variant="outline" size="icon" onClick={() => setDate(addDays(date, 1))}>
+          <Button variant="outline" size="icon" onClick={() => {initialDay.current=false;setDate(addDays(date, 1));}}>
             <ChevronRight className="h-4 w-4" />
           </Button>
           {!isToday && (
-            <Button variant="ghost" size="sm" onClick={() => setDate(new Date())}>Hoje</Button>
+            <Button variant="ghost" size="sm" onClick={() => {initialDay.current=false;setDate(new Date());}}>Hoje</Button>
           )}
         </div>
         <Badge variant="outline" className="gap-1">
           <CheckCircle2 className="h-3 w-3 text-emerald-500" />
           {postedCount} de {fixedClients.length} postado{fixedClients.length === 1 ? '' : 's'}
         </Badge>
+        <div className="flex gap-2"><Button variant="outline" onClick={()=>setReportOpen(value=>!value)}><FileText className="h-4 w-4 mr-2" />Relatório</Button><Button disabled={checkingDay||closing||loading||dayPostsLoading||postsLoading||!!postsError||!!dayError} onClick={()=>closed?setDate(current=>addDays(current,1)):setConfirmClose(true)}>{closed?'Próximo dia':'OK — encerrar dia'}</Button></div>
       </Card>
+
+      {closed && <p role="status" className="text-sm text-muted-foreground">Dia encerrado. As postagens estão disponíveis para consulta.</p>}
+      {postsError && <p role="alert" className="text-sm text-destructive">Não foi possível carregar as postagens: {postsError}</p>}
+      {dayError && <p role="alert" className="text-sm text-destructive">Não foi possível carregar o checklist: {dayError}</p>}
+      <ConfirmDialog open={confirmClose} onOpenChange={setConfirmClose} title="Encerrar este dia?" description={`Após encerrar ${format(date,'dd/MM/yyyy')}, as postagens desse dia não poderão ser alteradas. ${fixedClients.length-postedCount} cliente(s) ainda aguardam postagem.`} confirmText="Encerrar e avançar" isLoading={closing} onConfirm={()=>void closeDay()} />
+      {reportOpen && <Card className="p-4 space-y-3"><h2 className="font-semibold">Relatório de postagens</h2><div className="flex flex-wrap items-end gap-3"><label className="text-sm">De<Input type="date" value={reportStart} onChange={event=>setReportStart(event.target.value)} /></label><label className="text-sm">Até<Input type="date" value={reportEnd} onChange={event=>setReportEnd(event.target.value)} /></label><Button onClick={()=>void loadReport()} disabled={reportBusy}>{reportBusy?'Gerando...':'Gerar relatório'}</Button></div>{report && <div className="space-y-2"><p className="text-sm">{report.length} publicação(ões) postada(s) no período.</p>{report.map(post=><div key={post.id} className="border rounded-lg p-3 text-sm"><strong>{post.title}</strong><p className="text-muted-foreground">{clients.find(client=>client.id===post.client_id)?.name||'Sem cliente'} · {post.platform} · {format(new Date(post.scheduled_date),'dd/MM/yyyy HH:mm')}{post.posted_at?` · Marcada em ${format(new Date(post.posted_at),'dd/MM/yyyy HH:mm')}`:''}</p></div>)}</div>}</Card>}
 
       <Card className="p-4 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div><h2 className="font-semibold">Publicações do dia</h2><p className="text-sm text-muted-foreground">Acompanhe as publicações agendadas e postadas.</p></div>
-          <Button size="sm" onClick={() => setPostDialogOpen(true)}>Adicionar postagem</Button>
+          <Button size="sm" disabled={closed||checkingDay||dayPostsLoading||postsLoading||!!postsError||!!dayError} onClick={() => setPostDialogOpen(true)}>Adicionar postagem</Button>
         </div>
         {selectedPosts.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma publicação cadastrada para esta data.</p>}
         {(['agendadas', 'postadas'] as const).map(group => {
@@ -269,7 +330,7 @@ export default function Posts() {
           return <div key={group} className="space-y-2"><h3 className="text-sm font-semibold">{group === 'postadas' ? 'Postadas' : 'Agendadas'}</h3>{items.map(post => (
           <div key={post.id} className="flex items-center justify-between gap-3 border rounded-lg p-3">
             <div className="min-w-0"><p className="font-medium break-words">{post.title}</p><p className="text-sm text-muted-foreground">{clients.find(client => client.id === post.client_id)?.name || 'Sem cliente'} · {post.platform} · {format(new Date(post.scheduled_date), 'HH:mm')}</p></div>
-            <Button variant={post.status === 'postado' ? 'secondary' : 'outline'} size="sm" onClick={() => void togglePost(post)}>{post.status === 'postado' ? 'Desmarcar' : 'Marcar como postado'}</Button>
+            <Button disabled={closed||checkingDay||dayPostsLoading||postsLoading||!!postsError||!!dayError} variant={post.status === 'postado' ? 'secondary' : 'outline'} size="sm" onClick={() => void togglePost(post)}>{post.status === 'postado' ? 'Desmarcar' : 'Marcar como postado'}</Button>
           </div>
         ))}</div>;
         })}
@@ -297,9 +358,10 @@ export default function Posts() {
             return (
               <button
                 key={c.id}
+                disabled={closed||checkingDay||dayPostsLoading||postsLoading||!!postsError||!!dayError}
                 onClick={() => togglePosted(c)}
                 className={cn(
-                  "group flex items-center gap-3 rounded-lg border p-4 text-left transition-all hover:shadow-md",
+                  "group flex items-center gap-3 rounded-lg border p-4 text-left transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70",
                   posted
                     ? "bg-emerald-500/5 border-emerald-500/40"
                     : "bg-card hover:border-primary/50",
