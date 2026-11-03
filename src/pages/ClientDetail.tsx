@@ -276,14 +276,7 @@ export default function ClientDetail() {
     if (!id || !isAdminOrManager) return;
     setIsDeletingClient(true);
     try {
-      await api.from('client_passwords').delete().eq('client_id', id);
-      await api.from('client_folders').delete().eq('client_id', id);
-      await api.from('client_drive_folders').delete().eq('client_id', id);
-      await api.from('tasks').delete().eq('client_id', id);
-      await api.from('calendar_events').delete().eq('client_id', id);
-      await api.from('filmmaker_demands').delete().eq('client_id', id);
-      await api.from('filmmaker_visits').delete().eq('client_id', id);
-      const { error } = await api.from('clients').delete().eq('id', id);
+      const { error } = await api.rpc('delete_client', { client_id: id });
       if (!error) { toast({ title: 'Cliente excluído!' }); navigate('/clients'); }
       else { toast({ variant: 'destructive', title: 'Erro', description: error.message }); }
     } catch { toast({ variant: 'destructive', title: 'Erro ao excluir cliente' }); }

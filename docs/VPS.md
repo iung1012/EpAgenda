@@ -57,6 +57,8 @@ Os testes usam um banco temporário e verificam permissões, credenciais cifrada
 
 ## Recuperação e atualizações
 
+O encerramento de um dia de postagens é permanente pela interface e bloqueia alterações desse dia na API. O histórico de encerramentos acompanha a cópia de segurança do aplicativo e o banco no backup de infraestrutura. A importação de uma cópia não altera postagens de dias encerrados no destino.
+
 Execute `deploy/backup.sh` como root antes de atualizar. O script cria uma cópia consistente do SQLite, verifica sua integridade e copia uploads, configuração e links de ativação existentes para uma pasta privada. Copie o backup também para um local separado da VPS. As chaves de configuração são necessárias para descriptografar credenciais e validar arquivos; preserve-as junto com o banco, com acesso restrito.
 
 Para restaurar, pare o serviço, preserve uma cópia do estado atual e restaure banco, uploads e configuração do mesmo conjunto de backup. Verifique `SHA256SUMS`, `PRAGMA integrity_check` e `PRAGMA foreign_key_check`; confira permissões e inicie o serviço. Não substitua apenas o arquivo principal de um banco SQLite ainda aberto com WAL.

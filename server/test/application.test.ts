@@ -114,6 +114,8 @@ test('VPS application authorization and migration regressions',async t=>{
     assert.equal((await query(adminCookie,{table:'posts',operation:'update',filters:[filter('id',id)],values:{status:'agendado'}})).statusCode,409);
     assert.equal((await query(adminCookie,{table:'posts',operation:'delete',filters:[filter('id',id)]})).statusCode,409);
     assert.equal((await query(adminCookie,{table:'clients',operation:'delete',filters:[filter('id',clientId)]})).statusCode,409);
+    assert.equal((await app.inject({method:'POST',url:'/api/rpc/delete_client',headers:{cookie:adminCookie},payload:{client_id:clientId}})).statusCode,409);
+    assert.equal(await db.clients.count({where:{id:clientId}}),1);assert.equal(await db.client_passwords.count({where:{client_id:clientId}}),1);
     assert.equal((await query(adminCookie,payload)).statusCode,409);
     assert.equal((await query(adminCookie,{table:'posts',operation:'update',filters:[filter('id',nextId)],values:{scheduled_date:'2031-03-10T15:00:00.000Z'}})).statusCode,409);
     const backup=await app.inject({method:'POST',url:'/api/functions/application-backup',headers:{cookie:adminCookie},payload:{action:'export'}});assert.equal(backup.statusCode,200);assert.equal(backup.json().closedDays[0].date,'2031-03-10');
@@ -121,6 +123,11 @@ test('VPS application authorization and migration regressions',async t=>{
     const unchanged=await app.inject({method:'POST',url:'/api/functions/application-backup',headers:{cookie:adminCookie},payload:{action:'import',backup:snapshot}});assert.equal(unchanged.statusCode,200,unchanged.body);
     snapshot.tables.posts.find((row:{id:string})=>row.id===id).title='Alteração não autorizada';
     const altered=await app.inject({method:'POST',url:'/api/functions/application-backup',headers:{cookie:adminCookie},payload:{action:'import',backup:snapshot}});assert.equal(altered.statusCode,409);
+    const other=await db.clients.create({data:{name:'Cliente removível',created_by:admin.id}});
+    await db.client_folders.create({data:{client_id:other.id,folder_type:'briefing',name:'Briefing'}});
+    assert.equal((await app.inject({method:'POST',url:'/api/rpc/delete_client',headers:{cookie:filmCookie},payload:{client_id:other.id}})).statusCode,403);
+    assert.equal((await app.inject({method:'POST',url:'/api/rpc/delete_client',headers:{cookie:adminCookie},payload:{client_id:other.id}})).statusCode,200);
+    assert.equal(await db.client_folders.count({where:{client_id:other.id}}),0);
   });
   await t.test('activation links are single-use and deactivation revokes already issued sessions',async authTest=>{
     const token=randomBytes(32).toString('base64url');await db.auth_users.update({where:{id:colleague.id},data:{password_hash:null}});await db.auth_activation_tokens.create({data:{user_id:colleague.id,token_hash:hashToken(token),expires_at:new Date(Date.now()+60000)}});
