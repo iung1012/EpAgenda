@@ -168,6 +168,7 @@ export async function executeQuery(input: unknown, actor: Actor | null, privileg
       for(const row of previous){
         let data=query.operation==='update'?validateData(table,query.values,false,privileged?null:actor):{};
         if(table==='posts'&&!privileged){await requireOpenPostDay(tx,row.scheduled_date);if(data.scheduled_date)await requireOpenPostDay(tx,data.scheduled_date);}
+        if(table==='clients'&&query.operation==='delete'&&!privileged){for(const post of await tx.posts.findMany({where:{client_id:String(row.id)},select:{scheduled_date:true}}))await requireOpenPostDay(tx,post.scheduled_date);}
         if(!privileged&&actor){
           if(table==='notifications'&&query.operation==='update') {
             if(Object.keys(query.values as Row).some(key=>key!=='read_by')) throw new HttpError(403,'Somente a leitura pode ser alterada');

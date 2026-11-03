@@ -113,6 +113,7 @@ test('VPS application authorization and migration regressions',async t=>{
     assert.equal((await app.inject({method:'POST',url:'/api/rpc/get_post_day',headers:{cookie:filmCookie},payload:{date:'2031-03-10'}})).json().closed,true);
     assert.equal((await query(adminCookie,{table:'posts',operation:'update',filters:[filter('id',id)],values:{status:'agendado'}})).statusCode,409);
     assert.equal((await query(adminCookie,{table:'posts',operation:'delete',filters:[filter('id',id)]})).statusCode,409);
+    assert.equal((await query(adminCookie,{table:'clients',operation:'delete',filters:[filter('id',clientId)]})).statusCode,409);
     assert.equal((await query(adminCookie,payload)).statusCode,409);
     assert.equal((await query(adminCookie,{table:'posts',operation:'update',filters:[filter('id',nextId)],values:{scheduled_date:'2031-03-10T15:00:00.000Z'}})).statusCode,409);
     const backup=await app.inject({method:'POST',url:'/api/functions/application-backup',headers:{cookie:adminCookie},payload:{action:'export'}});assert.equal(backup.statusCode,200);assert.equal(backup.json().closedDays[0].date,'2031-03-10');
