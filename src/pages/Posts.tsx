@@ -44,8 +44,11 @@ export default function Posts() {
   const { posts, refetch: refetchPosts } = usePosts();
   const selectedPosts = useMemo(() => posts.filter(post => {
     const scheduled = new Date(post.scheduled_date);
-    return scheduled >= startOfDay(date) && scheduled <= endOfDay(date);
-  }), [posts, date]);
+    if (scheduled < startOfDay(date) || scheduled > endOfDay(date)) return false;
+    const client = clients.find(item => item.id === post.client_id);
+    const isChecklistEntry = client && post.title === `${client.name} - ${format(date, 'dd/MM/yyyy')}`;
+    return post.status === 'postado' || !isChecklistEntry;
+  }), [posts, date, clients]);
 
   const createPost = async (values: PostFormValues) => {
     setSavingPost(true);
@@ -106,7 +109,8 @@ export default function Posts() {
   const togglePosted = async (client: FixedClient) => {
     const isPosted = postedByClient.has(client.id);
     if (isPosted) {
-      const existing = dayPosts.find(p => p.client_id === client.id);
+      const checklistPost = posts.find(post => post.client_id === client.id && post.status === 'postado' && post.title === `${client.name} - ${format(date, 'dd/MM/yyyy')}` && new Date(post.scheduled_date) >= startOfDay(date) && new Date(post.scheduled_date) <= endOfDay(date));
+      const existing = dayPosts.find(p => p.id === checklistPost?.id) || dayPosts.find(p => p.client_id === client.id);
       if (!existing) return;
       const { error } = await api.from('posts').update({ status: 'agendado', posted_at: null }).eq('id', existing.id);
       if (error) {
@@ -116,6 +120,13 @@ export default function Posts() {
       setDayPosts(prev => prev.filter(p => p.id !== existing.id));
       await Promise.all([refetchPosts(), fetchDayPosts()]);
     } else {
+      const pending = posts.find(post => post.client_id === client.id && post.status === 'agendado' && post.title === `${client.name} - ${format(date, 'dd/MM/yyyy')}` && new Date(post.scheduled_date) >= startOfDay(date) && new Date(post.scheduled_date) <= endOfDay(date));
+      if (pending) {
+        const { error } = await api.from('posts').update({ status: 'postado', posted_at: new Date().toISOString() }).eq('id', pending.id);
+        if (error) { toast({ variant: 'destructive', title: 'Erro', description: error.message }); return; }
+        await Promise.all([refetchPosts(), fetchDayPosts()]);
+        return;
+      }
       const noonDate = new Date(date);
       noonDate.setHours(12, 0, 0, 0);
       const { data, error } = await api.from('posts').insert({
@@ -248,15 +259,20 @@ export default function Posts() {
 
       <Card className="p-4 space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <div><h2 className="font-semibold">Publicações do dia</h2><p className="text-sm text-muted-foreground">Marque cada publicação quando ela for ao ar.</p></div>
+          <div><h2 className="font-semibold">Publicações do dia</h2><p className="text-sm text-muted-foreground">Acompanhe as publicações agendadas e postadas.</p></div>
           <Button size="sm" onClick={() => setPostDialogOpen(true)}>Adicionar postagem</Button>
         </div>
-        {selectedPosts.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma publicação cadastrada para esta data.</p> : selectedPosts.map(post => (
+        {selectedPosts.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma publicação cadastrada para esta data.</p>}
+        {(['agendadas', 'postadas'] as const).map(group => {
+          const items = selectedPosts.filter(post => group === 'postadas' ? post.status === 'postado' : post.status !== 'postado');
+          if (!items.length) return null;
+          return <div key={group} className="space-y-2"><h3 className="text-sm font-semibold">{group === 'postadas' ? 'Postadas' : 'Agendadas'}</h3>{items.map(post => (
           <div key={post.id} className="flex items-center justify-between gap-3 border rounded-lg p-3">
             <div className="min-w-0"><p className="font-medium break-words">{post.title}</p><p className="text-sm text-muted-foreground">{clients.find(client => client.id === post.client_id)?.name || 'Sem cliente'} · {post.platform} · {format(new Date(post.scheduled_date), 'HH:mm')}</p></div>
-            <Button variant={post.status === 'postado' ? 'secondary' : 'outline'} size="sm" onClick={() => void togglePost(post)}>{post.status === 'postado' ? 'Postado ✓' : 'Marcar como postado'}</Button>
+            <Button variant={post.status === 'postado' ? 'secondary' : 'outline'} size="sm" onClick={() => void togglePost(post)}>{post.status === 'postado' ? 'Desmarcar' : 'Marcar como postado'}</Button>
           </div>
-        ))}
+        ))}</div>;
+        })}
       </Card>
       <PostFormDialog open={postDialogOpen} onOpenChange={setPostDialogOpen} onSubmit={createPost} clients={clients} isLoading={savingPost} />
 
