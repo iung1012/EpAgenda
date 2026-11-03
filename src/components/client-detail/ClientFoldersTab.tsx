@@ -38,6 +38,7 @@ const folderTitles: Record<string, string> = {
   trafego_pago: 'Tráfego Pago',
   logotipos: 'Logotipos',
   arquivos: 'Arquivos Gerais',
+  briefing: 'Briefing e informações importantes',
 };
 
 export function ClientFoldersTab({
@@ -71,7 +72,7 @@ export function ClientFoldersTab({
       variants={{ show: { transition: { staggerChildren: 0.05 } } }}
       className="space-y-4"
     >
-      {['estrategia', 'trafego_pago', 'logotipos', 'arquivos'].map((type) => {
+      {['briefing', 'logotipos', 'arquivos', 'estrategia', 'trafego_pago'].map((type) => {
         const typeFolders = getFoldersByType(type);
         return (
           <motion.div key={type} variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}>
@@ -127,7 +128,7 @@ export function ClientFoldersTab({
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">{folder.name}</p>
                             {folder.description && (
-                              <p className="text-xs text-muted-foreground truncate">{folder.description}</p>
+                              <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">{folder.description}</p>
                             )}
                           </div>
                         </button>

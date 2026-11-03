@@ -52,6 +52,8 @@ test('VPS application authorization and migration regressions',async t=>{
     const own=await query(filmCookie,{table:'profiles',operation:'update',filters:[filter('user_id',film.id)],values:{full_name:'Nome atualizado'}});assert.equal(own.statusCode,200,own.body);
     assert.equal((await query(filmCookie,{table:'profiles',operation:'update',filters:[filter('user_id',film.id)],values:{user_id:admin.id}})).statusCode,403);
     const team=await query(managerCookie,{table:'user_roles'});assert.equal(team.json().data.length,4);
+    const palette=await query(managerCookie,{table:'clients',operation:'update',filters:[filter('id',clientId)],values:{color_palette:['#123456','#ABCDEF']}});assert.equal(palette.statusCode,200,palette.body);
+    const saved=await query(managerCookie,{table:'clients',filters:[filter('id',clientId)]});assert.deepEqual(saved.json().data[0].color_palette,['#123456','#ABCDEF']);
   });
   await t.test('encrypts client credentials, handles Unicode and restricts access',async()=>{
     const plaintext='Senha de serviço 🦉 áéí-123';
@@ -69,10 +71,11 @@ test('VPS application authorization and migration regressions',async t=>{
     const row=await db.notifications.findUniqueOrThrow({where:{id}});assert.deepEqual(row.read_by,[film.id,manager.id]);assert.equal(row.message,'Original');assert.equal(row.created_by,admin.id);
   });
   const visit=()=>({title:'Visita teste',visit_date:'2030-01-02T12:00:00.000Z',status:'agendada',client_id:clientId,assigned_to:film.id,delivery_deadline:'2030-01-03',equipment_ids:[equipmentId]});
-  await t.test('visit failure rolls back everything; success links task and equipment',async()=>{
+  await t.test('visit failure rolls back everything; success stores equipment without creating a demand',async()=>{
     let response=await app.inject({method:'POST',url:'/api/rpc/save_visit',headers:{cookie:adminCookie},payload:{payload:{...visit(),equipment_ids:[randomUUID()]}}});assert.equal(response.statusCode,400);assert.equal(await db.filmmaker_visits.count(),0);assert.equal(await db.tasks.count(),0);
     response=await app.inject({method:'POST',url:'/api/rpc/save_visit',headers:{cookie:adminCookie},payload:{payload:visit()}});assert.equal(response.statusCode,200,response.body);visitId=response.json().id;
-    assert.equal(await db.tasks.count({where:{visit_id:visitId}}),1);assert.equal(await db.visit_equipment.count({where:{visit_id:visitId}}),1);
+    assert.equal(await db.tasks.count({where:{visit_id:visitId}}),0);assert.equal(await db.visit_equipment.count({where:{visit_id:visitId}}),1);
+    await db.tasks.create({data:{title:'Entrega antiga',visit_id:visitId,created_by:admin.id,assigned_to:film.id}});
     assert.equal((await query(adminCookie,{table:'filmmaker_visits',operation:'update',filters:[filter('id',visitId)],values:{title:'Bypass'}})).statusCode,400);
   });
   await t.test('reminders are claimed once and queued with their notification in one transaction',async()=>{

@@ -10,7 +10,6 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { ConfirmDialog } from '@/components/layout/ConfirmDialog';
 import { VisitFormDialog, VisitFormValues } from '@/components/forms/VisitFormDialog';
 import { useProfiles } from '@/hooks/useProfiles';
-import { useNavigate } from 'react-router-dom';
 import { Plus, MapPin, Calendar, Video, Package, Clock, CheckCircle, XCircle, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -48,7 +47,6 @@ export default function FilmmakerVisits() {
   const [clients, setClients] = useState<Client[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const { profiles } = useProfiles();
-  const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
@@ -104,9 +102,8 @@ export default function FilmmakerVisits() {
       const { error } = await api.rpc('save_visit', { visit_id: editingVisit?.id ?? null, payload: { ...data, visit_date: new Date(data.visit_date).toISOString() } });
       if (error) throw error;
       const wasNew = !editingVisit;
-      toast({ title: wasNew ? 'Visita criada e tarefa atribuída!' : 'Visita atualizada com sucesso!' });
+      toast({ title: wasNew ? 'Visita criada com sucesso!' : 'Visita atualizada com sucesso!' });
       setIsDialogOpen(false); setEditingVisit(null); await fetchData();
-      if (wasNew) navigate('/tasks');
     } catch (error) { toast({ variant: 'destructive', title: 'Erro ao salvar visita', description: error instanceof Error ? error.message : 'Tente novamente' }); }
     finally { setIsLoading(false); }
   };

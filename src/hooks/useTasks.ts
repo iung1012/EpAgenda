@@ -80,6 +80,7 @@ export function useTasks() {
       api
         .from('tasks')
         .select('*')
+        .is('visit_id', null)
         .order('created_at', { ascending: false }),
       api
         .from('filmmaker_demands')

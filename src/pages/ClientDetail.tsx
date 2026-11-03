@@ -184,10 +184,11 @@ export default function ClientDetail() {
 
   const handleAddColor = async () => {
     if (!client) return;
-    const newPalette = [...client.color_palette, newColor];
+    if (!/^#[0-9a-f]{6}$/i.test(newColor)) { toast({ variant: 'destructive', title: 'Cor inválida', description: 'Informe uma cor hexadecimal, como #FF0000.' }); return; }
+    const newPalette = [...client.color_palette, newColor.toUpperCase()];
     const { error } = await api.from('clients').update({ color_palette: newPalette }).eq('id', id);
     if (!error) { setClient({ ...client, color_palette: newPalette }); setIsColorDialogOpen(false); toast({ title: 'Cor adicionada!' }); }
-    else { toast({ variant: 'destructive', title: 'Erro ao adicionar cor' }); }
+    else { toast({ variant: 'destructive', title: 'Erro ao adicionar cor', description: error.message }); }
   };
 
   const handleRemoveColor = async (index: number) => {
@@ -195,6 +196,7 @@ export default function ClientDetail() {
     const newPalette = client.color_palette.filter((_, i) => i !== index);
     const { error } = await api.from('clients').update({ color_palette: newPalette }).eq('id', id);
     if (!error) { setClient({ ...client, color_palette: newPalette }); toast({ title: 'Cor removida!' }); }
+    else { toast({ variant: 'destructive', title: 'Erro ao remover cor', description: error.message }); }
     setConfirmDialog({ open: false, type: 'folder', id: '', name: '' });
   };
 
@@ -202,7 +204,7 @@ export default function ClientDetail() {
     if (!client) return;
     const { error } = await api.from('clients').update({ logo_url: url || null }).eq('id', id);
     if (!error) { setClient({ ...client, logo_url: url || null }); toast({ title: url ? 'Logo atualizado!' : 'Logo removido!' }); }
-    else { toast({ variant: 'destructive', title: 'Erro ao salvar logo', description: error.message }); }
+    else { throw error; }
   };
 
   const handleDownloadLogo = async () => {

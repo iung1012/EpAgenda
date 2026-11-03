@@ -29,8 +29,7 @@ export async function saveVisit(input:unknown,actor:Actor){
     await tx.visit_equipment.deleteMany({where:{visit_id:visit.id}});
     for(const equipment_id of ids)await tx.visit_equipment.create({data:{visit_id:visit.id,equipment_id}});
     const taskData={title:`Entrega: ${visit.title}`,description:`Entrega da visita ${new Date(scheduled).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})}${visit.notes?`\n${visit.notes}`:''}`,due_date:visit.delivery_deadline,assigned_to:visit.assigned_to,client_id:visit.client_id,updated_at:now,cancelled:visit.status==='cancelada'};
-    const tasks=await tx.tasks.updateMany({where:{visit_id:visit.id},data:taskData});
-    if(!tasks.count&&visit.status!=='cancelada')await tx.tasks.create({data:{...taskData,visit_id:visit.id,created_by:visit.filmmaker_id,created_at:now}});
+    await tx.tasks.updateMany({where:{visit_id:visit.id},data:taskData});
     await queueCalendarMessage(tx,visit.status==='cancelada'?'cancel':previous?'update':'create',visit);
     return {visit,previous};
   });

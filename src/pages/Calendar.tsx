@@ -7,7 +7,6 @@ import { useToast } from '@/hooks/use-toast';
 import { format, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Plus, MapPin, Clock, CalendarDays, Pencil, Trash2, Video, Users, FileText, BarChart3 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { CalendarDaySkeleton } from '@/components/layout/CardSkeleton';
 import { ErrorState } from '@/components/layout/ErrorState';
@@ -53,7 +52,6 @@ type ViewType = 'month' | 'week' | 'day';
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const navigate = useNavigate();
   const [viewType, setViewType] = useState<ViewType>('month');
   const { events, isLoading, error, refetch, getEventsForDay, getTodayEvents, updateEventLocally } = useCalendarEvents(currentDate);
   const { getHolidayForDate } = useHolidays(currentDate.getFullYear());
@@ -299,8 +297,8 @@ export default function Calendar() {
       if (error) throw error;
       const wasNew = !editingVisit;
       setIsVisitDialogOpen(false); setEditingVisit(null); setDayDialogOpen(false);
-      toast({ title: wasNew ? 'Visita agendada e tarefa atribuída!' : 'Visita atualizada com sucesso!' });
-      await refetch(); if (wasNew) navigate('/tasks');
+      toast({ title: wasNew ? 'Visita agendada!' : 'Visita atualizada com sucesso!' });
+      await refetch();
     } catch (error) { toast({ variant: 'destructive', title: 'Erro ao salvar visita', description: error instanceof Error ? error.message : 'Tente novamente' }); }
     finally { setIsVisitSubmitting(false); }
   };

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api/client';
 import { useToast } from '@/hooks/use-toast';
@@ -8,7 +8,7 @@ interface FileUploadProps {
   clientId: string;
   folder: string;
   accept?: string;
-  onUploadComplete?: (url: string) => void;
+  onUploadComplete?: (url: string) => void | Promise<void>;
   currentUrl?: string | null;
   label?: string;
   isLogo?: boolean;
@@ -27,6 +27,7 @@ export function FileUpload({
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentUrl || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  useEffect(() => { setPreviewUrl(currentUrl || null); }, [currentUrl]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -57,8 +58,8 @@ export function FileUpload({
         .from('client-files')
         .getPublicUrl(fileName);
 
+      await onUploadComplete?.(publicUrl);
       setPreviewUrl(publicUrl);
-      onUploadComplete?.(publicUrl);
 
       toast({ title: 'Arquivo enviado com sucesso!' });
     } catch (error: unknown) {
@@ -73,11 +74,13 @@ export function FileUpload({
     }
   };
 
-  const handleRemove = () => {
-    setPreviewUrl(null);
-    onUploadComplete?.('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+  const handleRemove = async () => {
+    try {
+      await onUploadComplete?.('');
+      setPreviewUrl(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Erro ao remover arquivo', description: error instanceof Error ? error.message : 'Tente novamente' });
     }
   };
 
@@ -99,6 +102,7 @@ export function FileUpload({
             className="h-20 w-20 rounded-xl object-cover border"
           />
           <button
+            type="button"
             onClick={handleRemove}
             className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:bg-destructive/90"
           >
@@ -107,6 +111,7 @@ export function FileUpload({
         </div>
       ) : isLogo ? (
         <button
+          type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
           className="h-20 w-20 rounded-xl border-2 border-dashed border-muted-foreground/25 flex flex-col items-center justify-center gap-1 hover:border-primary/50 hover:bg-secondary/50 transition-colors disabled:opacity-50"
@@ -122,6 +127,7 @@ export function FileUpload({
         </button>
       ) : (
         <Button
+          type="button"
           variant="outline"
           size="sm"
           onClick={() => fileInputRef.current?.click()}
@@ -146,7 +152,7 @@ export function FileUpload({
           >
             Ver arquivo
           </a>
-          <button onClick={handleRemove} className="text-destructive hover:text-destructive/80">
+          <button type="button" onClick={handleRemove} className="text-destructive hover:text-destructive/80">
             <X className="h-4 w-4" />
           </button>
         </div>

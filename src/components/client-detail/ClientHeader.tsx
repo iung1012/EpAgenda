@@ -38,7 +38,7 @@ interface ClientHeaderProps {
   client: Client;
   clientId: string;
   isAdminOrManager: boolean;
-  onLogoUpload: (url: string) => void;
+  onLogoUpload: (url: string) => void | Promise<void>;
   onEdit: () => void;
   onDelete: () => void;
   onBack: () => void;

@@ -15,6 +15,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { api } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
+import { usePosts, type Post } from '@/hooks/usePosts';
+import { PostFormDialog, type PostFormValues } from '@/components/forms/PostFormDialog';
 
 interface FixedClient {
   id: string;
@@ -37,6 +39,39 @@ export default function Posts() {
   const [dayPosts, setDayPosts] = useState<DayPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [manageOpen, setManageOpen] = useState(false);
+  const [postDialogOpen, setPostDialogOpen] = useState(false);
+  const [savingPost, setSavingPost] = useState(false);
+  const { posts, refetch: refetchPosts } = usePosts();
+  const selectedPosts = useMemo(() => posts.filter(post => {
+    const scheduled = new Date(post.scheduled_date);
+    return scheduled >= startOfDay(date) && scheduled <= endOfDay(date);
+  }), [posts, date]);
+
+  const createPost = async (values: PostFormValues) => {
+    setSavingPost(true);
+    try {
+      const { error } = await api.from('posts').insert({
+        ...values, scheduled_date: new Date(values.scheduled_date).toISOString(),
+        client_id: values.client_id || null, caption: values.caption || null,
+        link: values.link || null, media_url: values.media_url || null,
+        posted_at: values.status === 'postado' ? new Date().toISOString() : null,
+        created_by: user?.id,
+      });
+      if (error) throw error;
+      setPostDialogOpen(false);
+      await Promise.all([refetchPosts(), fetchDayPosts()]);
+      toast({ title: 'Postagem cadastrada!' });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Erro ao salvar postagem', description: error instanceof Error ? error.message : 'Tente novamente' });
+    } finally { setSavingPost(false); }
+  };
+
+  const togglePost = async (post: Post) => {
+    const posted = post.status !== 'postado';
+    const { error } = await api.from('posts').update({ status: posted ? 'postado' : 'agendado', posted_at: posted ? new Date().toISOString() : null }).eq('id', post.id);
+    if (error) toast({ variant: 'destructive', title: 'Erro ao atualizar postagem', description: error.message });
+    else await Promise.all([refetchPosts(), fetchDayPosts()]);
+  };
 
   const fetchClients = useCallback(async () => {
     const { data } = await api
@@ -73,12 +108,13 @@ export default function Posts() {
     if (isPosted) {
       const existing = dayPosts.find(p => p.client_id === client.id);
       if (!existing) return;
-      const { error } = await api.from('posts').delete().eq('id', existing.id);
+      const { error } = await api.from('posts').update({ status: 'agendado', posted_at: null }).eq('id', existing.id);
       if (error) {
         toast({ variant: 'destructive', title: 'Erro', description: error.message });
         return;
       }
       setDayPosts(prev => prev.filter(p => p.id !== existing.id));
+      await Promise.all([refetchPosts(), fetchDayPosts()]);
     } else {
       const noonDate = new Date(date);
       noonDate.setHours(12, 0, 0, 0);
@@ -96,6 +132,7 @@ export default function Posts() {
         return;
       }
       setDayPosts(prev => [...prev, data as DayPost]);
+      await Promise.all([refetchPosts(), fetchDayPosts()]);
     }
   };
 
@@ -208,6 +245,20 @@ export default function Posts() {
           {postedCount} de {fixedClients.length} postado{fixedClients.length === 1 ? '' : 's'}
         </Badge>
       </Card>
+
+      <Card className="p-4 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div><h2 className="font-semibold">Publicações do dia</h2><p className="text-sm text-muted-foreground">Marque cada publicação quando ela for ao ar.</p></div>
+          <Button size="sm" onClick={() => setPostDialogOpen(true)}>Adicionar postagem</Button>
+        </div>
+        {selectedPosts.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma publicação cadastrada para esta data.</p> : selectedPosts.map(post => (
+          <div key={post.id} className="flex items-center justify-between gap-3 border rounded-lg p-3">
+            <div className="min-w-0"><p className="font-medium break-words">{post.title}</p><p className="text-sm text-muted-foreground">{clients.find(client => client.id === post.client_id)?.name || 'Sem cliente'} · {post.platform} · {format(new Date(post.scheduled_date), 'HH:mm')}</p></div>
+            <Button variant={post.status === 'postado' ? 'secondary' : 'outline'} size="sm" onClick={() => void togglePost(post)}>{post.status === 'postado' ? 'Postado ✓' : 'Marcar como postado'}</Button>
+          </div>
+        ))}
+      </Card>
+      <PostFormDialog open={postDialogOpen} onOpenChange={setPostDialogOpen} onSubmit={createPost} clients={clients} isLoading={savingPost} />
 
       {/* Checklist */}
       {loading ? (
